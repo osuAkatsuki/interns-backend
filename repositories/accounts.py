@@ -58,9 +58,9 @@ async def create(
 
 
 async def fetch_many(
-    page: int,
-    page_size: int,
-    privileges: int,
+    privileges: int | None = None,
+    page: int = 1,
+    page_size: int = 50,
 ) -> list[dict[str, Any]]:
     accounts = await clients.database.fetch_all(
         query=f"""\

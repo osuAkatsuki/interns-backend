@@ -2,6 +2,7 @@
 # - a unique identifier (the packet id), representing the type of request
 # - the length of the request data
 # - request data; specific to the packet id
+
 # the packet id is sent over the wire as an unsigned short (2 bytes, u16)
 # the packet data length is sent as an unsigned long (4 bytes, u32)
 # the packet data
@@ -9,9 +10,11 @@
 # - may comprise of multiple objects
 # - is specific to the request type (packet id)
 # - types can vary, but are from a fixed set of possibilities (u8, u16, u32, u64, i8, i16, i32, i64, f32, f64, string, and some higher level types comprising of these primitives)
+
 # osu! packets are sent in "little endian" ordering.
 # little endian: [2, 0, 0, 0] == 2
 # big endian: [0, 0, 0, 2] == 2
+
 import struct
 from dataclasses import dataclass
 from enum import Enum
@@ -149,11 +152,12 @@ class Packet:
 def read_packets(request_data: bytes) -> list[Packet]:
     packets = []
     offset = 0
-    while request_data:
+    while request_data[offset:]:
         packet_id, packet_len = struct.unpack("<HxL", request_data[offset : offset + 7])
         offset += 7
 
         packet_data = request_data[offset : offset + packet_len]
+        assert len(packet_data) == packet_len, "packet data shorter than expected"
         offset += packet_len
 
         packet = Packet(packet_id, packet_len, packet_data)
@@ -164,16 +168,16 @@ def read_packets(request_data: bytes) -> list[Packet]:
 
 class DataType(Enum):
     # primitive types
-    I8 = "I8"
-    U8 = "U8"
-    I16 = "I16"
-    U16 = "U16"
-    I32 = "I32"
-    U32 = "U32"
-    I64 = "I64"
-    U64 = "U64"
-    F32 = "F32"
-    F64 = "F64"
+    I8 = "i8"
+    U8 = "u8"
+    I16 = "i16"
+    U16 = "u16"
+    I32 = "i32"
+    U32 = "u32"
+    I64 = "i64"
+    U64 = "u64"
+    F32 = "f32"
+    F64 = "f64"
 
     # "advanced" types
     I32_LIST_I16_LEN = "i32_list_i16_len"  # 2 bytes len

@@ -8,6 +8,7 @@ from fastapi import APIRouter
 from fastapi import FastAPI
 from fastapi import Request
 from fastapi import Response
+import logger
 
 import clients
 import packets
@@ -15,12 +16,17 @@ import settings
 from repositories import accounts
 from repositories import channels
 from repositories import sessions
+from repositories import presences
+from repositories import stats
 
 app = FastAPI()
 router = APIRouter()
 
 app.include_router(router)
 
+@router.get("/")
+async def wtf():
+    return {"a" :1}
 
 def dsn(
     scheme: str,
@@ -35,6 +41,7 @@ def dsn(
 
 @app.on_event("startup")
 async def start_database():
+    logger.info("Connecting to database...")
     clients.database = Database(
         url=dsn(
             scheme=settings.DB_SCHEME,
@@ -45,15 +52,21 @@ async def start_database():
             database=settings.DB_NAME,
         )
     )
+    await clients.database.connect()
+    logger.info("Connected to database.")
 
 
 @app.on_event("shutdown")
 async def shutdown_database():
+    logger.info("Closing database connection...")
     await clients.database.disconnect()
+    del clients.database
+    logger.info("Closed database connection.")
 
 
 @app.on_event("startup")
 async def start_redis():
+    logger.info("Connecting to Redis...")
     clients.redis = await redis.asyncio.from_url(
         url=dsn(
             scheme=settings.REDIS_SCHEME,
@@ -64,11 +77,15 @@ async def start_redis():
             database=settings.REDIS_DB,
         ),
     )
+    logger.info("Connected to Redis.")
 
 
 @app.on_event("shutdown")
 async def shutdown_redis():
+    logger.info("Closing Redis connection...")
     await clients.redis.close()
+    del clients.redis
+    logger.info("Closed Redis connection.")
 
 
 def parse_login_data(data: bytes) -> dict[str, Any]:
@@ -127,6 +144,10 @@ async def handle_bancho_request(request: Request):
             account_id=account["account_id"],
         )
 
+        presence = await presences.create(
+            account_id=account["account_id"]
+        )
+
         response_data = bytearray()
 
         # we need to send a few things to the client for it to be considered a "complete" login
@@ -169,7 +190,7 @@ async def handle_bancho_request(request: Request):
         )
 
         # own stats
-        own_stats = await stats.fetch_one(account_id=account["account_id"])
+        own_stats = await stats.fetch_one(account_id=account["account_id"], game_mode=presence["game_mode"],)
         if not own_stats:
             return Response(packets.write_user_id_packet(user_id=-1))
 
@@ -210,7 +231,8 @@ async def handle_bancho_request(request: Request):
             )
 
             # stats of all other players (& bots)
-            others_stats = await stats.fetch_one(account_id=other_session["account_id"])
+            others_stats = await stats.fetch_one(account_id=other_session["account_id"],
+                                                  game_mode=others_presence["game_mode"])
             if not others_stats:
                 return Response(packets.write_user_id_packet(user_id=-1))
 

@@ -4,5 +4,6 @@ email_validator
 fastapi
 orjson
 python-dotenv
+structlog
 redis
 uvicorn
