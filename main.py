@@ -5,6 +5,7 @@ from fastapi import Response, Request
 from repositories import sessions
 from uuid import uuid4
 from typing import Any
+import redis.asyncio
 from databases import Database
 import uvicorn
 from repositories import accounts, channels
@@ -24,7 +25,7 @@ def dsn(
     passwd: str,
     host: str,
     port: int,
-    database: str,
+    database: str | int,
 ) -> str:
     return f"{scheme}://{user}:{passwd}@{host}:{port}/{database}"
 
@@ -41,6 +42,31 @@ async def start_database():
             database=settings.DB_NAME,
         )
     )
+
+
+@app.on_event("shutdown")
+async def shutdown_database():
+    await clients.database.disconnect()
+
+
+
+@app.on_event("startup")
+async def start_redis():
+    clients.redis = await redis.asyncio.from_url(
+        url=dsn(
+            scheme=settings.REDIS_SCHEME,
+            user=settings.REDIS_USER,
+            passwd=settings.REDIS_PASS,
+            host=settings.REDIS_HOST,
+            port=settings.REDIS_PORT,
+            database=settings.REDIS_DB,
+        ),
+    )
+
+
+@app.on_event("shutdown")
+async def shutdown_redis():
+    await clients.redis.close()
 
 
 def parse_login_data(data: bytes) -> dict[str, Any]:
