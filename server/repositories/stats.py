@@ -1,7 +1,7 @@
-import json
 from typing import Any
 from uuid import UUID
-import clients
+
+from server import clients
 
 # CREATE TABLE stats (
 # 	account_id SERIAL NOT NULL,
@@ -42,6 +42,7 @@ READ_PARAMS = """
     a_count
 """
 
+
 async def create(account_id: UUID, game_mode: int) -> dict[str, Any]:
     stats = await clients.database.fetch_one(
         query=f"""\
@@ -73,7 +74,7 @@ async def fetch_all(
         values={
             "account_id": account_id,
             "game_mode": game_mode,
-        }
+        },
     )
     return [dict(stat._mapping) for stat in stats]
 
@@ -98,7 +99,7 @@ async def fetch_many(
             "game_mode": game_mode,
             "limit": page_size,
             "offset": (page - 1) * page_size,
-        }
+        },
     )
     return [dict(stat._mapping) for stat in stats]
 

@@ -1,6 +1,6 @@
 from typing import Any
 
-import clients
+from server import clients
 
 # CREATE TABLE channels
 # (

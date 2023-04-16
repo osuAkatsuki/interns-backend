@@ -1,7 +1,7 @@
 from typing import Any
 from uuid import UUID
 
-import clients
+from server import clients
 
 READ_PARAMS = """
     account_id,

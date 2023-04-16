@@ -12,7 +12,7 @@ else
   EXTRA_ARGUMENTS=""
 fi
 
-exec uvicorn main:app \
+exec uvicorn server.main:app \
   --host $APP_HOST \
   --port $APP_PORT \
   --no-access-log \

@@ -4,37 +4,35 @@ from uuid import uuid4
 
 import redis.asyncio
 from databases import Database
-from fastapi import APIRouter
 from fastapi import FastAPI
 from fastapi import Request
 from fastapi import Response
-import logger
+from server import logger
 
-import clients
-import packets
-import settings
-from repositories import accounts
-from repositories import channels
-from repositories import sessions
-from repositories import presences
-from repositories import stats
+from server import clients
+from server import packets
+from server import settings
+from server.repositories import accounts
+from server.repositories import channels
+from server.repositories import sessions
+from server.repositories import presences
+from server.repositories import stats
 
 app = FastAPI()
-router = APIRouter()
 
-app.include_router(router)
 
-@router.get("/")
-async def wtf():
-    return {"a" :1}
+@app.get("/")
+async def home_page():
+    return "Hello, world!"
 
-def dsn(
+
+def db_dsn(
     scheme: str,
     user: str,
     passwd: str,
     host: str,
     port: int,
-    database: str | int,
+    database: str,
 ) -> str:
     return f"{scheme}://{user}:{passwd}@{host}:{port}/{database}"
 
@@ -43,7 +41,7 @@ def dsn(
 async def start_database():
     logger.info("Connecting to database...")
     clients.database = Database(
-        url=dsn(
+        url=db_dsn(
             scheme=settings.DB_SCHEME,
             user=settings.DB_USER,
             passwd=settings.DB_PASS,
@@ -64,13 +62,24 @@ async def shutdown_database():
     logger.info("Closed database connection.")
 
 
+def redis_dsn(
+    scheme: str,
+    host: str,
+    port: int,
+    passwd: str,
+    database: int,
+) -> str:
+    # TODO: *optional* passwd support?
+    # TODO: optional user support?
+    return f"{scheme}://{passwd}@{host}:{port}/{database}?password={passwd}"
+
+
 @app.on_event("startup")
 async def start_redis():
     logger.info("Connecting to Redis...")
     clients.redis = await redis.asyncio.from_url(
-        url=dsn(
+        url=redis_dsn(
             scheme=settings.REDIS_SCHEME,
-            user=settings.REDIS_USER,
             passwd=settings.REDIS_PASS,
             host=settings.REDIS_HOST,
             port=settings.REDIS_PORT,
@@ -144,9 +153,7 @@ async def handle_bancho_request(request: Request):
             account_id=account["account_id"],
         )
 
-        presence = await presences.create(
-            account_id=account["account_id"]
-        )
+        presence = await presences.create(account_id=account["account_id"])
 
         response_data = bytearray()
 
@@ -190,7 +197,10 @@ async def handle_bancho_request(request: Request):
         )
 
         # own stats
-        own_stats = await stats.fetch_one(account_id=account["account_id"], game_mode=presence["game_mode"],)
+        own_stats = await stats.fetch_one(
+            account_id=account["account_id"],
+            game_mode=presence["game_mode"],
+        )
         if not own_stats:
             return Response(packets.write_user_id_packet(user_id=-1))
 
@@ -231,8 +241,10 @@ async def handle_bancho_request(request: Request):
             )
 
             # stats of all other players (& bots)
-            others_stats = await stats.fetch_one(account_id=other_session["account_id"],
-                                                  game_mode=others_presence["game_mode"])
+            others_stats = await stats.fetch_one(
+                account_id=other_session["account_id"],
+                game_mode=others_presence["game_mode"],
+            )
             if not others_stats:
                 return Response(packets.write_user_id_packet(user_id=-1))
 

@@ -8,7 +8,7 @@ from typing import Any
 from typing import Literal
 from uuid import UUID
 
-import clients
+from server import clients
 
 
 SESSION_EXPIRY = 60 * 60

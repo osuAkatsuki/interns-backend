@@ -7,8 +7,8 @@ from typing import Any
 from typing import Literal
 from uuid import UUID
 
-import clients
-import logger
+from server import clients
+from server import logger
 
 PRESENCE_EXPIRY = 3600  # 1h
 
