@@ -15,5 +15,4 @@ fi
 exec uvicorn server.main:app \
   --host $APP_HOST \
   --port $APP_PORT \
-  --no-access-log \
   $EXTRA_ARGUMENTS

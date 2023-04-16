@@ -1,4 +1,5 @@
 asyncpg
+bcrypt
 databases
 email_validator
 fastapi

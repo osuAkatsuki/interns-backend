@@ -294,10 +294,10 @@ def write_user_stats_packet(
     beatmap_id: int,
     ranked_score: int,
     accuracy: float,
-    playcount: int,
+    play_count: int,
     total_score: int,
     global_rank: int,
-    pp: int,
+    performance_points: int,
 ) -> bytes:
     return write_packet(
         packet_id=ServerPackets.USER_STATS,
@@ -311,10 +311,10 @@ def write_user_stats_packet(
             (DataType.I32, beatmap_id),
             (DataType.I64, ranked_score),
             (DataType.F32, accuracy),
-            (DataType.I32, playcount),
+            (DataType.I32, play_count),
             (DataType.I64, total_score),
             (DataType.I32, global_rank),
-            (DataType.I16, pp),
+            (DataType.I16, performance_points),
         ],
     )
 
@@ -343,7 +343,15 @@ def write_user_stats_packet(
 # NOTIFICATION = 24
 
 
-# UPDATE_MATCH = 26
+def write_notification_packet(
+    message: str,
+) -> bytes:
+    return write_packet(
+        packet_id=ServerPackets.NOTIFICATION,
+        packet_data_inputs=[
+            (DataType.STRING, message),
+        ],
+    )
 
 
 # NEW_MATCH = 27
@@ -463,7 +471,7 @@ def write_user_presence_packet(
     account_id: int,
     username: str,
     utc_offset: int,
-    country_code: int,
+    country: int,
     bancho_privileges: int,
     game_mode: int,
     latitude: int,
@@ -476,7 +484,7 @@ def write_user_presence_packet(
             (DataType.I32, account_id),
             (DataType.STRING, username),
             (DataType.U8, utc_offset + 24),
-            (DataType.U8, country_code),
+            (DataType.U8, country),
             (DataType.U8, bancho_privileges | (game_mode << 5)),
             (DataType.F32, longitude),
             (DataType.F32, latitude),

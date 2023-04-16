@@ -19,12 +19,38 @@ def create_presence_key(account_id: UUID | Literal["*"]) -> str:
 
 async def create(
     account_id: UUID,
+    username: str,
+    utc_offset: int,
+    country: str,
+    bancho_privileges: int,
+    game_mode: int,
+    latitude: float,
+    longitude: float,
+    action: int,  # TODO: enum
+    info_text: str,
+    beatmap_md5: str,
+    beatmap_id: int,
+    mods: int,
+    mode: int,
 ) -> dict[str, Any]:
     now = datetime.now()
     expires_at = now + timedelta(seconds=PRESENCE_EXPIRY)
 
     presence = {
-        "account_id": str(account_id),
+        "account_id": account_id,
+        "username": username,
+        "utc_offset": utc_offset,
+        "country": country,
+        "bancho_privileges": bancho_privileges,
+        "game_mode": game_mode,
+        "latitude": latitude,
+        "longitude": longitude,
+        "action": action,
+        "info_text": info_text,
+        "beatmap_md5": beatmap_md5,
+        "beatmap_id": beatmap_id,
+        "mods": mods,
+        "mode": mode,
         "expires_at": expires_at.isoformat(),
         "created_at": now.isoformat(),
         "updated_at": now.isoformat(),

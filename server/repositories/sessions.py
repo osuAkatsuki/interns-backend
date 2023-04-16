@@ -22,7 +22,7 @@ def serialize(session: Mapping[str, Any]) -> str:
     return json.dumps(
         {
             "session_id": str(session["session_id"]),
-            "account_id": str(session["account_id"]),
+            "account_id": session["account_id"],
             # "user_agent": session["user_agent"],
             "expires_at": session["expires_at"].isoformat(),
             "created_at": session["created_at"].isoformat(),
@@ -37,7 +37,7 @@ def deserialize(raw_session: str) -> dict[str, Any]:
     assert isinstance(session, dict)
 
     session["session_id"] = UUID(session["session_id"])
-    session["account_id"] = UUID(session["account_id"])
+    session["account_id"] = session["account_id"]
     session["expires_at"] = datetime.fromisoformat(session["expires_at"])
     session["created_at"] = datetime.fromisoformat(session["created_at"])
     session["updated_at"] = datetime.fromisoformat(session["updated_at"])
@@ -47,7 +47,7 @@ def deserialize(raw_session: str) -> dict[str, Any]:
 
 async def create(
     session_id: UUID,
-    account_id: UUID,
+    account_id: int,
     # user_agent: str,
 ) -> dict[str, Any]:
     now = datetime.now()

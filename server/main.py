@@ -2,7 +2,10 @@
 from typing import Any
 from uuid import uuid4
 
+from server import security
 import redis.asyncio
+from server import geolocation
+
 from databases import Database
 from fastapi import FastAPI
 from fastapi import Request
@@ -11,6 +14,7 @@ from server import logger
 
 from server import clients
 from server import packets
+from server import privileges
 from server import settings
 from server.repositories import accounts
 from server.repositories import channels
@@ -123,7 +127,7 @@ def parse_login_data(data: bytes) -> dict[str, Any]:
 
     return {
         "username": username,
-        "password_md5": password_md5.encode(),
+        "password_md5": password_md5,
         "osu_version": osu_version,
         "utc_offset": int(utc_offset),
         "display_city": display_city == "1",
@@ -136,6 +140,16 @@ def parse_login_data(data: bytes) -> dict[str, Any]:
     }
 
 
+def get_global_rank(account_id: int) -> int:
+    """Get the global rank of an account."""
+    return 1
+
+
+def get_country_rank(account_id: int) -> int:
+    """Get the country rank of an account."""
+    return 1
+
+
 @app.post("/")
 async def handle_bancho_request(request: Request):
     if "osu-token" not in request.headers:
@@ -143,17 +157,34 @@ async def handle_bancho_request(request: Request):
 
         account = await accounts.fetch_by_username(login_data["username"])
         if not account:
-            return Response(packets.write_user_id_packet(user_id=-1))
+            return Response(
+                content=(
+                    packets.write_user_id_packet(user_id=-1)
+                    + packets.write_notification_packet(
+                        "Incorrect username."  # "Incorrect username or password."
+                    )
+                ),
+                headers={"cho-token": "no"},
+            )
 
-        if login_data["password"] != account["password"]:
-            return Response(packets.write_user_id_packet(user_id=-1))
+        if not security.check_password(
+            password=login_data["password_md5"],
+            hashword=account["password"].encode(),
+        ):
+            return Response(
+                content=(
+                    packets.write_user_id_packet(user_id=-1)
+                    + packets.write_notification_packet(
+                        "Incorrect password."  # "Incorrect username or password."
+                    )
+                ),
+                headers={"cho-token": "no"},
+            )
 
         session = await sessions.create(
             session_id=uuid4(),
             account_id=account["account_id"],
         )
-
-        presence = await presences.create(account_id=account["account_id"])
 
         response_data = bytearray()
 
@@ -167,7 +198,9 @@ async def handle_bancho_request(request: Request):
         response_data += packets.write_user_id_packet(account["account_id"])
 
         # privileges
-        response_data += packets.write_user_privileges_packet(account["privileges"])
+        response_data += packets.write_user_privileges_packet(
+            privileges.server_to_client_privileges(account["privileges"])
+        )
 
         # channels (and channel info end)
         for channel in await channels.fetch_all():
@@ -180,44 +213,67 @@ async def handle_bancho_request(request: Request):
         response_data += packets.write_channel_info_end_packet()
 
         # own presence
-        own_presence = await presences.fetch_one(account_id=account["account_id"])
-        if not own_presence:
-            return Response(packets.write_user_id_packet(user_id=-1))
 
-        response_data += packets.write_user_presence_packet(
-            own_presence["account_id"],
-            own_presence["username"],
-            own_presence["utc_offset"],
-            own_presence["country_code"],
-            own_presence["bancho_privileges"],
-            own_presence["game_mode"],
-            own_presence["latitude"],
-            own_presence["longitude"],
-            own_presence["global_rank"],
+        own_presence = await presences.create(
+            account_id=account["account_id"],
+            username=account["username"],
+            utc_offset=login_data["utc_offset"],
+            country=account["country"],
+            bancho_privileges=privileges.server_to_client_privileges(
+                account["privileges"]
+            ),
+            game_mode=0,
+            latitude=0.0,  # TODO
+            longitude=0.0,  # TODO
+            action=0,
+            info_text="",
+            beatmap_md5="",
+            beatmap_id=0,
+            mods=0,
+            mode=0,
         )
 
         # own stats
         own_stats = await stats.fetch_one(
             account_id=account["account_id"],
-            game_mode=presence["game_mode"],
+            game_mode=own_presence["game_mode"],
         )
         if not own_stats:
-            return Response(packets.write_user_id_packet(user_id=-1))
+            return Response(
+                content=(
+                    packets.write_user_id_packet(user_id=-1)
+                    + packets.write_notification_packet("Own stats not found.")
+                ),
+                headers={"cho-token": "no"},
+            )
+
+        response_data += packets.write_user_presence_packet(
+            own_presence["account_id"],
+            own_presence["username"],
+            own_presence["utc_offset"],
+            geolocation.country_str_to_int(own_presence["country"]),
+            # TODO: is this right?
+            privileges.server_to_client_privileges(own_presence["bancho_privileges"]),
+            own_presence["game_mode"],
+            own_presence["latitude"],
+            own_presence["longitude"],
+            get_global_rank(own_presence["account_id"]),
+        )
 
         response_data += packets.write_user_stats_packet(
             own_stats["account_id"],
-            own_stats["action"],
-            own_stats["info_text"],
-            own_stats["beatmap_md5"],
-            own_stats["mods"],
-            own_stats["mode"],
-            own_stats["beatmap_id"],
+            own_presence["action"],
+            own_presence["info_text"],
+            own_presence["beatmap_md5"],
+            own_presence["beatmap_id"],
+            own_presence["mods"],
+            own_presence["mode"],
             own_stats["ranked_score"],
             own_stats["accuracy"],
-            own_stats["playcount"],
+            own_stats["play_count"],
             own_stats["total_score"],
-            own_stats["global_rank"],
-            own_stats["pp"],
+            get_global_rank(own_stats["account_id"]),
+            own_stats["performance_points"],
         )
 
         for other_session in await sessions.fetch_all():
@@ -226,19 +282,15 @@ async def handle_bancho_request(request: Request):
                 account_id=other_session["account_id"]
             )
             if not others_presence:
-                return Response(packets.write_user_id_packet(user_id=-1))
-
-            response_data += packets.write_user_presence_packet(
-                others_presence["account_id"],
-                others_presence["username"],
-                others_presence["utc_offset"],
-                others_presence["country_code"],
-                others_presence["bancho_privileges"],
-                others_presence["game_mode"],
-                others_presence["latitude"],
-                others_presence["longitude"],
-                others_presence["global_rank"],
-            )
+                return Response(
+                    content=(
+                        packets.write_user_id_packet(user_id=-1)
+                        + packets.write_notification_packet(
+                            "Other's presence not found."
+                        )
+                    ),
+                    headers={"cho-token": "no"},
+                )
 
             # stats of all other players (& bots)
             others_stats = await stats.fetch_one(
@@ -246,33 +298,58 @@ async def handle_bancho_request(request: Request):
                 game_mode=others_presence["game_mode"],
             )
             if not others_stats:
-                return Response(packets.write_user_id_packet(user_id=-1))
+                return Response(
+                    content=(
+                        packets.write_user_id_packet(user_id=-1)
+                        + packets.write_notification_packet("Other's stats not found.")
+                    ),
+                    headers={"cho-token": "no"},
+                )
+
+            response_data += packets.write_user_presence_packet(
+                others_presence["account_id"],
+                others_presence["username"],
+                others_presence["utc_offset"],
+                geolocation.country_str_to_int(others_presence["country"]),
+                # TODO: is this right?
+                privileges.server_to_client_privileges(
+                    others_presence["bancho_privileges"]
+                ),
+                others_presence["game_mode"],
+                others_presence["latitude"],
+                others_presence["longitude"],
+                get_global_rank(others_stats["account_id"]),
+            )
 
             response_data += packets.write_user_stats_packet(
                 others_stats["account_id"],
-                others_stats["action"],
-                others_stats["info_text"],
-                others_stats["beatmap_md5"],
-                others_stats["mods"],
-                others_stats["mode"],
-                others_stats["beatmap_id"],
+                others_presence["action"],
+                others_presence["info_text"],
+                others_presence["beatmap_md5"],
+                others_presence["beatmap_id"],
+                others_presence["mods"],
+                others_presence["mode"],
                 others_stats["ranked_score"],
                 others_stats["accuracy"],
-                others_stats["playcount"],
+                others_stats["play_count"],
                 others_stats["total_score"],
-                others_stats["global_rank"],
-                others_stats["pp"],
+                get_global_rank(others_stats["account_id"]),
+                others_stats["performance_points"],
             )
+
+        response_data += packets.write_notification_packet(
+            "Welcome to the osu!bancho server!"
+        )
 
         # next, we can add these additional "features"
         # silence end
         # whether they're restricted
         # friend list
         # main menu icon
-
+        print("success")
         return Response(
             content=bytes(response_data),
-            headers={"cho-token": session["session_id"]},
+            headers={"cho-token": str(session["session_id"])},
         )
     else:
         # TODO: handle an authenticated request
