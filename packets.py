@@ -1,0 +1,264 @@
+# packets are comprised of 3 parts:
+# - a unique identifier (the packet id), representing the type of request
+# - the length of the request data
+# - request data; specific to the packet id
+
+# the packet id is sent over the wire as an unsigned short (2 bytes, u16)
+# the packet data length is sent as an unsigned long (4 bytes, u32)
+# the packet data
+# - is of variable length
+# - may comprise of multiple objects
+# - is specific to the request type (packet id)
+# - types can vary, but are from a fixed set of possibilities (u8, u16, u32, u64, i8, i16, i32, i64, f32, f64, string, and some higher level types comprising of these primitives)
+
+# osu! packets are sent in "little endian" ordering.
+# little endian: [2, 0, 0, 0] == 2
+# big endian: [0, 0, 0, 2] == 2
+
+import struct
+from dataclasses import dataclass
+from enum import IntEnum, Enum
+from typing import Any
+
+
+class ClientPackets(IntEnum):
+    CHANGE_ACTION = 0
+    SEND_PUBLIC_MESSAGE = 1
+    LOGOUT = 2
+    REQUEST_STATUS_UPDATE = 3
+    PING = 4
+    START_SPECTATING = 16
+    STOP_SPECTATING = 17
+    SPECTATE_FRAMES = 18
+    ERROR_REPORT = 20
+    CANT_SPECTATE = 21
+    SEND_PRIVATE_MESSAGE = 25
+    PART_LOBBY = 29
+    JOIN_LOBBY = 30
+    CREATE_MATCH = 31
+    JOIN_MATCH = 32
+    PART_MATCH = 33
+    MATCH_CHANGE_SLOT = 38
+    MATCH_READY = 39
+    MATCH_LOCK = 40
+    MATCH_CHANGE_SETTINGS = 41
+    MATCH_START = 44
+    MATCH_SCORE_UPDATE = 47
+    MATCH_COMPLETE = 49
+    MATCH_CHANGE_MODS = 51
+    MATCH_LOAD_COMPLETE = 52
+    MATCH_NO_BEATMAP = 54
+    MATCH_NOT_READY = 55
+    MATCH_FAILED = 56
+    MATCH_HAS_BEATMAP = 59
+    MATCH_SKIP_REQUEST = 60
+    CHANNEL_JOIN = 63
+    BEATMAP_INFO_REQUEST = 68
+    MATCH_TRANSFER_HOST = 70
+    FRIEND_ADD = 73
+    FRIEND_REMOVE = 74
+    MATCH_CHANGE_TEAM = 77
+    CHANNEL_PART = 78
+    RECEIVE_UPDATES = 79
+    SET_AWAY_MESSAGE = 82
+    IRC_ONLY = 84
+    USER_STATS_REQUEST = 85
+    MATCH_INVITE = 87
+    MATCH_CHANGE_PASSWORD = 90
+    TOURNAMENT_MATCH_INFO_REQUEST = 93
+    USER_PRESENCE_REQUEST = 97
+    USER_PRESENCE_REQUEST_ALL = 98
+    TOGGLE_BLOCK_NON_FRIEND_DMS = 99
+    TOURNAMENT_JOIN_MATCH_CHANNEL = 108
+    TOURNAMENT_LEAVE_MATCH_CHANNEL = 109
+
+    def __repr__(self) -> str:
+        return f"<{self.name} ({self.value})>"
+
+
+class ServerPackets(IntEnum):
+    USER_ID = 5
+    SEND_MESSAGE = 7
+    PONG = 8
+    HANDLE_IRC_CHANGE_USERNAME = 9  # unused
+    HANDLE_IRC_QUIT = 10
+    USER_STATS = 11
+    USER_LOGOUT = 12
+    SPECTATOR_JOINED = 13
+    SPECTATOR_LEFT = 14
+    SPECTATE_FRAMES = 15
+    VERSION_UPDATE = 19
+    SPECTATOR_CANT_SPECTATE = 22
+    GET_ATTENTION = 23
+    NOTIFICATION = 24
+    UPDATE_MATCH = 26
+    NEW_MATCH = 27
+    DISPOSE_MATCH = 28
+    TOGGLE_BLOCK_NON_FRIEND_DMS = 34
+    MATCH_JOIN_SUCCESS = 36
+    MATCH_JOIN_FAIL = 37
+    FELLOW_SPECTATOR_JOINED = 42
+    FELLOW_SPECTATOR_LEFT = 43
+    ALL_PLAYERS_LOADED = 45
+    MATCH_START = 46
+    MATCH_SCORE_UPDATE = 48
+    MATCH_TRANSFER_HOST = 50
+    MATCH_ALL_PLAYERS_LOADED = 53
+    MATCH_PLAYER_FAILED = 57
+    MATCH_COMPLETE = 58
+    MATCH_SKIP = 61
+    UNAUTHORIZED = 62  # unused
+    CHANNEL_JOIN_SUCCESS = 64
+    CHANNEL_INFO = 65
+    CHANNEL_KICK = 66
+    CHANNEL_AUTO_JOIN = 67
+    BEATMAP_INFO_REPLY = 69
+    PRIVILEGES = 71
+    FRIENDS_LIST = 72
+    PROTOCOL_VERSION = 75
+    MAIN_MENU_ICON = 76
+    MONITOR = 80  # unused
+    MATCH_PLAYER_SKIPPED = 81
+    USER_PRESENCE = 83
+    RESTART = 86
+    MATCH_INVITE = 88
+    CHANNEL_INFO_END = 89
+    MATCH_CHANGE_PASSWORD = 91
+    SILENCE_END = 92
+    USER_SILENCED = 94
+    USER_PRESENCE_SINGLE = 95
+    USER_PRESENCE_BUNDLE = 96
+    USER_DM_BLOCKED = 100
+    TARGET_IS_SILENCED = 101
+    VERSION_UPDATE_FORCED = 102
+    SWITCH_SERVER = 103
+    ACCOUNT_RESTRICTED = 104
+    RTX = 105  # unused
+    MATCH_ABORT = 106
+    SWITCH_TOURNAMENT_SERVER = 107
+
+    def __repr__(self) -> str:
+        return f"<{self.name} ({self.value})>"
+
+
+@dataclass
+class Packet:
+    packet_id: int
+    packet_data_length: int
+    packet_data: Any
+
+
+def read_packets(request_data: bytes) -> list[Packet]:
+    packets = []
+    offset = 0
+    while request_data:
+        packet_id, packet_len = struct.unpack("<HxL", request_data[offset : offset + 7])
+        offset += 7
+
+        packet_data = request_data[offset : offset + packet_len]
+        offset += packet_len
+
+        packet = Packet(packet_id, packet_len, packet_data)
+        packets.append(packet)
+
+    return packets
+
+
+class DataType(Enum):
+    # primitive types
+    I8 = "I8"
+    U8 = "U8"
+    I16 = "I16"
+    U16 = "U16"
+    I32 = "I32"
+    U32 = "U32"
+    I64 = "I64"
+    U64 = "U64"
+    F32 = "F32"
+    F64 = "F64"
+
+    # "advanced" types
+    I32_LIST_I16_LEN = "i32_list_i16_len"  # 2 bytes len
+    I32_LIST_I32_LEN = "i32_list_i32_len"  # 4 bytes len
+    STRING = "string"
+    RAW_DATA = "raw_data"
+
+    # high level osu-specific types
+    OSU_MESSAGE = "osu_message"
+    OSU_CHANNEL = "osu_channel"
+    OSU_MATCH = "osu_match"
+    OSU_SCOREFRAME = "osu_scoreframe"
+    OSU_MAP_INFO_REQUEST = "osu_map_info_request"
+    OSU_MAP_INFO_REPLY = "osu_map_info_reply"
+    OSU_REPLAY_FRAME_BUNDLE = "osu_replay_frame_bundle"
+
+
+def write_uleb128(value: int) -> bytes:
+    data = bytearray()
+    while value != 0:
+        data.append(value & 0x7F)
+        value >>= 7
+        if value != 0:
+            data[-1] = 0x80
+
+    return data
+
+
+def write_string(value: str) -> bytes:
+    if len(value) == 0:
+        return b"\x00"
+    else:
+        encoded = value.encode()
+        return b"\x0b" + write_uleb128(len(encoded)) + encoded
+
+
+def write_packet(
+    packet_id: int,
+    packet_data_inputs: list[tuple[DataType, Any]],
+) -> bytes:
+    # packet data
+    packet_body = b""
+
+    # TODO: create data out of packet_data_inputs
+    for type, value in packet_data_inputs:
+        if type == DataType.I8:
+            packet_body += struct.pack("<b", value)
+        elif type == DataType.I16:
+            packet_body += struct.pack("<h", value)
+        elif type == DataType.I32:
+            packet_body += struct.pack("<i", value)
+        elif type == DataType.I64:
+            packet_body += struct.pack("<q", value)
+        elif type == DataType.U8:
+            packet_body += struct.pack("<B", value)
+        elif type == DataType.U16:
+            packet_body += struct.pack("<H", value)
+        elif type == DataType.U32:
+            packet_body += struct.pack("<I", value)
+        elif type == DataType.U64:
+            packet_body += struct.pack("<Q", value)
+        elif type == DataType.F32:
+            packet_body += struct.pack("<f", value)
+        elif type == DataType.F64:
+            packet_body += struct.pack("<d", value)
+        elif type == DataType.STRING:
+            packet_body += write_string(value)
+        elif type == DataType.RAW_DATA:
+            packet_body += value
+        else:
+            raise RuntimeError("Unknown packet type")
+
+    # packet header
+    packet_header = struct.pack("<HxL", packet_id, len(packet_body))
+
+    return packet_header + packet_body
+
+
+# packet writing helpers
+
+
+def write_user_id_packet(user_id: int) -> bytes:
+    return write_packet(
+        packet_id=ServerPackets.USER_ID,
+        packet_data_inputs=[(DataType.I32, user_id)],
+    )
