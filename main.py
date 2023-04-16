@@ -4,12 +4,14 @@ from fastapi import FastAPI
 from fastapi import Response, Request
 from repositories import sessions
 from uuid import uuid4
+from typing import Any
 from databases import Database
 import uvicorn
 from repositories import accounts, channels
 import settings
 from fastapi import APIRouter
 
+import packets
 import clients
 
 app = FastAPI()
@@ -41,7 +43,6 @@ async def start_database():
     )
 
 
-from typing import Any
 def parse_login_data(data: bytes) -> dict[str, Any]:
     """Parse data from the body of a login request."""
     (
@@ -80,9 +81,6 @@ def parse_login_data(data: bytes) -> dict[str, Any]:
         "disk_signature_md5": disk_signature_md5,
     }
 
-def login_failed_data() -> bytes:
-    return b"\x05\x00\x00\x04\x00\x00\x00\xff\xff\xff\xff"
-    return bytes([5, 0, 0, 4, 0, 0, 0, 255, 255, 255, 255])
 
 @app.post("/")
 async def handle_bancho_request(request: Request):
@@ -91,31 +89,77 @@ async def handle_bancho_request(request: Request):
 
         account = await accounts.fetch_by_username(login_data["username"])
         if not account:
-            return Response(content=login_failed_data())
+            return Response(packets.write_user_id_packet(user_id=-1))
 
-        if login_data['password'] != account['password']:
-            return Response(content=login_failed_data())
+        if login_data["password"] != account["password"]:
+            return Response(packets.write_user_id_packet(user_id=-1))
 
         session = await sessions.create(
             session_id=uuid4(),
-            account_id=account['account_id'],
+            account_id=account["account_id"],
         )
 
-        # we need to fetch a few things for login to be "complete" on the client
+        response_data = bytearray()
 
-        # 1. channels
-        osu_channels = await channels.fetch_all()
+        # we need to send a few things to the client for it to be considered a "complete" login
+        # [done] their session id (token)
 
+        # protocol version
+        response_data += packets.write_protocol_version_packet(19)
 
-        # 2.
-        #
-        # we need to encode this data using the bancho protocol
-        # into individual packets to send back to the client
-        #
+        # user id
+        response_data += packets.write_user_id_packet(account["account_id"])
+
+        # privileges
+        response_data += packets.write_user_privileges_packet(account["privileges"])
+
+        # channels (and channel info end)
+        for channel in await channels.fetch_all():
+            response_data += packets.write_channel_info_packet(channel)
+
+        response_data += packets.write_channel_info_end_packet()
+
+        # own presence
+        presence = await presences.fetch_one(account_id=account["account_id"])
+        if not presence:
+            return Response(packets.write_user_id_packet(user_id=-1))
+
+        response_data += packets.write_user_presence(presence)
+
+        # own stats
+        stats = await stats.fetch_one(account_id=account["account_id"])
+        if not stats:
+            return Response(packets.write_user_id_packet(user_id=-1))
+        response_data += packets.write_user_stats(stats)
+
+        for other_session in sessions.fetch_all():
+            # presence of all other players (& bots)
+            presence = await presences.fetch_one(account_id=other_session["account_id"])
+            if not presence:
+                return Response(packets.write_user_id_packet(user_id=-1))
+
+            response_data += packets.write_user_presence(presence)
+
+            # stats of all other players (& bots)
+            stats = await stats.fetch_one(account_id=other_session["account_id"])
+            if not stats:
+                return Response(packets.write_user_id_packet(user_id=-1))
+
+            response_data += packets.write_user_stats(stats)
+
+        # next, we can add these additional "features"
+        # silence end
+        # whether they're restricted
+        # friend list
+        # main menu icon
+
+        return Response(
+            content=bytes(response_data),
+            headers={"cho-token": session["session_id"]},
+        )
+    else:
+        # TODO: handle an authenticated request
         ...
-
-
-        return Response(content=b"hello")
 
 
 # POST c.ppy.sh/
