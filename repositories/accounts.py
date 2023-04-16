@@ -1,7 +1,7 @@
 from typing import Any
 from uuid import UUID
 
-from utils import services
+import clients
 
 READ_PARAMS = """
     account_id,
@@ -28,6 +28,7 @@ READ_PARAMS = """
 # CREATE UNIQUE INDEX ON accounts (username);
 # CREATE UNIQUE INDEX ON accounts (email_address);
 
+
 async def create(
     account_id: UUID,
     username: str,
@@ -36,9 +37,8 @@ async def create(
     privileges: int,
     country: str,
 ) -> dict[str, Any]:
-
-    account = await services.database.fetch_one(
-        query = f"""\
+    account = await clients.database.fetch_one(
+        query=f"""\
             INSERT INTO accounts (account_id, username, email_address, password, privileges, country)
             VALUES (:account_id, :username, :email_address, :password, :privileges, :country)
             RETURNING {READ_PARAMS}
@@ -49,16 +49,20 @@ async def create(
             "email": email_address,
             "password": password,
             "privileges": privileges,
-            "country": country
-        }
+            "country": country,
+        },
     )
 
     assert account is not None
     return dict(account._mapping)
 
 
-async def fetch_many(page: int, page_size: int, privileges: int) -> list[dict[str, Any]]:
-    accounts = await services.database.fetch_all(
+async def fetch_many(
+    page: int,
+    page_size: int,
+    privileges: int,
+) -> list[dict[str, Any]]:
+    accounts = await clients.database.fetch_all(
         query=f"""\
             SELECT {READ_PARAMS}
             FROM accounts
@@ -69,29 +73,26 @@ async def fetch_many(page: int, page_size: int, privileges: int) -> list[dict[st
         values={
             "limit": page_size,
             "offset": (page - 1) * page_size,
-            "privileges": privileges
+            "privileges": privileges,
         },
     )
     return [dict(account._mapping) for account in accounts]
 
 
-
 async def fetch_by_account_id(account_id: UUID) -> dict[str, Any] | None:
-    account = await services.database.fetch_one(
+    account = await clients.database.fetch_one(
         query=f"""\
             SELECT {READ_PARAMS}
             FROM accounts
             WHERE account_id = :account_id
         """,
-        values={
-            "account_id": account_id
-        },
+        values={"account_id": account_id},
     )
     return dict(account._mapping) if account is not None else None
 
 
 async def fetch_by_username(username: str) -> dict[str, Any] | None:
-    account = await services.database.fetch_one(
+    account = await clients.database.fetch_one(
         query=f"""\
             SELECT {READ_PARAMS}
             FROM accounts

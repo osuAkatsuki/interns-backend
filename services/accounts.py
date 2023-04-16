@@ -2,8 +2,9 @@ from typing import Any
 from uuid import UUID, uuid4
 
 
-import utils.validation as validation
-from utils.errors import ServiceError
+import validation
+from errors import ServiceError
+
 
 async def create(
     username: str,

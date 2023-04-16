@@ -1,6 +1,6 @@
 from typing import Any
 
-from utils import services
+import clients
 
 # CREATE TABLE channels
 # (
@@ -34,20 +34,19 @@ async def create(
     write_privileges: int,
     auto_join: bool,
 ) -> dict[str, Any]:
-
-    channel = await services.database.fetch_one(
-        query= f"""\
+    channel = await clients.database.fetch_one(
+        query=f"""\
             INSERT INTO channel (name, topic, read_privileges, write_privileges, auto_join, created_at, updated_at)
             VALUES (:name, :topic, :read_privileges, :write_privileges, :auto_join, :created_at, :updated_at)
             RETURNING {READ_PARAMS}
         """,
         values={
-            'name': name,
-            'topic': topic,
-            'read_privileges': read_privileges,
-            'write_privileges': write_privileges,
-            'auto_join': auto_join,
-        }
+            "name": name,
+            "topic": topic,
+            "read_privileges": read_privileges,
+            "write_privileges": write_privileges,
+            "auto_join": auto_join,
+        },
     )
 
     assert channel is not None
@@ -55,7 +54,7 @@ async def create(
 
 
 async def fetch_all() -> list[dict[str, Any]]:
-    channels = await services.database.fetch_all(
+    channels = await clients.database.fetch_all(
         query=f"""
             SELECT {READ_PARAMS}
             FROM channels
@@ -66,7 +65,7 @@ async def fetch_all() -> list[dict[str, Any]]:
 
 
 async def fetch_one(channel_id: int) -> dict[str, Any] | None:
-    channel = await services.database.fetch_one(
+    channel = await clients.database.fetch_one(
         query=f"""
             SELECT {READ_PARAMS}
             from channels
@@ -74,7 +73,7 @@ async def fetch_one(channel_id: int) -> dict[str, Any] | None:
         """,
         values={
             "channel_id": channel_id,
-        }
+        },
     )
 
     return dict(channel._mapping) if channel is not None else None

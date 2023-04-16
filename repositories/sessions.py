@@ -4,11 +4,11 @@ import json
 from typing import Any, Literal, Mapping
 from datetime import datetime, timedelta
 from uuid import UUID
-from utils import services
-
+import clients
 
 
 SESSION_EXPIRY = 60 * 60
+
 
 def make_key(session_id: UUID | Literal["*"]) -> str:
     return f"server:sessions:{session_id}"
@@ -47,7 +47,7 @@ async def create(
     # user_agent: str,
 ) -> dict[str, Any]:
     now = datetime.now()
-    expires_at = now + timedelta(seconds = SESSION_EXPIRY)
+    expires_at = now + timedelta(seconds=SESSION_EXPIRY)
     session = {
         "session_id": session_id,
         "account_id": account_id,
@@ -57,12 +57,40 @@ async def create(
         "updated_at": now,
     }
 
-    await services.redis.set(name=make_key(session_id), value=serialize(session), ex=SESSION_EXPIRY)
+    await clients.redis.set(
+        name=make_key(session_id), value=serialize(session), ex=SESSION_EXPIRY
+    )
 
     return session
 
 
 async def fetch_by_id(session_id: UUID) -> dict[str, Any] | None:
     session_key = make_key(session_id)
-    session = await services.redis.get(session_key)
+    session = await clients.redis.get(session_key)
     return deserialize(session) if session is not None else None
+
+
+async def fetch_all() -> list[dict[str, Any]]:
+    session_key = make_key("*")
+
+    cursor, keys = await clients.redis.scan(
+        cursor=0,
+        match=session_key,
+    )
+
+    sessions = []
+
+    while cursor != 0:
+        cursor, keys = await clients.redis.scan(
+            cursor=cursor or 0,
+            match=session_key,
+        )
+
+        raw_sessions = await clients.redis.mget(keys)
+
+        for raw_session in raw_sessions:
+            session = deserialize(raw_session)
+
+            sessions.append(session)
+
+    return sessions

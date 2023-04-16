@@ -1,7 +1,8 @@
-aioredis
 asyncpg
 databases
 email_validator
 fastapi
 python-dotenv
+orjson
+redis
 uvicorn

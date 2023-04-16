@@ -141,37 +141,92 @@ async def handle_bancho_request(request: Request):
 
         # channels (and channel info end)
         for channel in await channels.fetch_all():
-            response_data += packets.write_channel_info_packet(channel)
+            response_data += packets.write_channel_info_packet(
+                channel["name"],
+                channel["topic"],
+                channel["num_sessions"],
+            )
 
         response_data += packets.write_channel_info_end_packet()
 
         # own presence
-        presence = await presences.fetch_one(account_id=account["account_id"])
-        if not presence:
+        own_presence = await presences.fetch_one(account_id=account["account_id"])
+        if not own_presence:
             return Response(packets.write_user_id_packet(user_id=-1))
 
-        response_data += packets.write_user_presence(presence)
+        response_data += packets.write_user_presence_packet(
+            own_presence["account_id"],
+            own_presence["username"],
+            own_presence["utc_offset"],
+            own_presence["country_code"],
+            own_presence["bancho_privileges"],
+            own_presence["game_mode"],
+            own_presence["latitude"],
+            own_presence["longitude"],
+            own_presence["global_rank"],
+        )
 
         # own stats
-        stats = await stats.fetch_one(account_id=account["account_id"])
-        if not stats:
+        own_stats = await stats.fetch_one(account_id=account["account_id"])
+        if not own_stats:
             return Response(packets.write_user_id_packet(user_id=-1))
-        response_data += packets.write_user_stats(stats)
 
-        for other_session in sessions.fetch_all():
+        response_data += packets.write_user_stats_packet(
+            own_stats["account_id"],
+            own_stats["action"],
+            own_stats["info_text"],
+            own_stats["beatmap_md5"],
+            own_stats["mods"],
+            own_stats["mode"],
+            own_stats["beatmap_id"],
+            own_stats["ranked_score"],
+            own_stats["accuracy"],
+            own_stats["playcount"],
+            own_stats["total_score"],
+            own_stats["global_rank"],
+            own_stats["pp"],
+        )
+
+        for other_session in await sessions.fetch_all():
             # presence of all other players (& bots)
-            presence = await presences.fetch_one(account_id=other_session["account_id"])
-            if not presence:
+            others_presence = await presences.fetch_one(
+                account_id=other_session["account_id"]
+            )
+            if not others_presence:
                 return Response(packets.write_user_id_packet(user_id=-1))
 
-            response_data += packets.write_user_presence(presence)
+            response_data += packets.write_user_presence_packet(
+                others_presence["account_id"],
+                others_presence["username"],
+                others_presence["utc_offset"],
+                others_presence["country_code"],
+                others_presence["bancho_privileges"],
+                others_presence["game_mode"],
+                others_presence["latitude"],
+                others_presence["longitude"],
+                others_presence["global_rank"],
+            )
 
             # stats of all other players (& bots)
-            stats = await stats.fetch_one(account_id=other_session["account_id"])
-            if not stats:
+            others_stats = await stats.fetch_one(account_id=other_session["account_id"])
+            if not others_stats:
                 return Response(packets.write_user_id_packet(user_id=-1))
 
-            response_data += packets.write_user_stats(stats)
+            response_data += packets.write_user_stats_packet(
+                others_stats["account_id"],
+                others_stats["action"],
+                others_stats["info_text"],
+                others_stats["beatmap_md5"],
+                others_stats["mods"],
+                others_stats["mode"],
+                others_stats["beatmap_id"],
+                others_stats["ranked_score"],
+                others_stats["accuracy"],
+                others_stats["playcount"],
+                others_stats["total_score"],
+                others_stats["global_rank"],
+                others_stats["pp"],
+            )
 
         # next, we can add these additional "features"
         # silence end
