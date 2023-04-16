@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Literal, Mapping
-from datetime import datetime, timedelta
+from collections.abc import Mapping
+from datetime import datetime
+from datetime import timedelta
+from typing import Any
+from typing import Literal
 from uuid import UUID
+
 import clients
 
 

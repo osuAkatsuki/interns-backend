@@ -2,7 +2,6 @@
 # - a unique identifier (the packet id), representing the type of request
 # - the length of the request data
 # - request data; specific to the packet id
-
 # the packet id is sent over the wire as an unsigned short (2 bytes, u16)
 # the packet data length is sent as an unsigned long (4 bytes, u32)
 # the packet data
@@ -10,14 +9,13 @@
 # - may comprise of multiple objects
 # - is specific to the request type (packet id)
 # - types can vary, but are from a fixed set of possibilities (u8, u16, u32, u64, i8, i16, i32, i64, f32, f64, string, and some higher level types comprising of these primitives)
-
 # osu! packets are sent in "little endian" ordering.
 # little endian: [2, 0, 0, 0] == 2
 # big endian: [0, 0, 0, 2] == 2
-
 import struct
 from dataclasses import dataclass
-from enum import IntEnum, Enum
+from enum import Enum
+from enum import IntEnum
 from typing import Any
 
 

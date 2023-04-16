@@ -1,8 +1,11 @@
 import os
+
 from dotenv import load_dotenv
+
 
 def read_bool(value: str) -> bool:
     return value.lower() == "true"
+
 
 load_dotenv()
 

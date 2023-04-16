@@ -22,7 +22,7 @@ services:
   osu-server:
     image: osu-server:latest
     ports:
-      - 10000:80
+      - 10000:${APP_PORT}
     environment:
       - APP_ENV=${APP_ENV}
       - APP_COMPONENT=${APP_COMPONENT}

@@ -2,7 +2,7 @@ asyncpg
 databases
 email_validator
 fastapi
-python-dotenv
 orjson
+python-dotenv
 redis
 uvicorn

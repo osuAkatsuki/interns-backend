@@ -1,5 +1,6 @@
 from enum import Enum
 
+
 class ServiceError(str, Enum):
     ACCOUNTS_SIGNUP_FAILED = "accounts.signup_failed"
     ACCOUNTS_NOT_FOUND = "accounts.not_found"

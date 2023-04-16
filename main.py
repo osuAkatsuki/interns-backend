@@ -1,22 +1,25 @@
 #!/usr/bin/env python3
-
-from fastapi import FastAPI
-from fastapi import Response, Request
-from repositories import sessions
-from uuid import uuid4
 from typing import Any
+from uuid import uuid4
+
 import redis.asyncio
 from databases import Database
-import uvicorn
-from repositories import accounts, channels
-import settings
 from fastapi import APIRouter
+from fastapi import FastAPI
+from fastapi import Request
+from fastapi import Response
 
-import packets
 import clients
+import packets
+import settings
+from repositories import accounts
+from repositories import channels
+from repositories import sessions
 
 app = FastAPI()
 router = APIRouter()
+
+app.include_router(router)
 
 
 def dsn(
@@ -47,7 +50,6 @@ async def start_database():
 @app.on_event("shutdown")
 async def shutdown_database():
     await clients.database.disconnect()
-
 
 
 @app.on_event("startup")
@@ -278,7 +280,3 @@ async def handle_bancho_request(request: Request):
 #             response_packets.append(response_packet)
 
 #         return Response(content=format_response(response_packets))
-
-
-if __name__ == "__main__":
-    uvicorn.run(app)
