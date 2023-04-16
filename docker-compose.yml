@@ -1,0 +1,45 @@
+version: "3.3"
+
+services:
+  ## shared/managed services
+
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASS}
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+    ports:
+      - 5432:5432
+
+  redis:
+    image: redis:6
+    # ports:
+    #   - 6379:6379
+
+    ## application services
+
+  osu-server:
+    image: osu-server:latest
+    ports:
+      - 10000:80
+    environment:
+      - APP_ENV=${APP_ENV}
+      - APP_COMPONENT=${APP_COMPONENT}
+      - APP_HOST=${APP_HOST}
+      - APP_PORT=${APP_PORT}
+      - DB_SCHEME=${DB_SCHEME}
+      - SERVICE_READINESS_TIMEOUT=${SERVICE_READINESS_TIMEOUT}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - DB_PASS=${DB_PASS}
+      - DB_NAME=${DB_NAME}
+      - DB_USE_SSL=${DB_USE_SSL}
+      - INITIALLY_AVAILABLE_DB=${INITIALLY_AVAILABLE_DB}
+    volumes:
+      - .:/srv/root
+      - ./scripts:/scripts
+    depends_on:
+      - postgres
+      - redis
