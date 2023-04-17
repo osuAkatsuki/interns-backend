@@ -17,5 +17,3 @@ CREATE TABLE stats (
     a_count INT DEFAULT 0 NOT NULL,
     PRIMARY KEY (account_id, game_mode)
 );
-Co-authored-by: metal-face <101987676+metal-face@users.noreply.github.com>
-Co-authored-by: James-Tepper <64048628+James-Tepper@users.noreply.github.com>
