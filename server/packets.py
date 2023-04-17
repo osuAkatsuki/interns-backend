@@ -144,7 +144,7 @@ class ServerPackets(IntEnum):
 
 @dataclass
 class Packet:
-    packet_id: int
+    packet_id: ClientPackets
     packet_data_length: int
     packet_data: Any
 
@@ -160,7 +160,7 @@ def read_packets(request_data: bytes) -> list[Packet]:
         assert len(packet_data) == packet_len, "packet data shorter than expected"
         offset += packet_len
 
-        packet = Packet(packet_id, packet_len, packet_data)
+        packet = Packet(ClientPackets(packet_id), packet_len, packet_data)
         packets.append(packet)
 
     return packets
@@ -272,6 +272,23 @@ def write_user_id_packet(user_id: int) -> bytes:
 # SEND_MESSAGE = 7
 
 
+def write_send_message_packet(
+    sender_name: str,
+    message_content: str,
+    recipient_name: str,
+    sender_id: int,
+) -> bytes:
+    return write_packet(
+        packet_id=ServerPackets.SEND_MESSAGE,
+        packet_data_inputs=[
+            (DataType.STRING, sender_name),
+            (DataType.STRING, message_content),
+            (DataType.STRING, recipient_name),
+            (DataType.I32, sender_id),
+        ],
+    )
+
+
 # PONG = 8
 
 
@@ -320,6 +337,16 @@ def write_user_stats_packet(
 
 
 # USER_LOGOUT = 12
+
+
+def write_logout_packet(user_id: int) -> bytes:
+    return write_packet(
+        packet_id=ServerPackets.USER_LOGOUT,
+        packet_data_inputs=[
+            (DataType.I32, user_id),
+            (DataType.U8, 0),
+        ],
+    )
 
 
 # SPECTATOR_JOINED = 13
