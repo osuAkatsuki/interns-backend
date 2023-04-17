@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import ipaddress
 from typing import Any
 from uuid import UUID
 from uuid import uuid4
@@ -187,8 +188,8 @@ async def handle_login(request: Request) -> Response:
             headers={"cho-token": "no"},
         )
 
-    ip_address = request.headers.get("X-Real-IP")
-    if ip_address is None:
+    raw_ip_address = request.headers.get("X-Real-IP")
+    if raw_ip_address is None:
         return Response(
             content=(
                 packets.write_user_id_packet(user_id=-1)
@@ -196,18 +197,28 @@ async def handle_login(request: Request) -> Response:
                     "Could not determine your IP address."
                 )
             ),
+            headers={"cho-token": "no"},
         )
 
-    user_geolocation = await ip_api.fetch_geolocation_from_ip_address(ip_address)
-    if user_geolocation is None:
-        return Response(
-            content=(
-                packets.write_user_id_packet(user_id=-1)
-                + packets.write_notification_packet(
-                    "Could not determine your geolocation."
-                )
-            ),
+    ip_address = ipaddress.ip_address(raw_ip_address)
+
+    if ip_address.is_private:
+        # TODO: something better than this, perhaps?
+        user_geolocation = {"latitude": 0.0, "longitude": 0.0}
+    else:
+        user_geolocation = await ip_api.fetch_geolocation_from_ip_address(
+            raw_ip_address
         )
+        if user_geolocation is None:
+            return Response(
+                content=(
+                    packets.write_user_id_packet(user_id=-1)
+                    + packets.write_notification_packet(
+                        "Could not determine your geolocation."
+                    )
+                ),
+                headers={"cho-token": "no"},
+            )
 
     session = await sessions.create(
         session_id=uuid4(),
@@ -306,6 +317,9 @@ async def handle_login(request: Request) -> Response:
     )
 
     for other_session in await sessions.fetch_all(osu_clients_only=True):
+        if other_session["session_id"] == session["session_id"]:
+            continue
+
         assert other_session["presence"] is not None  # TODO: is there a better way?
 
         # stats of all other players (& bots)
