@@ -1,9 +1,11 @@
-from server import packets
-from typing import Awaitable, Callable, TYPE_CHECKING
-from server.repositories import packet_bundles
+from collections.abc import Awaitable
+from collections.abc import Callable
+from typing import TYPE_CHECKING
 
-from server.repositories import sessions
 from server import logger
+from server import packets
+from server.repositories import packet_bundles
+from server.repositories import sessions
 
 if TYPE_CHECKING:
     from server.repositories.sessions import Session

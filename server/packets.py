@@ -1,3 +1,9 @@
+import struct
+from dataclasses import dataclass
+from enum import Enum
+from enum import IntEnum
+from typing import Any
+
 # packets are comprised of 3 parts:
 # - a unique identifier (the packet id), representing the type of request
 # - the length of the request data
@@ -14,12 +20,6 @@
 # osu! packets are sent in "little endian" ordering.
 # little endian: [2, 0, 0, 0] == 2
 # big endian: [0, 0, 0, 2] == 2
-
-import struct
-from dataclasses import dataclass
-from enum import Enum
-from enum import IntEnum
-from typing import Any
 
 
 class ClientPackets(IntEnum):

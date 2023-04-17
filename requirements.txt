@@ -6,6 +6,6 @@ fastapi
 httpx
 orjson
 python-dotenv
-structlog
 redis
+structlog
 uvicorn

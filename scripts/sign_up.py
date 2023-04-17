@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 import asyncio
-import databases
-import bcrypt
-import os
 import hashlib
+import os
+
+import bcrypt
+import databases
 from dotenv import load_dotenv
 
 load_dotenv(dotenv_path=".env")

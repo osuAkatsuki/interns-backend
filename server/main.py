@@ -1,27 +1,27 @@
 #!/usr/bin/env python3
 from typing import Any
-from uuid import uuid4, UUID
+from uuid import UUID
+from uuid import uuid4
 
-from server import security
-from fastapi import status
 import redis.asyncio
-from server import geolocation
-from server import packet_handlers
-from server.adapters import ip_api
-
 from databases import Database
 from fastapi import FastAPI
 from fastapi import Request
 from fastapi import Response
-from server import logger
+from fastapi import status
 
 from server import clients
+from server import geolocation
+from server import logger
+from server import packet_handlers
 from server import packets
 from server import privileges
+from server import security
 from server import settings
-from server.repositories import packet_bundles
+from server.adapters import ip_api
 from server.repositories import accounts
 from server.repositories import channels
+from server.repositories import packet_bundles
 from server.repositories import sessions
 from server.repositories import stats
 
