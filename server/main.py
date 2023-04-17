@@ -198,8 +198,8 @@ async def handle_login(request: Request) -> Response:
             ),
         )
 
-    geolocation = await ip_api.fetch_geolocation_from_ip_address(ip_address)
-    if geolocation is None:
+    user_geolocation = await ip_api.fetch_geolocation_from_ip_address(ip_address)
+    if user_geolocation is None:
         return Response(
             content=(
                 packets.write_user_id_packet(user_id=-1)
@@ -221,8 +221,8 @@ async def handle_login(request: Request) -> Response:
                 account["privileges"]
             ),
             "game_mode": 0,
-            "latitude": geolocation["latitude"],
-            "longitude": geolocation["longitude"],
+            "latitude": user_geolocation["latitude"],
+            "longitude": user_geolocation["longitude"],
             "action": 0,
             "info_text": "",
             "beatmap_md5": "",
