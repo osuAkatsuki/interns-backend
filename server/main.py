@@ -152,227 +152,236 @@ def get_country_rank(account_id: int) -> int:
     return 1
 
 
-@app.post("/")
-async def handle_bancho_request(request: Request):
-    if "osu-token" not in request.headers:
-        login_data = parse_login_data(await request.body())
+async def handle_login(request: Request) -> Response:
+    login_data = parse_login_data(await request.body())
 
-        account = await accounts.fetch_by_username(login_data["username"])
-        if not account:
+    account = await accounts.fetch_by_username(login_data["username"])
+    if not account:
+        return Response(
+            content=(
+                packets.write_user_id_packet(user_id=-1)
+                + packets.write_notification_packet(
+                    "Incorrect username."  # "Incorrect username or password."
+                )
+            ),
+            headers={"cho-token": "no"},
+        )
+
+    if not security.check_password(
+        password=login_data["password_md5"],
+        hashword=account["password"].encode(),
+    ):
+        return Response(
+            content=(
+                packets.write_user_id_packet(user_id=-1)
+                + packets.write_notification_packet(
+                    "Incorrect password."  # "Incorrect username or password."
+                )
+            ),
+            headers={"cho-token": "no"},
+        )
+
+    session = await sessions.create(
+        session_id=uuid4(),
+        account_id=account["account_id"],
+        presence={
+            "account_id": account["account_id"],
+            "username": account["username"],
+            "utc_offset": login_data["utc_offset"],
+            "country": account["country"],
+            "bancho_privileges": privileges.server_to_client_privileges(
+                account["privileges"]
+            ),
+            "game_mode": 0,
+            "latitude": 0.0,  # TODO
+            "longitude": 0.0,  # TODO
+            "action": 0,
+            "info_text": "",
+            "beatmap_md5": "",
+            "beatmap_id": 0,
+            "mods": 0,
+            "mode": 0,
+        },
+    )
+    assert session["presence"] is not None  # TODO: is there a better way?
+
+    response_data = bytearray()
+
+    # we need to send a few things to the client for it to be considered a "complete" login
+    # [done] their session id (token)
+
+    # protocol version
+    response_data += packets.write_protocol_version_packet(19)
+
+    # user id
+    response_data += packets.write_user_id_packet(account["account_id"])
+
+    # user privileges
+    response_data += packets.write_user_privileges_packet(
+        privileges.server_to_client_privileges(account["privileges"])
+    )
+
+    # channels they have privileges to access
+    for channel in await channels.fetch_all():
+        response_data += packets.write_channel_info_packet(
+            channel["name"],
+            channel["topic"],
+            channel["num_sessions"],
+        )
+
+    # notify the client that we're done sending channel info
+    response_data += packets.write_channel_info_end_packet()
+
+    # user stats
+    own_stats = await stats.fetch_one(
+        account_id=account["account_id"],
+        game_mode=session["presence"]["game_mode"],
+    )
+    if not own_stats:
+        return Response(
+            content=(
+                packets.write_user_id_packet(user_id=-1)
+                + packets.write_notification_packet("Own stats not found.")
+            ),
+            headers={"cho-token": "no"},
+        )
+
+    response_data += packets.write_user_presence_packet(
+        session["presence"]["account_id"],
+        session["presence"]["username"],
+        session["presence"]["utc_offset"],
+        geolocation.country_str_to_int(session["presence"]["country"]),
+        # TODO: is this right?
+        privileges.server_to_client_privileges(
+            session["presence"]["bancho_privileges"]
+        ),
+        session["presence"]["game_mode"],
+        int(session["presence"]["latitude"]),
+        int(session["presence"]["longitude"]),
+        get_global_rank(session["presence"]["account_id"]),
+    )
+
+    response_data += packets.write_user_stats_packet(
+        own_stats["account_id"],
+        session["presence"]["action"],
+        session["presence"]["info_text"],
+        session["presence"]["beatmap_md5"],
+        session["presence"]["beatmap_id"],
+        session["presence"]["mods"],
+        session["presence"]["mode"],
+        own_stats["ranked_score"],
+        own_stats["accuracy"],
+        own_stats["play_count"],
+        own_stats["total_score"],
+        get_global_rank(own_stats["account_id"]),
+        own_stats["performance_points"],
+    )
+
+    for other_session in await sessions.fetch_all():
+        assert other_session["presence"] is not None  # TODO: is there a better way?
+
+        # stats of all other players (& bots)
+        others_stats = await stats.fetch_one(
+            account_id=other_session["account_id"],
+            game_mode=other_session["presence"]["game_mode"],
+        )
+        if not others_stats:
             return Response(
                 content=(
                     packets.write_user_id_packet(user_id=-1)
-                    + packets.write_notification_packet(
-                        "Incorrect username."  # "Incorrect username or password."
-                    )
-                ),
-                headers={"cho-token": "no"},
-            )
-
-        if not security.check_password(
-            password=login_data["password_md5"],
-            hashword=account["password"].encode(),
-        ):
-            return Response(
-                content=(
-                    packets.write_user_id_packet(user_id=-1)
-                    + packets.write_notification_packet(
-                        "Incorrect password."  # "Incorrect username or password."
-                    )
-                ),
-                headers={"cho-token": "no"},
-            )
-
-        session = await sessions.create(
-            session_id=uuid4(),
-            account_id=account["account_id"],
-            presence={
-                "account_id": account["account_id"],
-                "username": account["username"],
-                "utc_offset": login_data["utc_offset"],
-                "country": account["country"],
-                "bancho_privileges": privileges.server_to_client_privileges(
-                    account["privileges"]
-                ),
-                "game_mode": 0,
-                "latitude": 0.0,  # TODO
-                "longitude": 0.0,  # TODO
-                "action": 0,
-                "info_text": "",
-                "beatmap_md5": "",
-                "beatmap_id": 0,
-                "mods": 0,
-                "mode": 0,
-            },
-        )
-        assert session["presence"] is not None  # TODO: is there a better way?
-
-        response_data = bytearray()
-
-        # we need to send a few things to the client for it to be considered a "complete" login
-        # [done] their session id (token)
-
-        # protocol version
-        response_data += packets.write_protocol_version_packet(19)
-
-        # user id
-        response_data += packets.write_user_id_packet(account["account_id"])
-
-        # user privileges
-        response_data += packets.write_user_privileges_packet(
-            privileges.server_to_client_privileges(account["privileges"])
-        )
-
-        # channels they have privileges to access
-        for channel in await channels.fetch_all():
-            response_data += packets.write_channel_info_packet(
-                channel["name"],
-                channel["topic"],
-                channel["num_sessions"],
-            )
-
-        # notify the client that we're done sending channel info
-        response_data += packets.write_channel_info_end_packet()
-
-        # user stats
-        own_stats = await stats.fetch_one(
-            account_id=account["account_id"],
-            game_mode=session["presence"]["game_mode"],
-        )
-        if not own_stats:
-            return Response(
-                content=(
-                    packets.write_user_id_packet(user_id=-1)
-                    + packets.write_notification_packet("Own stats not found.")
+                    + packets.write_notification_packet("Other's stats not found.")
                 ),
                 headers={"cho-token": "no"},
             )
 
         response_data += packets.write_user_presence_packet(
-            session["presence"]["account_id"],
-            session["presence"]["username"],
-            session["presence"]["utc_offset"],
-            geolocation.country_str_to_int(session["presence"]["country"]),
+            other_session["presence"]["account_id"],
+            other_session["presence"]["username"],
+            other_session["presence"]["utc_offset"],
+            geolocation.country_str_to_int(other_session["presence"]["country"]),
             # TODO: is this right?
             privileges.server_to_client_privileges(
-                session["presence"]["bancho_privileges"]
+                other_session["presence"]["bancho_privileges"]
             ),
-            session["presence"]["game_mode"],
-            int(session["presence"]["latitude"]),
-            int(session["presence"]["longitude"]),
-            get_global_rank(session["presence"]["account_id"]),
+            other_session["presence"]["game_mode"],
+            int(other_session["presence"]["latitude"]),
+            int(other_session["presence"]["longitude"]),
+            get_global_rank(others_stats["account_id"]),
         )
 
         response_data += packets.write_user_stats_packet(
-            own_stats["account_id"],
-            session["presence"]["action"],
-            session["presence"]["info_text"],
-            session["presence"]["beatmap_md5"],
-            session["presence"]["beatmap_id"],
-            session["presence"]["mods"],
-            session["presence"]["mode"],
-            own_stats["ranked_score"],
-            own_stats["accuracy"],
-            own_stats["play_count"],
-            own_stats["total_score"],
-            get_global_rank(own_stats["account_id"]),
-            own_stats["performance_points"],
+            others_stats["account_id"],
+            other_session["presence"]["action"],
+            other_session["presence"]["info_text"],
+            other_session["presence"]["beatmap_md5"],
+            other_session["presence"]["beatmap_id"],
+            other_session["presence"]["mods"],
+            other_session["presence"]["mode"],
+            others_stats["ranked_score"],
+            others_stats["accuracy"],
+            others_stats["play_count"],
+            others_stats["total_score"],
+            get_global_rank(others_stats["account_id"]),
+            others_stats["performance_points"],
         )
 
-        for other_session in await sessions.fetch_all():
-            assert other_session["presence"] is not None  # TODO: is there a better way?
+    response_data += packets.write_notification_packet(
+        "Welcome to the osu!bancho server!"
+    )
 
-            # stats of all other players (& bots)
-            others_stats = await stats.fetch_one(
-                account_id=other_session["account_id"],
-                game_mode=other_session["presence"]["game_mode"],
-            )
-            if not others_stats:
-                return Response(
-                    content=(
-                        packets.write_user_id_packet(user_id=-1)
-                        + packets.write_notification_packet("Other's stats not found.")
-                    ),
-                    headers={"cho-token": "no"},
-                )
+    # next, we can add these additional "features"
+    # silence end
+    # whether they're restricted
+    # friend list
+    # main menu icon
 
-            response_data += packets.write_user_presence_packet(
-                other_session["presence"]["account_id"],
-                other_session["presence"]["username"],
-                other_session["presence"]["utc_offset"],
-                geolocation.country_str_to_int(other_session["presence"]["country"]),
-                # TODO: is this right?
-                privileges.server_to_client_privileges(
-                    other_session["presence"]["bancho_privileges"]
-                ),
-                other_session["presence"]["game_mode"],
-                int(other_session["presence"]["latitude"]),
-                int(other_session["presence"]["longitude"]),
-                get_global_rank(others_stats["account_id"]),
-            )
+    logger.info(
+        "Login successful",
+        account_id=session["account_id"],
+        session_id=session["session_id"],
+    )
+    return Response(
+        content=bytes(response_data),
+        headers={"cho-token": str(session["session_id"])},
+    )
 
-            response_data += packets.write_user_stats_packet(
-                others_stats["account_id"],
-                other_session["presence"]["action"],
-                other_session["presence"]["info_text"],
-                other_session["presence"]["beatmap_md5"],
-                other_session["presence"]["beatmap_id"],
-                other_session["presence"]["mods"],
-                other_session["presence"]["mode"],
-                others_stats["ranked_score"],
-                others_stats["accuracy"],
-                others_stats["play_count"],
-                others_stats["total_score"],
-                get_global_rank(others_stats["account_id"]),
-                others_stats["performance_points"],
-            )
 
-        response_data += packets.write_notification_packet(
-            "Welcome to the osu!bancho server!"
-        )
+async def handle_bancho_request(request: Request) -> Response:
+    session = await sessions.fetch_by_id(UUID(request.headers["osu-token"]))
+    if not session:
+        return Response(content=b"", status_code=status.HTTP_400_BAD_REQUEST)
 
-        # next, we can add these additional "features"
-        # silence end
-        # whether they're restricted
-        # friend list
-        # main menu icon
+    request_body = await request.body()
+    osu_packets = packets.read_packets(request_body)
 
-        logger.info(
-            "Login successful",
-            account_id=session["account_id"],
-            session_id=session["session_id"],
-        )
-        return Response(
-            content=bytes(response_data),
-            headers={"cho-token": str(session["session_id"])},
-        )
-    else:
-        # TODO: handle an authenticated request
-        session = await sessions.fetch_by_id(UUID(request.headers["osu-token"]))
-        if not session:
-            return Response(content=b"", status_code=status.HTTP_400_BAD_REQUEST)
+    for packet in osu_packets:
+        packet_handler = packet_handlers.get_packet_handler(packet.packet_id)
+        if packet_handler is None:
+            logger.warning("Unhandled packet type", packet_id=packet.packet_id)
+            continue
 
-        request_body = await request.body()
-        osu_packets = packets.read_packets(request_body)
+        await packet_handler(session, packet.packet_data)
+        logger.info("Handled packet", packet_id=packet.packet_id)
 
-        for packet in osu_packets:
-            packet_handler = packet_handlers.get_packet_handler(packet.packet_id)
-            if packet_handler is None:
-                logger.warning("Unhandled packet type", packet_id=packet.packet_id)
-                continue
+    response_content = b""
+    own_packet_bundles = await packet_bundles.dequeue_all(session["session_id"])
+    for packet_bundle in own_packet_bundles:
+        response_content += bytes(packet_bundle["data"])
 
-            await packet_handler(session, packet.packet_data)
-            logger.info("Handled packet", packet_id=packet.packet_id)
+    return Response(
+        content=response_content,
+        headers={"cho-token": str(session["session_id"])},
+    )
 
-        response_content = b""
-        own_packet_bundles = await packet_bundles.dequeue_all(session["session_id"])
-        for packet_bundle in own_packet_bundles:
-            response_content += bytes(packet_bundle["data"])
 
-        return Response(
-            content=response_content,
-            headers={"cho-token": str(session["session_id"])},
-        )
+@app.post("/")
+async def handle_bancho_http_request(request: Request):
+    if "osu-token" not in request.headers:
+        response = await handle_login(request)
+    else:  # they don't have a token
+        response = await handle_bancho_request(request)
+
+    return response
 
 
 # packet id: 5
