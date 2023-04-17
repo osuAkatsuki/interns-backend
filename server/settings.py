@@ -13,6 +13,7 @@ APP_ENV = os.environ["APP_ENV"]
 APP_COMPONENT = os.environ["APP_COMPONENT"]
 APP_HOST = os.environ["APP_HOST"]
 APP_PORT = int(os.environ["APP_PORT"])
+APP_LOG_LEVEL = int(os.environ["APP_LOG_LEVEL"])
 
 DB_SCHEME = os.environ["DB_SCHEME"]
 DB_HOST = os.environ["DB_HOST"]

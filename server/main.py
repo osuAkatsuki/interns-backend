@@ -26,6 +26,11 @@ from server.repositories import stats
 
 app = FastAPI()
 
+logger.configure_logging(
+    app_env=settings.APP_ENV,
+    log_level=settings.APP_LOG_LEVEL,
+)
+
 
 @app.get("/")
 async def home_page():

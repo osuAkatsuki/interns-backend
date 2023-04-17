@@ -17,7 +17,7 @@ services:
     ports:
       - 6379:6379
 
-    ## application services
+  ## application services
 
   osu-server:
     image: osu-server:latest
@@ -28,6 +28,7 @@ services:
       - APP_COMPONENT=${APP_COMPONENT}
       - APP_HOST=${APP_HOST}
       - APP_PORT=${APP_PORT}
+      - APP_LOG_LEVEL=${APP_LOG_LEVEL}
       - DB_SCHEME=${DB_SCHEME}
       - SERVICE_READINESS_TIMEOUT=${SERVICE_READINESS_TIMEOUT}
       - DB_HOST=${DB_HOST}
