@@ -55,4 +55,11 @@ async def ping_handler(session: "Session", packet_data: bytes):
 
 @bancho_handler(packets.ClientPackets.SEND_PUBLIC_MESSAGE)
 async def send_public_message_handler(session: "Session", packet_data: bytes):
-    sender = packets.read_string(packet_data)
+    packet_reader = packets.PacketReader(packet_data)
+
+    sender = packet_reader.read_string()
+    text = packet_reader.read_string()
+    recipient = packet_reader.read_string()
+    sender_id = packet_reader.read_i32()
+
+    ...

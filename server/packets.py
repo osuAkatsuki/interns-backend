@@ -149,6 +149,63 @@ class Packet:
     packet_data: Any
 
 
+class PacketReader:
+    def __init__(self, data: bytes) -> None:
+        self.data_view = memoryview(data)
+
+    def read(self, num_bytes: int) -> bytes:
+        data = self.data_view[:num_bytes]
+        self.data_view = self.data_view[num_bytes:]
+        return data
+
+    def read_i8(self) -> int:
+        return struct.unpack("<b", self.read(1))[0]
+
+    def read_u8(self) -> int:
+        return struct.unpack("<B", self.read(1))[0]
+
+    def read_i16(self) -> int:
+        return struct.unpack("<h", self.read(2))[0]
+
+    def read_u16(self) -> int:
+        return struct.unpack("<H", self.read(2))[0]
+
+    def read_i32(self) -> int:
+        return struct.unpack("<i", self.read(4))[0]
+
+    def read_u32(self) -> int:
+        return struct.unpack("<I", self.read(4))[0]
+
+    def read_i64(self) -> int:
+        return struct.unpack("<q", self.read(8))[0]
+
+    def read_u64(self) -> int:
+        return struct.unpack("<Q", self.read(8))[0]
+
+    def read_f32(self) -> float:
+        return struct.unpack("<f", self.read(4))[0]
+
+    def read_f64(self) -> float:
+        return struct.unpack("<d", self.read(8))[0]
+
+    # read bool?
+
+    def read_uleb128(self) -> int:
+        value = 0
+        shift = 0
+        while True:
+            byte = self.read_u8()
+            value |= (byte & 0x7F) << shift
+            shift += 7
+            if not byte & 0x80:
+                break
+        return value
+
+    def read_string(self) -> str:
+        length = self.read_uleb128()
+        return self.read(length).decode("utf-8")
+
+
 def read_packets(request_data: bytes) -> list[Packet]:
     packets = []
     offset = 0
