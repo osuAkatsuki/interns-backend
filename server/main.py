@@ -376,13 +376,17 @@ async def handle_login(request: Request) -> Response:
 
 
 async def handle_bancho_request(request: Request) -> Response:
-    session = await sessions.fetch_by_id(UUID(request.headers["osu-token"]))
+    # authenticate the request
+    session_id = UUID(request.headers["osu-token"])
+    session = await sessions.fetch_by_id(session_id)
     if not session:
         return Response(content=b"", status_code=status.HTTP_400_BAD_REQUEST)
 
+    # read packets
     request_body = await request.body()
     osu_packets = packets.read_packets(request_body)
 
+    # handle packets
     for packet in osu_packets:
         packet_handler = packet_handlers.get_packet_handler(packet.packet_id)
         if packet_handler is None:
@@ -392,13 +396,14 @@ async def handle_bancho_request(request: Request) -> Response:
         await packet_handler(session, packet.packet_data)
         logger.info("Handled packet", packet_id=packet.packet_id)
 
-    response_content = b""
+    # dequeue all packets to send back to the client
+    response_content = bytearray()
     own_packet_bundles = await packet_bundles.dequeue_all(session["session_id"])
     for packet_bundle in own_packet_bundles:
-        response_content += bytes(packet_bundle["data"])
+        response_content.extend(packet_bundle["data"])
 
     return Response(
-        content=response_content,
+        content=bytes(response_content),
         headers={"cho-token": str(session["session_id"])},
     )
 
