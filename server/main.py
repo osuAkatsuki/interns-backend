@@ -7,7 +7,7 @@ from fastapi import status
 import redis.asyncio
 from server import geolocation
 from server import packet_handlers
-from adapters import ip_api
+from server.adapters import ip_api
 
 from databases import Database
 from fastapi import FastAPI
