@@ -368,6 +368,7 @@ async def handle_login(request: Request) -> Response:
         account_id=session["account_id"],
         session_id=session["session_id"],
     )
+
     return Response(
         content=bytes(response_data),
         headers={"cho-token": str(session["session_id"])},
