@@ -3,6 +3,7 @@ bcrypt
 databases
 email_validator
 fastapi
+httpx
 orjson
 python-dotenv
 structlog
