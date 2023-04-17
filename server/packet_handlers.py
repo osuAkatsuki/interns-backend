@@ -57,6 +57,7 @@ async def ping_handler(session: "Session", packet_data: bytes):
 
 @bancho_handler(packets.ClientPackets.SEND_PUBLIC_MESSAGE)
 async def send_public_message_handler(session: "Session", packet_data: bytes):
+    # read packet data
     packet_reader = packets.PacketReader(packet_data)
 
     sender = packet_reader.read_string()
@@ -64,4 +65,16 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
     recipient = packet_reader.read_string()
     sender_id = packet_reader.read_i32()
 
-    ...
+    # send message to everyone else
+    send_message_packet_data = packets.write_send_message_packet(
+        sender, text, recipient, sender_id
+    )
+
+    for other_session in await sessions.fetch_all(osu_clients_only=True):
+        if other_session["session_id"] == session["session_id"]:
+            continue
+
+        await packet_bundles.enqueue(
+            other_session["session_id"],
+            data=list(send_message_packet_data),
+        )
