@@ -155,3 +155,15 @@ async def fetch_all() -> list[Session]:
             sessions.append(session)
 
     return sessions
+
+
+async def delete_by_id(session_id: UUID) -> Session | None:
+    session_key = make_key(session_id)
+
+    session = await clients.redis.get(session_key)
+    if session is None:
+        return None
+
+    await clients.redis.delete(session_key)
+
+    return deserialize(session)
