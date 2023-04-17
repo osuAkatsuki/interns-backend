@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 from typing import Any
-from uuid import uuid4
+from uuid import uuid4, UUID
 
 from server import security
+from fastapi import status
 import redis.asyncio
 from server import geolocation
+from server import packet_handlers
 
 from databases import Database
 from fastapi import FastAPI
@@ -16,6 +18,7 @@ from server import clients
 from server import packets
 from server import privileges
 from server import settings
+from server.repositories import packet_bundles
 from server.repositories import accounts
 from server.repositories import channels
 from server.repositories import sessions
@@ -334,13 +337,51 @@ async def handle_bancho_request(request: Request):
         # friend list
         # main menu icon
 
+        logger.info(
+            "Login successful",
+            account_id=session["account_id"],
+            session_id=session["session_id"],
+        )
         return Response(
             content=bytes(response_data),
             headers={"cho-token": str(session["session_id"])},
         )
     else:
         # TODO: handle an authenticated request
-        ...
+        session = await sessions.fetch_by_id(UUID(request.headers["osu-token"]))
+        if not session:
+            return Response(content=b"", status_code=status.HTTP_400_BAD_REQUEST)
+
+        request_body = await request.body()
+        osu_packets = packets.read_packets(request_body)
+
+        for packet in osu_packets:
+            packet_handler = packet_handlers.get_packet_handler(packet.packet_id)
+            if packet_handler is None:
+                logger.warning("Unhandled packet type", packet_id=packet.packet_id)
+                continue
+
+            await packet_handler(session, packet.packet_data)
+            logger.info("Handled packet", packet_id=packet.packet_id)
+
+        response_content = b""
+        own_packet_bundles = await packet_bundles.dequeue_all(session["session_id"])
+        for packet_bundle in own_packet_bundles:
+            response_content += bytes(packet_bundle["data"])
+
+        return Response(
+            content=response_content,
+            headers={"cho-token": str(session["session_id"])},
+        )
+
+
+# packet id: 5
+# packet length: 8
+# packet data: [0, 0, 0, 0, 0, 0, 0, 0]
+
+# packet id: 13
+# packet length: 3
+# packet data: [1, 3, 2]
 
 
 # POST c.ppy.sh/
