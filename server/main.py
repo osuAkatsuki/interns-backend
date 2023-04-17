@@ -305,7 +305,7 @@ async def handle_login(request: Request) -> Response:
         own_stats["performance_points"],
     )
 
-    for other_session in await sessions.fetch_all():
+    for other_session in await sessions.fetch_all(osu_clients_only=True):
         assert other_session["presence"] is not None  # TODO: is there a better way?
 
         # stats of all other players (& bots)

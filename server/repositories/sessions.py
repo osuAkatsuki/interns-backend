@@ -131,7 +131,7 @@ async def fetch_by_id(session_id: UUID) -> Session | None:
     return deserialize(session) if session is not None else None
 
 
-async def fetch_all() -> list[Session]:
+async def fetch_all(osu_clients_only: bool = False) -> list[Session]:
     session_key = make_key("*")
 
     cursor, keys = await clients.redis.scan(
@@ -152,6 +152,10 @@ async def fetch_all() -> list[Session]:
         for raw_session in raw_sessions:
             assert raw_session is not None  # TODO: why does mget return list[T | None]?
             session = deserialize(raw_session)
+
+            if osu_clients_only and session["presence"] is None:
+                continue
+
             sessions.append(session)
 
     return sessions
