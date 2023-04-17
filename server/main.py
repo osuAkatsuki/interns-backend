@@ -7,6 +7,7 @@ from fastapi import status
 import redis.asyncio
 from server import geolocation
 from server import packet_handlers
+from adapters import ip_api
 
 from databases import Database
 from fastapi import FastAPI
@@ -186,6 +187,28 @@ async def handle_login(request: Request) -> Response:
             headers={"cho-token": "no"},
         )
 
+    ip_address = request.headers.get("X-Real-IP")
+    if ip_address is None:
+        return Response(
+            content=(
+                packets.write_user_id_packet(user_id=-1)
+                + packets.write_notification_packet(
+                    "Could not determine your IP address."
+                )
+            ),
+        )
+
+    geolocation = await ip_api.fetch_geolocation_from_ip_address(ip_address)
+    if geolocation is None:
+        return Response(
+            content=(
+                packets.write_user_id_packet(user_id=-1)
+                + packets.write_notification_packet(
+                    "Could not determine your geolocation."
+                )
+            ),
+        )
+
     session = await sessions.create(
         session_id=uuid4(),
         account_id=account["account_id"],
@@ -198,8 +221,8 @@ async def handle_login(request: Request) -> Response:
                 account["privileges"]
             ),
             "game_mode": 0,
-            "latitude": 0.0,  # TODO
-            "longitude": 0.0,  # TODO
+            "latitude": geolocation["latitude"],
+            "longitude": geolocation["longitude"],
             "action": 0,
             "info_text": "",
             "beatmap_md5": "",
