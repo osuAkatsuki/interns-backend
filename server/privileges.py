@@ -18,7 +18,7 @@ class ServerPrivileges(IntFlag):
     ...
 
 
-def server_to_client_privileges(value: ServerPrivileges) -> ClientPrivileges:
+def server_to_client_privileges(value: int) -> ClientPrivileges:
     # TODO: an actual function implementing this
     return (
         ClientPrivileges.PLAYER

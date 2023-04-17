@@ -30,7 +30,7 @@ READ_PARAMS = """
 
 
 async def create(
-    account_id: UUID,
+    account_id: int,
     username: str,
     email_address: str,
     password: str,
@@ -79,7 +79,7 @@ async def fetch_many(
     return [dict(account._mapping) for account in accounts]
 
 
-async def fetch_by_account_id(account_id: UUID) -> dict[str, Any] | None:
+async def fetch_by_account_id(account_id: int) -> dict[str, Any] | None:
     account = await clients.database.fetch_one(
         query=f"""\
             SELECT {READ_PARAMS}

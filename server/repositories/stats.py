@@ -43,7 +43,7 @@ READ_PARAMS = """
 """
 
 
-async def create(account_id: UUID, game_mode: int) -> dict[str, Any]:
+async def create(account_id: int, game_mode: int) -> dict[str, Any]:
     stats = await clients.database.fetch_one(
         query=f"""\
             INSERT INTO stats (account_id, game_mode)
@@ -61,7 +61,7 @@ async def create(account_id: UUID, game_mode: int) -> dict[str, Any]:
 
 
 async def fetch_all(
-    account_id: UUID | None = None,
+    account_id: int | None = None,
     game_mode: int | None = None,
 ) -> list[dict[str, Any]]:
     stats = await clients.database.fetch_all(
@@ -80,7 +80,7 @@ async def fetch_all(
 
 
 async def fetch_many(
-    account_id: UUID | None = None,
+    account_id: int | None = None,
     game_mode: int | None = None,
     page: int = 1,
     page_size: int = 50,
@@ -104,7 +104,7 @@ async def fetch_many(
     return [dict(stat._mapping) for stat in stats]
 
 
-async def fetch_one(account_id: UUID, game_mode: int) -> dict[str, Any] | None:
+async def fetch_one(account_id: int, game_mode: int) -> dict[str, Any] | None:
     stats = await clients.database.fetch_one(
         query=f"""\
             SELECT {READ_PARAMS}
@@ -115,11 +115,3 @@ async def fetch_one(account_id: UUID, game_mode: int) -> dict[str, Any] | None:
         values={"account_id": account_id, "game_mode": game_mode},
     )
     return dict(stats._mapping) if stats is not None else None
-
-
-#'''
-#
-#
-#
-#
-# '''

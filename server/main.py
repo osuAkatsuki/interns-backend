@@ -19,7 +19,6 @@ from server import settings
 from server.repositories import accounts
 from server.repositories import channels
 from server.repositories import sessions
-from server.repositories import presences
 from server.repositories import stats
 
 app = FastAPI()
@@ -184,7 +183,26 @@ async def handle_bancho_request(request: Request):
         session = await sessions.create(
             session_id=uuid4(),
             account_id=account["account_id"],
+            presence={
+                "account_id": account["account_id"],
+                "username": account["username"],
+                "utc_offset": login_data["utc_offset"],
+                "country": account["country"],
+                "bancho_privileges": privileges.server_to_client_privileges(
+                    account["privileges"]
+                ),
+                "game_mode": 0,
+                "latitude": 0.0,  # TODO
+                "longitude": 0.0,  # TODO
+                "action": 0,
+                "info_text": "",
+                "beatmap_md5": "",
+                "beatmap_id": 0,
+                "mods": 0,
+                "mode": 0,
+            },
         )
+        assert session["presence"] is not None  # TODO: is there a better way?
 
         response_data = bytearray()
 
@@ -197,12 +215,12 @@ async def handle_bancho_request(request: Request):
         # user id
         response_data += packets.write_user_id_packet(account["account_id"])
 
-        # privileges
+        # user privileges
         response_data += packets.write_user_privileges_packet(
             privileges.server_to_client_privileges(account["privileges"])
         )
 
-        # channels (and channel info end)
+        # channels they have privileges to access
         for channel in await channels.fetch_all():
             response_data += packets.write_channel_info_packet(
                 channel["name"],
@@ -210,33 +228,13 @@ async def handle_bancho_request(request: Request):
                 channel["num_sessions"],
             )
 
+        # notify the client that we're done sending channel info
         response_data += packets.write_channel_info_end_packet()
 
-        # own presence
-
-        own_presence = await presences.create(
-            account_id=account["account_id"],
-            username=account["username"],
-            utc_offset=login_data["utc_offset"],
-            country=account["country"],
-            bancho_privileges=privileges.server_to_client_privileges(
-                account["privileges"]
-            ),
-            game_mode=0,
-            latitude=0.0,  # TODO
-            longitude=0.0,  # TODO
-            action=0,
-            info_text="",
-            beatmap_md5="",
-            beatmap_id=0,
-            mods=0,
-            mode=0,
-        )
-
-        # own stats
+        # user stats
         own_stats = await stats.fetch_one(
             account_id=account["account_id"],
-            game_mode=own_presence["game_mode"],
+            game_mode=session["presence"]["game_mode"],
         )
         if not own_stats:
             return Response(
@@ -248,26 +246,28 @@ async def handle_bancho_request(request: Request):
             )
 
         response_data += packets.write_user_presence_packet(
-            own_presence["account_id"],
-            own_presence["username"],
-            own_presence["utc_offset"],
-            geolocation.country_str_to_int(own_presence["country"]),
+            session["presence"]["account_id"],
+            session["presence"]["username"],
+            session["presence"]["utc_offset"],
+            geolocation.country_str_to_int(session["presence"]["country"]),
             # TODO: is this right?
-            privileges.server_to_client_privileges(own_presence["bancho_privileges"]),
-            own_presence["game_mode"],
-            own_presence["latitude"],
-            own_presence["longitude"],
-            get_global_rank(own_presence["account_id"]),
+            privileges.server_to_client_privileges(
+                session["presence"]["bancho_privileges"]
+            ),
+            session["presence"]["game_mode"],
+            int(session["presence"]["latitude"]),
+            int(session["presence"]["longitude"]),
+            get_global_rank(session["presence"]["account_id"]),
         )
 
         response_data += packets.write_user_stats_packet(
             own_stats["account_id"],
-            own_presence["action"],
-            own_presence["info_text"],
-            own_presence["beatmap_md5"],
-            own_presence["beatmap_id"],
-            own_presence["mods"],
-            own_presence["mode"],
+            session["presence"]["action"],
+            session["presence"]["info_text"],
+            session["presence"]["beatmap_md5"],
+            session["presence"]["beatmap_id"],
+            session["presence"]["mods"],
+            session["presence"]["mode"],
             own_stats["ranked_score"],
             own_stats["accuracy"],
             own_stats["play_count"],
@@ -277,25 +277,12 @@ async def handle_bancho_request(request: Request):
         )
 
         for other_session in await sessions.fetch_all():
-            # presence of all other players (& bots)
-            others_presence = await presences.fetch_one(
-                account_id=other_session["account_id"]
-            )
-            if not others_presence:
-                return Response(
-                    content=(
-                        packets.write_user_id_packet(user_id=-1)
-                        + packets.write_notification_packet(
-                            "Other's presence not found."
-                        )
-                    ),
-                    headers={"cho-token": "no"},
-                )
+            assert other_session["presence"] is not None  # TODO: is there a better way?
 
             # stats of all other players (& bots)
             others_stats = await stats.fetch_one(
                 account_id=other_session["account_id"],
-                game_mode=others_presence["game_mode"],
+                game_mode=other_session["presence"]["game_mode"],
             )
             if not others_stats:
                 return Response(
@@ -307,28 +294,28 @@ async def handle_bancho_request(request: Request):
                 )
 
             response_data += packets.write_user_presence_packet(
-                others_presence["account_id"],
-                others_presence["username"],
-                others_presence["utc_offset"],
-                geolocation.country_str_to_int(others_presence["country"]),
+                other_session["presence"]["account_id"],
+                other_session["presence"]["username"],
+                other_session["presence"]["utc_offset"],
+                geolocation.country_str_to_int(other_session["presence"]["country"]),
                 # TODO: is this right?
                 privileges.server_to_client_privileges(
-                    others_presence["bancho_privileges"]
+                    other_session["presence"]["bancho_privileges"]
                 ),
-                others_presence["game_mode"],
-                others_presence["latitude"],
-                others_presence["longitude"],
+                other_session["presence"]["game_mode"],
+                int(other_session["presence"]["latitude"]),
+                int(other_session["presence"]["longitude"]),
                 get_global_rank(others_stats["account_id"]),
             )
 
             response_data += packets.write_user_stats_packet(
                 others_stats["account_id"],
-                others_presence["action"],
-                others_presence["info_text"],
-                others_presence["beatmap_md5"],
-                others_presence["beatmap_id"],
-                others_presence["mods"],
-                others_presence["mode"],
+                other_session["presence"]["action"],
+                other_session["presence"]["info_text"],
+                other_session["presence"]["beatmap_md5"],
+                other_session["presence"]["beatmap_id"],
+                other_session["presence"]["mods"],
+                other_session["presence"]["mode"],
                 others_stats["ranked_score"],
                 others_stats["accuracy"],
                 others_stats["play_count"],
@@ -346,7 +333,7 @@ async def handle_bancho_request(request: Request):
         # whether they're restricted
         # friend list
         # main menu icon
-        print("success")
+
         return Response(
             content=bytes(response_data),
             headers={"cho-token": str(session["session_id"])},
