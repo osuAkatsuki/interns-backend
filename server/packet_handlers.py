@@ -4,8 +4,10 @@ from typing import TYPE_CHECKING
 
 from server import logger
 from server import packets
+from server import ranking
 from server.repositories import packet_bundles
 from server.repositories import sessions
+from server.repositories import stats
 
 if TYPE_CHECKING:
     from server.repositories.sessions import Session
@@ -30,6 +32,47 @@ def bancho_handler(
     return wrapper
 
 
+# CHANGE_ACTION = 0
+
+
+# SEND_PUBLIC_MESSAGE = 1
+
+
+@bancho_handler(packets.ClientPackets.SEND_PUBLIC_MESSAGE)
+async def send_public_message_handler(session: "Session", packet_data: bytes):
+    assert session["presence"] is not None
+
+    # read packet data
+    packet_reader = packets.PacketReader(packet_data)
+
+    # TODO: why am i getting "" for sender_name?
+    # TODO: why am i getting 0 for sender_id?
+    sender_name = packet_reader.read_string()
+    message_content = packet_reader.read_string()
+    recipient_name = packet_reader.read_string()
+    sender_id = packet_reader.read_i32()
+
+    # send message to everyone else
+    send_message_packet_data = packets.write_send_message_packet(
+        session["presence"]["username"],
+        message_content,
+        recipient_name,
+        session["presence"]["account_id"],
+    )
+
+    for other_session in await sessions.fetch_all(osu_clients_only=True):
+        if other_session["session_id"] == session["session_id"]:
+            continue
+
+        await packet_bundles.enqueue(
+            other_session["session_id"],
+            data=send_message_packet_data,
+        )
+
+
+# LOGOUT = 2
+
+
 @bancho_handler(packets.ClientPackets.LOGOUT)
 async def logout_handler(session: "Session", packet_data: bytes) -> None:
     await sessions.delete_by_id(session["session_id"])
@@ -49,32 +92,175 @@ async def logout_handler(session: "Session", packet_data: bytes) -> None:
     )
 
 
+# REQUEST_STATUS_UPDATE = 3
+
+
+@bancho_handler(packets.ClientPackets.REQUEST_STATUS_UPDATE)
+async def request_status_update_handler(session: "Session", packet_data: bytes):
+    assert session["presence"] is not None
+
+    own_stats = await stats.fetch_one(
+        session["account_id"],
+        session["presence"]["game_mode"],
+    )
+    assert own_stats is not None
+
+    await packet_bundles.enqueue(
+        session["session_id"],
+        packets.write_user_stats_packet(
+            own_stats["account_id"],
+            session["presence"]["action"],
+            session["presence"]["info_text"],
+            session["presence"]["beatmap_md5"],
+            session["presence"]["mods"],
+            session["presence"]["game_mode"],
+            session["presence"]["beatmap_id"],
+            own_stats["ranked_score"],
+            own_stats["accuracy"],
+            own_stats["play_count"],
+            own_stats["total_score"],
+            ranking.get_global_rank(own_stats["account_id"]),
+            own_stats["performance_points"],
+        ),
+    )
+
+
+# PING = 4
+
+
 @bancho_handler(packets.ClientPackets.PING)
 async def ping_handler(session: "Session", packet_data: bytes):
     # TODO: keep track of each osu! session's last ping time
     pass
 
 
-@bancho_handler(packets.ClientPackets.SEND_PUBLIC_MESSAGE)
-async def send_public_message_handler(session: "Session", packet_data: bytes):
-    # read packet data
-    packet_reader = packets.PacketReader(packet_data)
+# START_SPECTATING = 16
 
-    sender_name = packet_reader.read_string()
-    message_content = packet_reader.read_string()
-    recipient_name = packet_reader.read_string()
-    sender_id = packet_reader.read_i32()
 
-    # send message to everyone else
-    send_message_packet_data = packets.write_send_message_packet(
-        sender_name, message_content, recipient_name, sender_id
-    )
+# STOP_SPECTATING = 17
 
-    for other_session in await sessions.fetch_all(osu_clients_only=True):
-        if other_session["session_id"] == session["session_id"]:
-            continue
 
-        await packet_bundles.enqueue(
-            other_session["session_id"],
-            data=send_message_packet_data,
-        )
+# SPECTATE_FRAMES = 18
+
+
+# ERROR_REPORT = 20
+
+
+# CANT_SPECTATE = 21
+
+
+# SEND_PRIVATE_MESSAGE = 25
+
+
+# PART_LOBBY = 29
+
+
+# JOIN_LOBBY = 30
+
+
+# CREATE_MATCH = 31
+
+
+# JOIN_MATCH = 32
+
+
+# PART_MATCH = 33
+
+
+# MATCH_CHANGE_SLOT = 38
+
+
+# MATCH_READY = 39
+
+
+# MATCH_LOCK = 40
+
+
+# MATCH_CHANGE_SETTINGS = 41
+
+
+# MATCH_START = 44
+
+
+# MATCH_SCORE_UPDATE = 47
+
+
+# MATCH_COMPLETE = 49
+
+
+# MATCH_CHANGE_MODS = 51
+
+
+# MATCH_LOAD_COMPLETE = 52
+
+
+# MATCH_NO_BEATMAP = 54
+
+
+# MATCH_NOT_READY = 55
+
+
+# MATCH_FAILED = 56
+
+
+# MATCH_HAS_BEATMAP = 59
+
+
+# MATCH_SKIP_REQUEST = 60
+
+
+# CHANNEL_JOIN = 63
+
+
+# BEATMAP_INFO_REQUEST = 68
+
+
+# MATCH_TRANSFER_HOST = 70
+
+
+# FRIEND_ADD = 73
+
+
+# FRIEND_REMOVE = 74
+
+
+# MATCH_CHANGE_TEAM = 77
+
+
+# CHANNEL_PART = 78
+
+
+# RECEIVE_UPDATES = 79
+
+
+# SET_AWAY_MESSAGE = 82
+
+
+# IRC_ONLY = 84
+
+
+# USER_STATS_REQUEST = 85
+
+
+# MATCH_INVITE = 87
+
+
+# MATCH_CHANGE_PASSWORD = 90
+
+
+# TOURNAMENT_MATCH_INFO_REQUEST = 93
+
+
+# USER_PRESENCE_REQUEST = 97
+
+
+# USER_PRESENCE_REQUEST_ALL = 98
+
+
+# TOGGLE_BLOCK_NON_FRIEND_DMS = 99
+
+
+# TOURNAMENT_JOIN_MATCH_CHANNEL = 108
+
+
+# TOURNAMENT_LEAVE_MATCH_CHANNEL = 109
