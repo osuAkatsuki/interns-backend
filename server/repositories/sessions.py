@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
 from datetime import datetime
 from datetime import timedelta
-from typing import Any
 from typing import cast
 from typing import Literal
 from typing import TypedDict
@@ -47,7 +45,7 @@ class Presence(TypedDict):
     mode: int
 
 
-def serialize(session: Mapping[str, Any]) -> str:
+def serialize(session: Session) -> str:
     return json.dumps(
         {
             "session_id": str(session["session_id"]),
@@ -134,11 +132,7 @@ async def fetch_by_id(session_id: UUID) -> Session | None:
 async def fetch_all(osu_clients_only: bool = False) -> list[Session]:
     session_key = make_key("*")
 
-    cursor, keys = await clients.redis.scan(
-        cursor=0,
-        match=session_key,
-    )
-
+    cursor = None
     sessions = []
 
     while cursor != 0:
