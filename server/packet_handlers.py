@@ -60,14 +60,14 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
     # read packet data
     packet_reader = packets.PacketReader(packet_data)
 
-    sender = packet_reader.read_string()
-    text = packet_reader.read_string()
-    recipient = packet_reader.read_string()
+    sender_name = packet_reader.read_string()
+    message_content = packet_reader.read_string()
+    recipient_name = packet_reader.read_string()
     sender_id = packet_reader.read_i32()
 
     # send message to everyone else
     send_message_packet_data = packets.write_send_message_packet(
-        sender, text, recipient, sender_id
+        sender_name, message_content, recipient_name, sender_id
     )
 
     for other_session in await sessions.fetch_all(osu_clients_only=True):
