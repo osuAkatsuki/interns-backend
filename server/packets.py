@@ -156,7 +156,7 @@ class PacketReader:
     def read(self, num_bytes: int) -> bytes:
         data = self.data_view[:num_bytes]
         self.data_view = self.data_view[num_bytes:]
-        return data
+        return data.tobytes()  # copy on exit
 
     def read_i8(self) -> int:
         return struct.unpack("<b", self.read(1))[0]
