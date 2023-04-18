@@ -2,6 +2,7 @@
 import asyncio
 import hashlib
 import os
+from getpass import getpass
 
 import bcrypt
 import databases
@@ -54,7 +55,7 @@ async def main() -> int:
                 "username": input("Username: "),
                 "email_address": input("Email address: "),
                 "privileges": 2_147_483_647,
-                "password": hash_password(input("Password: ")).decode(),
+                "password": hash_password(getpass("Password: ")).decode(),
                 "country": input("Country: "),
             },
         )
