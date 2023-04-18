@@ -1,4 +1,5 @@
-from typing import Any
+from typing import cast
+from typing import TypedDict
 
 from server import clients
 
@@ -22,7 +23,26 @@ READ_PARAMS = """
 """
 
 
-async def create(account_id: int, game_mode: int) -> dict[str, Any]:
+class Stats(TypedDict):
+    account_id: int
+    game_mode: int
+    total_score: int
+    ranked_score: int
+    performance_points: int
+    play_count: int
+    play_time: int
+    accuracy: float
+    highest_combo: int
+    total_hits: int
+    replay_views: int
+    xh_count: int
+    x_count: int
+    sh_count: int
+    s_count: int
+    a_count: int
+
+
+async def create(account_id: int, game_mode: int) -> Stats:
     stats = await clients.database.fetch_one(
         query=f"""\
             INSERT INTO stats (account_id, game_mode)
@@ -36,13 +56,13 @@ async def create(account_id: int, game_mode: int) -> dict[str, Any]:
     )
 
     assert stats is not None
-    return dict(stats._mapping)
+    return cast(Stats, dict(stats._mapping))
 
 
 async def fetch_all(
     account_id: int | None = None,
     game_mode: int | None = None,
-) -> list[dict[str, Any]]:
+) -> list[Stats]:
     stats = await clients.database.fetch_all(
         query=f"""
             SELECT {READ_PARAMS}
@@ -55,7 +75,7 @@ async def fetch_all(
             "game_mode": game_mode,
         },
     )
-    return [dict(stat._mapping) for stat in stats]
+    return [cast(Stats, dict(stat._mapping)) for stat in stats]
 
 
 async def fetch_many(
@@ -63,7 +83,7 @@ async def fetch_many(
     game_mode: int | None = None,
     page: int = 1,
     page_size: int = 50,
-) -> list[dict[str, Any]]:
+) -> list[Stats]:
     stats = await clients.database.fetch_all(
         query=f"""
             SELECT {READ_PARAMS}
@@ -80,10 +100,10 @@ async def fetch_many(
             "offset": (page - 1) * page_size,
         },
     )
-    return [dict(stat._mapping) for stat in stats]
+    return [cast(Stats, dict(stat._mapping)) for stat in stats]
 
 
-async def fetch_one(account_id: int, game_mode: int) -> dict[str, Any] | None:
+async def fetch_one(account_id: int, game_mode: int) -> Stats | None:
     stats = await clients.database.fetch_one(
         query=f"""\
             SELECT {READ_PARAMS}
@@ -93,4 +113,4 @@ async def fetch_one(account_id: int, game_mode: int) -> dict[str, Any] | None:
         """,
         values={"account_id": account_id, "game_mode": game_mode},
     )
-    return dict(stats._mapping) if stats is not None else None
+    return cast(Stats, dict(stats._mapping)) if stats is not None else None
