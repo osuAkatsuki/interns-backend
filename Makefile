@@ -1,7 +1,7 @@
 #!/usr/bin/make
 
 build: # build all containers
-	sudo chmod -R 755 pgdata
+	if [ -d "pgdata" ]; then sudo chmod -R 755 pgdata; fi
 	docker build -t osu-server:latest -t osu-server:latest .
 
 run-bg: # run all containers in the background
