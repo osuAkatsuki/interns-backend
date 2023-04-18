@@ -202,6 +202,8 @@ class PacketReader:
         return value
 
     def read_string(self) -> str:
+        if self.read(1) != b"\x0b":
+            return ""
         length = self.read_uleb128()
         return self.read(length).decode("utf-8")
 
