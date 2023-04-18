@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Any
 from typing import cast
 from typing import Literal
 from typing import TypedDict
@@ -15,28 +14,28 @@ def make_key(session_id: UUID | Literal["*"]) -> str:
 
 
 class PacketBundle(TypedDict):
-    data: list[int]
+    data: bytes
     created_at: datetime
 
 
-def serialize(data: list[int]) -> bytes:
-    now = datetime.now()
-    bundle = {
-        "data": data,
-        "created_at": now.isoformat(),
-    }
-    return json.dumps(bundle)
+def serialize(bundle: PacketBundle) -> bytes:
+    return json.dumps(
+        {
+            "data": list(bundle["data"]),
+            "created_at": bundle["created_at"].isoformat(),
+        }
+    )
 
 
-def deserialize(data: str) -> PacketBundle:
-    raw_bundle = json.loads(data)
-    raw_bundle["created_at"] = datetime.fromisoformat(raw_bundle["created_at"])
-    return cast(PacketBundle, raw_bundle)
+def deserialize(raw_bundle: str) -> PacketBundle:
+    untyped_bundle = json.loads(raw_bundle)
+    untyped_bundle["created_at"] = datetime.fromisoformat(untyped_bundle["created_at"])
+    return cast(PacketBundle, untyped_bundle)
 
 
 async def enqueue(
     session_id: UUID,
-    data: list[int],
+    data: bytes,
 ) -> PacketBundle:
     now = datetime.now()
     bundle: PacketBundle = {
@@ -47,7 +46,7 @@ async def enqueue(
     # XXX: warn developers if a queue's size becomes very large
     queue_size = await clients.redis.rpush(
         make_key(session_id),
-        json.dumps(bundle),
+        serialize(bundle),
     )
     if queue_size > 50:
         logger.warning(
@@ -64,10 +63,10 @@ async def dequeue_one(session_id: UUID) -> PacketBundle | None:
     if bundle is None:
         return None
 
-    return json.loads(bundle)
+    return deserialize(bundle)
 
 
-async def dequeue_all(session_id: UUID) -> list[dict[str, Any]]:
+async def dequeue_all(session_id: UUID) -> list[PacketBundle]:
     bundles = await clients.redis.lrange(
         make_key(session_id),
         start=0,
@@ -78,4 +77,4 @@ async def dequeue_all(session_id: UUID) -> list[dict[str, Any]]:
 
     await clients.redis.delete(make_key(session_id))
 
-    return [json.loads(bundle) for bundle in bundles]
+    return [deserialize(bundle) for bundle in bundles]

@@ -39,7 +39,7 @@ async def logout_handler(session: "Session", packet_data: bytes) -> None:
     for other_session in await sessions.fetch_all():
         await packet_bundles.enqueue(
             other_session["session_id"],
-            data=list(logout_packet_data),
+            data=logout_packet_data,
         )
 
     logger.info(
@@ -76,5 +76,5 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
 
         await packet_bundles.enqueue(
             other_session["session_id"],
-            data=list(send_message_packet_data),
+            data=send_message_packet_data,
         )
