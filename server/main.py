@@ -17,6 +17,7 @@ from server import logger
 from server import packet_handlers
 from server import packets
 from server import privileges
+from server import ranking
 from server import security
 from server import settings
 from server.adapters import ip_api
@@ -149,16 +150,6 @@ def parse_login_data(data: bytes) -> dict[str, Any]:
     }
 
 
-def get_global_rank(account_id: int) -> int:
-    """Get the global rank of an account."""
-    return 1
-
-
-def get_country_rank(account_id: int) -> int:
-    """Get the country rank of an account."""
-    return 1
-
-
 async def handle_login(request: Request) -> Response:
     login_data = parse_login_data(await request.body())
 
@@ -279,7 +270,7 @@ async def handle_login(request: Request) -> Response:
         own_session["presence"]["game_mode"],
         int(own_session["presence"]["latitude"]),
         int(own_session["presence"]["longitude"]),
-        get_global_rank(own_session["presence"]["account_id"]),
+        ranking.get_global_rank(own_session["presence"]["account_id"]),
     )
 
     # user stats
@@ -308,7 +299,7 @@ async def handle_login(request: Request) -> Response:
         own_stats["accuracy"],
         own_stats["play_count"],
         own_stats["total_score"],
-        get_global_rank(own_stats["account_id"]),
+        ranking.get_global_rank(own_stats["account_id"]),
         own_stats["performance_points"],
     )
 
@@ -335,7 +326,7 @@ async def handle_login(request: Request) -> Response:
             other_session["presence"]["game_mode"],
             int(other_session["presence"]["latitude"]),
             int(other_session["presence"]["longitude"]),
-            get_global_rank(other_session["account_id"]),
+            ranking.get_global_rank(other_session["account_id"]),
         )
 
         # send other user's stats to us
@@ -364,7 +355,7 @@ async def handle_login(request: Request) -> Response:
             others_stats["accuracy"],
             others_stats["play_count"],
             others_stats["total_score"],
-            get_global_rank(others_stats["account_id"]),
+            ranking.get_global_rank(others_stats["account_id"]),
             others_stats["performance_points"],
         )
 
