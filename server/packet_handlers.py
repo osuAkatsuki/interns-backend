@@ -35,6 +35,70 @@ def bancho_handler(
 # CHANGE_ACTION = 0
 
 
+@bancho_handler(packets.ClientPackets.CHANGE_ACTION)
+async def change_action_handler(session: "Session", packet_data: bytes):
+    assert session["presence"] is not None
+
+    # let him cook
+    data = packets.PacketReader(packet_data)
+
+    action = data.read_u8()
+    info_text = data.read_string()
+    map_md5 = data.read_string()
+
+    mods = data.read_u32()
+    mode = data.read_u8()
+
+    map_id = data.read_i32()
+
+    maybe_session = await sessions.update_by_id(
+        session["session_id"],
+        presence={
+            "action": action,
+            "info_text": info_text,
+            "map_md5": map_md5,
+            "mods": mods,
+            "mode": mode,
+            "map_id": map_id,
+        },
+    )
+    assert maybe_session is not None
+    session = maybe_session
+
+    assert session["presence"] is not None
+
+    # TODO: only when not restricted
+
+    session_stats = await stats.fetch_one(session["account_id"], mode)
+    assert session_stats is not None
+
+    # send the stats update to all active osu sessions' packet bundles
+    for other_session in await sessions.fetch_all(osu_clients_only=True):
+        # if other_session["session_id"] == session["session_id"]:
+        #     continue
+
+        assert other_session["presence"] is not None
+
+        await packet_bundles.enqueue(
+            other_session["session_id"],
+            packets.write_user_stats_packet(
+                session["account_id"],
+                session["presence"]["action"],
+                session["presence"]["info_text"],
+                session["presence"]["beatmap_md5"],
+                session["presence"]["mods"],
+                session["presence"]["mode"],
+                session["presence"]["beatmap_id"],
+                session_stats["ranked_score"],
+                session_stats["accuracy"],
+                session_stats["play_count"],
+                session_stats["total_score"],
+                ranking.get_global_rank(session["account_id"]),
+                session_stats["performance_points"],
+            ),
+        )
+
+
 # SEND_PUBLIC_MESSAGE = 1
 
 
