@@ -172,7 +172,8 @@ async def update_by_id(session_id: UUID, **kwargs: Any) -> Session | None:
 
     expires_at = kwargs.get("expires_at")
     if expires_at is not None:
-        session["expires_at"] = datetime.fromisoformat(expires_at)
+        expires_at = datetime.fromisoformat(expires_at)
+        session["expires_at"] = expires_at
 
     # TODO: can presences be removed from a session? None might be a valid state
     presence = kwargs.get("presence")
