@@ -40,3 +40,9 @@ up-migrations: # apply up migrations from current state
 
 down-migrations: # apply down migrations from current state
 	docker-compose exec osu-server /scripts/migrate-db.sh down
+
+up-seeds: # apply up seeds from current state
+	docker-compose exec osu-server /scripts/seed-db.sh up
+
+down-seeds: # apply down seeds from current state
+	docker-compose exec osu-server /scripts/seed-db.sh down
