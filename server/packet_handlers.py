@@ -8,6 +8,8 @@ from server import ranking
 from server.repositories import packet_bundles
 from server.repositories import sessions
 from server.repositories import stats
+from server.repositories import channels
+from server.repositories import channel_members
 
 if TYPE_CHECKING:
     from server.repositories.sessions import Session
@@ -188,8 +190,36 @@ async def request_status_update_handler(session: "Session", packet_data: bytes):
     )
 
 
-# PING = 4
+@bancho_handler(packets.ClientPackets.CHANNEL_PART)
+async def user_leaves_channel_handler(session: "Session", packet_data: bytes):
 
+    packet_reader = packets.PacketReader(packet_data)
+    channel_name = packet_reader.read_string()
+
+    channel = await channels.fetch_one_by_name(channel_name)
+    
+    if not channel:
+        return
+
+    if session['account_id'] not in channel:
+        return
+
+    await channel_members.dequeue_one(session['session_id'])
+
+
+@bancho_handler(packets.ClientPackets.CHANNEL_JOIN)
+async def user_joins_channel_handler(session: "Session", packet_data: bytes):
+
+    packet_reader = packets.PacketReader(packet_data)
+    print("PACKET_DATA", packet_data)
+    ...
+# get packets
+# update channel members (queue)
+
+
+
+
+# PING = 4
 
 @bancho_handler(packets.ClientPackets.PING)
 async def ping_handler(session: "Session", packet_data: bytes):

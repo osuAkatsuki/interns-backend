@@ -26,6 +26,7 @@ from server.repositories import channels
 from server.repositories import packet_bundles
 from server.repositories import sessions
 from server.repositories import stats
+from server.repositories import channel_members
 
 app = FastAPI()
 
@@ -251,7 +252,7 @@ async def handle_login(request: Request) -> Response:
         response_data += packets.write_channel_info_packet(
             channel["name"],
             channel["topic"],
-            channel["num_sessions"],
+            len(await channel_members.members(channel["channel_id"]))
         )
 
     # notify the client that we're done sending channel info
