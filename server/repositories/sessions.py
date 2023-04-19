@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from datetime import timedelta
+from typing import Any
 from typing import cast
 from typing import Literal
 from typing import TypedDict
@@ -153,6 +154,75 @@ async def fetch_all(osu_clients_only: bool = False) -> list[Session]:
             sessions.append(session)
 
     return sessions
+
+
+async def update_by_id(session_id: UUID, **kwargs: Any) -> Session | None:
+    session_key = make_key(session_id)
+
+    raw_session = await clients.redis.get(session_key)
+
+    if raw_session is None:
+        return None
+
+    session = json.loads(raw_session)
+
+    if not kwargs:
+        return session
+
+    session = dict(session)
+
+    expires_at = kwargs.get("expires_at")
+    if expires_at is not None:
+        expires_at = datetime.fromisoformat(expires_at)
+        session["expires_at"] = expires_at
+
+    # TODO: can presences be removed from a session? None might be a valid state
+    presence = kwargs.get("presence")
+    if presence is not None:
+        username = kwargs["presence"].get("username")
+        if username is not None:
+            session["presence"]["username"] = username
+
+        bancho_privileges = kwargs["presence"].get("bancho_privileges")
+        if bancho_privileges is not None:
+            session["presence"]["bancho_privileges"] = bancho_privileges
+
+        game_mode = kwargs["presence"].get("game_mode")
+        if game_mode is not None:
+            session["presence"]["game_mode"] = game_mode
+
+        action = kwargs["presence"].get("action")
+        if action is not None:
+            session["presence"]["action"] = action
+
+        info_text = kwargs["presence"].get("info_text")
+        if info_text is not None:
+            session["presence"]["info_text"] = info_text
+
+        beatmap_md5 = kwargs["presence"].get("beatmap_md5")
+        if beatmap_md5 is not None:
+            session["presence"]["beatmap_md5"] = beatmap_md5
+
+        beatmap_id = kwargs["presence"].get("beatmap_id")
+        if beatmap_id is not None:
+            session["presence"]["beatmap_id"] = beatmap_id
+
+        mods = kwargs["presence"].get("mods")
+        if mods is not None:
+            session["presence"]["mods"] = mods
+
+        mode = kwargs["presence"].get("mode")
+        if mode is not None:
+            session["presence"]["mode"] = mode
+
+    session["updated_at"] = datetime.now().isoformat()
+
+    await clients.redis.set(session_key, json.dumps(session))
+
+    if expires_at is not None:
+        await clients.redis.expireat(session_key, expires_at)
+
+    return cast(Session, session)
 
 
 async def delete_by_id(session_id: UUID) -> Session | None:
