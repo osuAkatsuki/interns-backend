@@ -39,7 +39,6 @@ def bancho_handler(
 async def change_action_handler(session: "Session", packet_data: bytes):
     assert session["presence"] is not None
 
-    # let him cook
     data = packets.PacketReader(packet_data)
 
     action = data.read_u8()

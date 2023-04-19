@@ -174,15 +174,13 @@ async def update_by_id(session_id: UUID, **kwargs: Any) -> Session | None:
     if expires_at is not None:
         session["expires_at"] = datetime.fromisoformat(expires_at)
 
+    # TODO: can presences be removed from a session? None might be a valid state
     presence = kwargs.get("presence")
     if presence is not None:
-        # session["presence"] = presence
         username = kwargs["presence"].get("username")
         if username is not None:
             session["presence"]["username"] = username
 
-        # utc_offset
-        # country
         bancho_privileges = kwargs["presence"].get("bancho_privileges")
         if bancho_privileges is not None:
             session["presence"]["bancho_privileges"] = bancho_privileges
@@ -191,8 +189,6 @@ async def update_by_id(session_id: UUID, **kwargs: Any) -> Session | None:
         if game_mode is not None:
             session["presence"]["game_mode"] = game_mode
 
-        # latitude
-        # longitude
         action = kwargs["presence"].get("action")
         if action is not None:
             session["presence"]["action"] = action
