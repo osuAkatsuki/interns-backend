@@ -24,6 +24,9 @@ cd /srv/root
 # run sql database migrations
 /scripts/migrate-db.sh up
 
+# run sql database seeds
+/scripts/seed-db.sh up
+
 case $APP_COMPONENT in
   "api")
     exec /scripts/run-api.sh
