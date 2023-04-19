@@ -5,7 +5,7 @@ if [[ $# -eq 0 ]]; then
   echo "Usage: ./migrate-db.sh <up/down/create>"
 fi
 
-MIGRATIONS_PATH=/srv/root/migrations
+MIGRATIONS_PATH=/srv/root/database/migrations
 MIGRATIONS_SCHEMA_TABLE=schema_migrations
 
 FULL_DB_NAME=$DB_NAME
