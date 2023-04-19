@@ -3,7 +3,8 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from datetime import timedelta
-from typing import Any, cast
+from typing import Any
+from typing import cast
 from typing import Literal
 from typing import TypedDict
 from uuid import UUID
@@ -162,12 +163,12 @@ async def update_by_id(session_id: UUID, **kwargs: Any) -> Session | None:
 
     if raw_session is None:
         return None
-    
+
     session = json.loads(raw_session)
 
     if not kwargs:
         return session
-    
+
     session = dict(session)
 
     expires_at = kwargs.get("expires_at")
@@ -217,11 +218,12 @@ async def update_by_id(session_id: UUID, **kwargs: Any) -> Session | None:
     session["updated_at"] = datetime.now().isoformat()
 
     await clients.redis.set(session_key, json.dumps(session))
-    
+
     if expires_at is not None:
         await clients.redis.expireat(session_key, expires_at)
-    
+
     return cast(Session, session)
+
 
 async def delete_by_id(session_id: UUID) -> Session | None:
     session_key = make_key(session_id)
