@@ -249,10 +249,12 @@ async def handle_login(request: Request) -> Response:
     # osu chat channels
     for channel in await channels.fetch_all():
         # TODO: privilege check - do they have access to this channel?
+        current_channel_members = await channel_members.members(channel["channel_id"])
+        
         response_data += packets.write_channel_info_packet(
             channel["name"],
             channel["topic"],
-            len(await channel_members.members(channel["channel_id"]))
+            len(current_channel_members)
         )
 
     # notify the client that we're done sending channel info

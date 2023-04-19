@@ -201,9 +201,6 @@ async def user_leaves_channel_handler(session: "Session", packet_data: bytes):
     if not channel:
         return
 
-    if session['account_id'] not in channel:
-        return
-
     await channel_members.dequeue_one(session['session_id'])
 
 
@@ -211,8 +208,21 @@ async def user_leaves_channel_handler(session: "Session", packet_data: bytes):
 async def user_joins_channel_handler(session: "Session", packet_data: bytes):
 
     packet_reader = packets.PacketReader(packet_data)
-    print("PACKET_DATA", packet_data)
-    ...
+    channel_name = packet_reader.read_string()
+
+    channel = await channels.fetch_one_by_name(channel_name)
+
+    if not channel:
+        return
+
+    if session["session_id"] in await channel_members.members(channel["channel_id"]):
+        return
+
+    await channel_members.add(channel["channel_id"], session["session_id"])
+    
+    
+    
+    
 # get packets
 # update channel members (queue)
 
