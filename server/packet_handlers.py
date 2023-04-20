@@ -15,6 +15,7 @@ from server.repositories import relationship
 if TYPE_CHECKING:
     from server.repositories.sessions import Session
 
+
 packet_handlers = {}
 
 
@@ -163,6 +164,7 @@ async def logout_handler(session: "Session", packet_data: bytes) -> None:
 
 @bancho_handler(packets.ClientPackets.REQUEST_STATUS_UPDATE)
 async def request_status_update_handler(session: "Session", packet_data: bytes):
+
     assert session["presence"] is not None
 
     own_stats = await stats.fetch_one(
@@ -202,7 +204,7 @@ async def user_leaves_channel_handler(session: "Session", packet_data: bytes):
     if not channel:
         return
 
-    await channel_members.dequeue_one(session["session_id"])
+    await channel_members.remove(channel["channel_id"], session["session_id"])
 
 
 @bancho_handler(packets.ClientPackets.CHANNEL_JOIN)

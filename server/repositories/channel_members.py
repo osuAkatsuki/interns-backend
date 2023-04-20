@@ -12,8 +12,8 @@ def serialize(session_id: UUID) -> str:
     return str(session_id)
 
 
-def deserialize(channel_member: str) -> UUID:
-    return UUID(channel_member)
+def deserialize(channel_id: bytes) -> UUID:
+    return UUID(channel_id.decode())
 
 
 async def add(
