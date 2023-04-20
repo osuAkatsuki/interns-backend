@@ -52,6 +52,7 @@ def db_dsn(
     return f"{scheme}://{user}:{passwd}@{host}:{port}/{database}"
 
 
+
 @app.on_event("startup")
 async def start_database():
     logger.info("Connecting to database...")

@@ -66,15 +66,15 @@ async def fetch_one(channel_id: int) -> dict[str, Any] | None:
     return dict(channel._mapping) if channel is not None else None
 
 
-async def fetch_one_by_name(channel_name: int) -> dict[str, Any] | None:
+async def fetch_one_by_name(name: str) -> dict[str, Any] | None:
     channel = await clients.database.fetch_one(
         query=f"""
             SELECT {READ_PARAMS}
             from channels
-            WHERE channel_name = :channel_name
+            WHERE name = :name
         """,
         values={
-            "channel_name": channel_name,
+            "name": name,
         },
     )
     

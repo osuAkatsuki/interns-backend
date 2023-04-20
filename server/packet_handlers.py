@@ -10,6 +10,7 @@ from server.repositories import sessions
 from server.repositories import stats
 from server.repositories import channels
 from server.repositories import channel_members
+from server.repositories import relationship
 
 if TYPE_CHECKING:
     from server.repositories.sessions import Session
@@ -201,7 +202,7 @@ async def user_leaves_channel_handler(session: "Session", packet_data: bytes):
     if not channel:
         return
 
-    await channel_members.dequeue_one(session['session_id'])
+    await channel_members.dequeue_one(session["session_id"])
 
 
 @bancho_handler(packets.ClientPackets.CHANNEL_JOIN)
@@ -219,14 +220,30 @@ async def user_joins_channel_handler(session: "Session", packet_data: bytes):
         return
 
     await channel_members.add(channel["channel_id"], session["session_id"])
-    
-    
-    
-    
-# get packets
-# update channel members (queue)
 
 
+@bancho_handler(packets.ClientPackets.FRIEND_ADD)
+async def user_adds_friend_handler(session: "Session", packet_data: bytes):
+
+    packet_reader = packets.PacketReader(packet_data)
+    user_being_friended = packet_reader.read_string()
+    
+    await relationship.create(session["account_id"], user_being_friended["account_id"], "friend")
+
+
+@bancho_handler(packets.ClientPackets.FRIEND_REMOVE)
+async def user_removes_friend_handler(session: "Session", packet_data: bytes):
+    
+    packet_reader = packets.PacketReader(packet_data)
+    user_being_unfriended = packet_reader.read_string()
+    
+    await relationship.remove(session["account_id"], user_being_unfriended["account_id"], "block")
+
+
+# TOGGLE BLOCK NON FRIEND DMS WRITTEN TWICE IN PACKETS
+@bancho_handler(packets.ClientPackets.TOGGLE_BLOCK_NON_FRIEND_DMS)
+async def user_adds_friend_handler(session: "Session", packet_data: bytes):
+    ...
 
 
 # PING = 4
