@@ -200,7 +200,7 @@ async def user_leaves_channel_handler(session: "Session", packet_data: bytes):
     channel_name = packet_reader.read_string()
 
     channel = await channels.fetch_one_by_name(channel_name)
-    
+
     if not channel:
         return
 
@@ -228,24 +228,29 @@ async def user_joins_channel_handler(session: "Session", packet_data: bytes):
 async def user_adds_friend_handler(session: "Session", packet_data: bytes):
 
     packet_reader = packets.PacketReader(packet_data)
-    user_being_friended = packet_reader.read_string()
-    
-    await relationship.create(session["account_id"], user_being_friended["account_id"], "friend")
+    user_being_friended_id = packet_reader.read_i32()
+
+    await relationship.create(
+        session["account_id"], 
+        user_being_friended_id, 
+        "friend"
+        )
 
 
 @bancho_handler(packets.ClientPackets.FRIEND_REMOVE)
 async def user_removes_friend_handler(session: "Session", packet_data: bytes):
     
     packet_reader = packets.PacketReader(packet_data)
-    user_being_unfriended = packet_reader.read_string()
+    user_being_unfriended_id = packet_reader.read_i32()
     
-    await relationship.remove(session["account_id"], user_being_unfriended["account_id"], "block")
+    await relationship.remove(
+        session["account_id"], 
+        user_being_unfriended_id, 
+        "NULL")
 
 
 # TOGGLE BLOCK NON FRIEND DMS WRITTEN TWICE IN PACKETS
-@bancho_handler(packets.ClientPackets.TOGGLE_BLOCK_NON_FRIEND_DMS)
-async def user_adds_friend_handler(session: "Session", packet_data: bytes):
-    ...
+
 
 
 # PING = 4

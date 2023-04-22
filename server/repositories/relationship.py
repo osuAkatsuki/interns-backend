@@ -5,7 +5,7 @@ from server import clients
 READ_PARAMS = """
     initiator_account_id,
     recipient_account_id,
-    relationship,
+    relationship
 """
 
 
@@ -16,19 +16,18 @@ async def create(
 ) -> dict[str, Any]:
     channel = await clients.database.fetch_one(
         query=f"""
-            INSERT INTO relationship (initiator_account_id, recipient_account_id, relationship)
+            INSERT INTO relationships (initiator_account_id, recipient_account_id, relationship)
             VALUES (:initiator_account_id, :recipient_account_id, :relationship)
             RETURNING {READ_PARAMS}
         """,
         values={
             "initiator_account_id": initiator_account_id,
             "recipient_account_id": recipient_account_id,
-            "relationship": relationship,
+            "relationship": relationship
         },
     )
 
     assert channel is not None
-
     return dict(channel._mapping)
 
 
@@ -39,13 +38,13 @@ async def fetch_all(
     channels = await clients.database.fetch_all(
         query=f"""
             SELECT {READ_PARAMS}
-            FROM relationship
-            WHERE initiator_account_id = COALESCE(:initiator_account_id)
-            AND relationship = COALESCE(:relationship)
+            FROM relationships
+            WHERE initiator_account_id = COALESCE(:initiator_account_id, initiator_account_id)
+            AND relationship = COALESCE(:relationship, relationship)
         """,
         values={
             "initiator_account_id": initiator_account_id,
-            "relationship": relationship,
+            "relationship": relationship
         }
     )
 
@@ -60,7 +59,7 @@ async def remove(
     channel = await clients.database.fetch_all(
         query=f"""
             UPDATE {READ_PARAMS}
-            FROM relationship
+            FROM relationships
             SET relationship = NULL
             WHERE initiator_account_id = :initiator_account_id
             AND recipient_account_id = :recipient_account_id
@@ -69,7 +68,7 @@ async def remove(
         values={
             "initiator_account_id": initiator_account_id,
             "recipient_account_id": recipient_account_id,
-            "relationship": relationship,
+            "relationship": relationship
         },
     )
     return dict(channel._mapping)

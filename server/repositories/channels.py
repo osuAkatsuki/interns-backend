@@ -23,7 +23,7 @@ async def create(
 ) -> dict[str, Any]:
     channel = await clients.database.fetch_one(
         query=f"""\
-            INSERT INTO channel (name, topic, read_privileges, write_privileges, auto_join, created_at, updated_at)
+            INSERT INTO channels (name, topic, read_privileges, write_privileges, auto_join, created_at, updated_at)
             VALUES (:name, :topic, :read_privileges, :write_privileges, :auto_join, :created_at, :updated_at)
             RETURNING {READ_PARAMS}
         """,
