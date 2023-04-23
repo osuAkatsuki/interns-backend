@@ -236,7 +236,7 @@ async def user_removes_friend_handler(session: "Session", packet_data: bytes):
     packet_reader = packets.PacketReader(packet_data)
     target_id= packet_reader.read_i32()
 
-    await relationships.remove(session["account_id"], user_being_unfriended_id)
+    await relationships.remove(session["account_id"], target_id)
 
 
 @bancho_handler(packets.ClientPackets.SEND_PRIVATE_MESSAGE)
