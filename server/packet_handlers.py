@@ -5,12 +5,12 @@ from typing import TYPE_CHECKING
 from server import logger
 from server import packets
 from server import ranking
+from server.repositories import channel_members
+from server.repositories import channels
 from server.repositories import packet_bundles
+from server.repositories import relationships
 from server.repositories import sessions
 from server.repositories import stats
-from server.repositories import channels
-from server.repositories import channel_members
-from server.repositories import relationships
 
 if TYPE_CHECKING:
     from server.repositories.sessions import Session
@@ -215,9 +215,9 @@ async def user_joins_channel_handler(session: "Session", packet_data: bytes):
     if not channel:
         return
 
-    channel_members = await channel_members.members(channel["channel_id"])
+    current_channel_members = await channel_members.members(channel["channel_id"])
 
-    if session["session_id"] in channel_members :
+    if session["session_id"] in current_channel_members:
         return
 
     await channel_members.add(channel["channel_id"], session["session_id"])
@@ -234,7 +234,7 @@ async def user_adds_friend_handler(session: "Session", packet_data: bytes):
 @bancho_handler(packets.ClientPackets.FRIEND_REMOVE)
 async def user_removes_friend_handler(session: "Session", packet_data: bytes):
     packet_reader = packets.PacketReader(packet_data)
-    target_id= packet_reader.read_i32()
+    target_id = packet_reader.read_i32()
 
     await relationships.remove(session["account_id"], target_id)
 
