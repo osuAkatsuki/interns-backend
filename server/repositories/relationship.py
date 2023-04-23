@@ -14,6 +14,7 @@ async def create(
     recipient_account_id: int,
     relationship: str,
 ) -> dict[str, Any]:
+
     channel = await clients.database.fetch_one(
         query=f"""
             INSERT INTO relationships (initiator_account_id, recipient_account_id, relationship)
@@ -80,6 +81,24 @@ async def block(
     relationship: str,
 ):
     ...
+#     channel = await clients.database.fetch_all(
+#     query=f"""
+#         UPDATE {READ_PARAMS}
+#         FROM relationships
+#         SET relationship = NULL
+#         WHERE initiator_account_id = :initiator_account_id
+#         AND recipient_account_id = :recipient_account_id
+#         AND relationship = :relationship
+#     """,
+#     values={
+#         "initiator_account_id": initiator_account_id,
+#         "recipient_account_id": recipient_account_id,
+#         "relationship": relationship
+#     },
+# )
+#     return dict(channel._mapping)
+
+
 
 
 async def unblock(

@@ -246,8 +246,15 @@ async def user_removes_friend_handler(session: "Session", packet_data: bytes):
     await relationship.remove(
         session["account_id"], 
         user_being_unfriended_id, 
-        "NULL")
+        "NULL"
+        )
 
+
+
+
+@bancho_handler(packets.ClientPackets.SEND_PRIVATE_MESSAGE)
+async def send_private_message_handler(session: "Session", packet_data: bytes):
+    pass
 
 # TOGGLE BLOCK NON FRIEND DMS WRITTEN TWICE IN PACKETS
 
