@@ -6,6 +6,7 @@ from uuid import uuid4
 
 import redis.asyncio
 from databases import Database
+from fastapi import APIRouter
 from fastapi import FastAPI
 from fastapi import Request
 from fastapi import Response
@@ -22,13 +23,22 @@ from server import security
 from server import settings
 from server.adapters import ip_api
 from server.repositories import accounts
+from server.repositories import channel_members
 from server.repositories import channels
 from server.repositories import packet_bundles
 from server.repositories import sessions
 from server.repositories import stats
-from server.repositories import channel_members
 
 app = FastAPI()
+
+osu_web_handler = APIRouter()
+bancho_router = APIRouter()
+
+app.host("osu.cmyui.xyz", osu_web_handler)
+
+for subdomain in ("c", "ce", "c4", "c5", "c6"):
+    app.host(f"{subdomain}.cmyui.xyz", bancho_router)
+
 
 logger.configure_logging(
     app_env=settings.APP_ENV,
@@ -36,9 +46,14 @@ logger.configure_logging(
 )
 
 
-@app.get("/")
-async def home_page():
-    return "Hello, world!"
+@bancho_router.get("/")
+async def bancho_home_page():
+    return "Hello, bancho!"
+
+
+@osu_web_handler.get("/")
+async def osu_web_home_page():
+    return "Hello, osu!web!"
 
 
 def db_dsn(
@@ -50,7 +65,6 @@ def db_dsn(
     database: str,
 ) -> str:
     return f"{scheme}://{user}:{passwd}@{host}:{port}/{database}"
-
 
 
 @app.on_event("startup")
@@ -251,11 +265,11 @@ async def handle_login(request: Request) -> Response:
     for channel in await channels.fetch_all():
         # TODO: privilege check - do they have access to this channel?
         current_channel_members = await channel_members.members(channel["channel_id"])
-        
+
         response_data += packets.write_channel_info_packet(
             channel["name"],
             channel["topic"],
-            len(current_channel_members)
+            len(current_channel_members),
         )
 
     # notify the client that we're done sending channel info
@@ -427,7 +441,7 @@ async def handle_bancho_request(request: Request) -> Response:
     )
 
 
-@app.post("/")
+@bancho_router.post("/")
 async def handle_bancho_http_request(request: Request):
     if "osu-token" not in request.headers:
         response = await handle_login(request)
