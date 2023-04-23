@@ -217,6 +217,34 @@ async def ping_handler(session: "Session", packet_data: bytes):
 
 
 # SEND_PRIVATE_MESSAGE = 25
+@bancho_handler(packets.ClientPackets.SEND_PRIVATE_MESSAGE)
+async def send_private_message_handler(session: "Session", packet_data: bytes):
+    packet_reader = packets.PacketReader(packet_data)
+
+    sender_name = packet_reader.read_string()  # NOTHING
+    message = packet_reader.read_string()
+    sendable_message = message.encode()
+    recipient_name = packet_reader.read_string()
+    sender_id = packet_reader.read_i32()  # 0
+
+    assert session["presence"] is not None
+
+    send_message_packet_data = packets.write_send_message_packet(
+        session["presence"]["username"],
+        message,
+        recipient_name,
+        session["account_id"],
+    )
+
+    recipient_session = await sessions.fetch_by_username(recipient_name)
+
+    # Todo add notification
+    if not recipient_session:
+        return
+
+    await packet_bundles.enqueue(
+        recipient_session["session_id"], send_message_packet_data
+    )
 
 
 @bancho_handler(packets.ClientPackets.SEND_PRIVATE_MESSAGE)
