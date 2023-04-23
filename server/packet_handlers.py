@@ -192,86 +192,6 @@ async def request_status_update_handler(session: "Session", packet_data: bytes):
     )
 
 
-@bancho_handler(packets.ClientPackets.CHANNEL_PART)
-async def user_leaves_channel_handler(session: "Session", packet_data: bytes):
-    packet_reader = packets.PacketReader(packet_data)
-    channel_name = packet_reader.read_string()
-
-    channel = await channels.fetch_one_by_name(channel_name)
-
-    if not channel:
-        return
-
-    await channel_members.remove(channel["channel_id"], session["session_id"])
-
-
-@bancho_handler(packets.ClientPackets.CHANNEL_JOIN)
-async def user_joins_channel_handler(session: "Session", packet_data: bytes):
-    packet_reader = packets.PacketReader(packet_data)
-    channel_name = packet_reader.read_string()
-
-    channel = await channels.fetch_one_by_name(channel_name)
-
-    if not channel:
-        return
-
-    current_channel_members = await channel_members.members(channel["channel_id"])
-
-    if session["session_id"] in current_channel_members:
-        return
-
-    await channel_members.add(channel["channel_id"], session["session_id"])
-
-
-@bancho_handler(packets.ClientPackets.FRIEND_ADD)
-async def user_adds_friend_handler(session: "Session", packet_data: bytes):
-    packet_reader = packets.PacketReader(packet_data)
-    target_id = packet_reader.read_i32()
-
-    await relationships.create(session["account_id"], target_id, "friend")
-
-
-@bancho_handler(packets.ClientPackets.FRIEND_REMOVE)
-async def user_removes_friend_handler(session: "Session", packet_data: bytes):
-    packet_reader = packets.PacketReader(packet_data)
-    target_id = packet_reader.read_i32()
-
-    await relationships.remove(session["account_id"], target_id)
-
-
-@bancho_handler(packets.ClientPackets.SEND_PRIVATE_MESSAGE)
-async def send_private_message_handler(session: "Session", packet_data: bytes):
-    packet_reader = packets.PacketReader(packet_data)
-
-    sender_name = packet_reader.read_string()  # NOTHING
-    message = packet_reader.read_string()
-    sendable_message = message.encode()
-    recipient_name = packet_reader.read_string()
-    sender_id = packet_reader.read_i32()  # 0
-
-    assert session["presence"] is not None
-
-    send_message_packet_data = packets.write_send_message_packet(
-        session["presence"]["username"],
-        message,
-        recipient_name,
-        session["account_id"],
-    )
-
-    recipient_session = await sessions.fetch_by_username(recipient_name)
-
-    # Todo add notification
-    if not recipient_session:
-        return
-
-    print(sender_name)
-    print(session["presence"]["username"])
-
-    await packet_bundles.enqueue(
-        recipient_session["session_id"], send_message_packet_data
-    )
-
-
 # PING = 4
 
 
@@ -328,6 +248,11 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
     await packet_bundles.enqueue(
         recipient_session["session_id"], send_message_packet_data
     )
+
+
+@bancho_handler(packets.ClientPackets.SEND_PRIVATE_MESSAGE)
+async def send_private_message_handler(session: "Session", packet_data: bytes):
+    pass
 
 
 # PART_LOBBY = 29
@@ -390,6 +315,24 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
 # CHANNEL_JOIN = 63
 
 
+@bancho_handler(packets.ClientPackets.CHANNEL_JOIN)
+async def user_joins_channel_handler(session: "Session", packet_data: bytes):
+    packet_reader = packets.PacketReader(packet_data)
+    channel_name = packet_reader.read_string()
+
+    channel = await channels.fetch_one_by_name(channel_name)
+
+    if not channel:
+        return
+
+    current_channel_members = await channel_members.members(channel["channel_id"])
+
+    if session["session_id"] in current_channel_members:
+        return
+
+    await channel_members.add(channel["channel_id"], session["session_id"])
+
+
 # BEATMAP_INFO_REQUEST = 68
 
 
@@ -399,13 +342,42 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
 # FRIEND_ADD = 73
 
 
+@bancho_handler(packets.ClientPackets.FRIEND_ADD)
+async def friend_add_handler(session: "Session", packet_data: bytes):
+    packet_reader = packets.PacketReader(packet_data)
+    target_id = packet_reader.read_i32()
+
+    await relationships.create(session["account_id"], target_id, "friend")
+
+
 # FRIEND_REMOVE = 74
+
+
+@bancho_handler(packets.ClientPackets.FRIEND_REMOVE)
+async def friend_remove_handler(session: "Session", packet_data: bytes):
+    packet_reader = packets.PacketReader(packet_data)
+    target_id = packet_reader.read_i32()
+
+    await relationships.remove(session["account_id"], target_id)
 
 
 # MATCH_CHANGE_TEAM = 77
 
 
 # CHANNEL_PART = 78
+
+
+@bancho_handler(packets.ClientPackets.CHANNEL_PART)
+async def user_leaves_channel_handler(session: "Session", packet_data: bytes):
+    packet_reader = packets.PacketReader(packet_data)
+    channel_name = packet_reader.read_string()
+
+    channel = await channels.fetch_one_by_name(channel_name)
+
+    if not channel:
+        return
+
+    await channel_members.remove(channel["channel_id"], session["session_id"])
 
 
 # RECEIVE_UPDATES = 79
