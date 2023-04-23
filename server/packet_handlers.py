@@ -215,7 +215,9 @@ async def user_joins_channel_handler(session: "Session", packet_data: bytes):
     if not channel:
         return
 
-    if session["session_id"] in await channel_members.members(channel["channel_id"]):
+    channel_members = await channel_members.members(channel["channel_id"])
+
+    if session["session_id"] in channel_members :
         return
 
     await channel_members.add(channel["channel_id"], session["session_id"])
