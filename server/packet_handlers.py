@@ -226,9 +226,9 @@ async def user_joins_channel_handler(session: "Session", packet_data: bytes):
 @bancho_handler(packets.ClientPackets.FRIEND_ADD)
 async def user_adds_friend_handler(session: "Session", packet_data: bytes):
     packet_reader = packets.PacketReader(packet_data)
-    user_being_friended_id = packet_reader.read_i32()
+    target_id = packet_reader.read_i32()
 
-    await relationships.create(session["account_id"], user_being_friended_id, "friend")
+    await relationships.create(session["account_id"], target_id, "friend")
 
 
 @bancho_handler(packets.ClientPackets.FRIEND_REMOVE)
