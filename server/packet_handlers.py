@@ -10,7 +10,7 @@ from server.repositories import sessions
 from server.repositories import stats
 from server.repositories import channels
 from server.repositories import channel_members
-from server.repositories import relationship
+from server.repositories import relationships
 
 if TYPE_CHECKING:
     from server.repositories.sessions import Session
@@ -164,7 +164,6 @@ async def logout_handler(session: "Session", packet_data: bytes) -> None:
 
 @bancho_handler(packets.ClientPackets.REQUEST_STATUS_UPDATE)
 async def request_status_update_handler(session: "Session", packet_data: bytes):
-
     assert session["presence"] is not None
 
     own_stats = await stats.fetch_one(
@@ -195,7 +194,6 @@ async def request_status_update_handler(session: "Session", packet_data: bytes):
 
 @bancho_handler(packets.ClientPackets.CHANNEL_PART)
 async def user_leaves_channel_handler(session: "Session", packet_data: bytes):
-
     packet_reader = packets.PacketReader(packet_data)
     channel_name = packet_reader.read_string()
 
@@ -209,7 +207,6 @@ async def user_leaves_channel_handler(session: "Session", packet_data: bytes):
 
 @bancho_handler(packets.ClientPackets.CHANNEL_JOIN)
 async def user_joins_channel_handler(session: "Session", packet_data: bytes):
-
     packet_reader = packets.PacketReader(packet_data)
     channel_name = packet_reader.read_string()
 
@@ -226,41 +223,30 @@ async def user_joins_channel_handler(session: "Session", packet_data: bytes):
 
 @bancho_handler(packets.ClientPackets.FRIEND_ADD)
 async def user_adds_friend_handler(session: "Session", packet_data: bytes):
-
     packet_reader = packets.PacketReader(packet_data)
     user_being_friended_id = packet_reader.read_i32()
 
-    await relationship.create(
-        session["account_id"], 
-        user_being_friended_id, 
-        "friend"
-        )
+    await relationships.create(session["account_id"], user_being_friended_id, "friend")
 
 
 @bancho_handler(packets.ClientPackets.FRIEND_REMOVE)
 async def user_removes_friend_handler(session: "Session", packet_data: bytes):
-    
     packet_reader = packets.PacketReader(packet_data)
     user_being_unfriended_id = packet_reader.read_i32()
-    
-    await relationship.remove(
-        session["account_id"], 
-        user_being_unfriended_id, 
-        "NULL"
-        )
 
-
+    await relationships.remove(session["account_id"], user_being_unfriended_id)
 
 
 @bancho_handler(packets.ClientPackets.SEND_PRIVATE_MESSAGE)
 async def send_private_message_handler(session: "Session", packet_data: bytes):
     pass
 
+
 # TOGGLE BLOCK NON FRIEND DMS WRITTEN TWICE IN PACKETS
 
 
-
 # PING = 4
+
 
 @bancho_handler(packets.ClientPackets.PING)
 async def ping_handler(session: "Session", packet_data: bytes):
