@@ -241,10 +241,47 @@ async def user_removes_friend_handler(session: "Session", packet_data: bytes):
 
 @bancho_handler(packets.ClientPackets.SEND_PRIVATE_MESSAGE)
 async def send_private_message_handler(session: "Session", packet_data: bytes):
-    pass
+    packet_reader = packets.PacketReader(packet_data)
+    
+    sender_name = packet_reader.read_string() # NOTHING
+    message = packet_reader.read_string()
+    sendable_message = message.encode()
+    recipient_name = packet_reader.read_string()
+    sender_id = packet_reader.read_i32() # 0
+
+    assert session["presence"] is not None
+
+    send_message_packet_data = packets.write_send_message_packet(
+        session["presence"]["username"],
+        message,
+        recipient_name,
+        session["account_id"],
+    )
+
+    recipient_session = await sessions.fetch_by_username(recipient_name)
+    
+    # Todo add notification
+    if not recipient_session:
+        return
+
+    print(sender_name)
+    print(session["presence"]["username"])
+
+    await packet_bundles.enqueue(
+        recipient_session["session_id"],
+        send_message_packet_data
+    )
+        
+            # bytes(sendable_message)
+
+    # if sender_name["account_id"] is blocked by recipient["account_id"]:
+        # return
+
+    
 
 
-# TOGGLE BLOCK NON FRIEND DMS WRITTEN TWICE IN PACKETS
+
+
 
 
 # PING = 4
@@ -254,6 +291,9 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
 async def ping_handler(session: "Session", packet_data: bytes):
     # TODO: keep track of each osu! session's last ping time
     pass
+
+
+
 
 
 # START_SPECTATING = 16

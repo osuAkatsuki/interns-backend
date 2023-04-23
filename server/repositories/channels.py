@@ -40,6 +40,32 @@ async def create(
     return dict(channel._mapping)
 
 
+async def create_private_message_channel(
+    name: str,
+    topic: str,
+    read_privileges: str,
+    write_privileges: int,
+    auto_join: bool,
+) -> dict[str, Any]:
+    channel = await clients.database.fetch_one(
+        query=f"""\
+            INSERT INTO channels (name, topic, read_privileges, write_privileges, auto_join, created_at, updated_at)
+            VALUES (:name, :topic, :read_privileges, :write_privileges, :auto_join, :created_at, :updated_at)
+            RETURNING {READ_PARAMS}
+        """,
+        values={
+            "name": name,
+            "topic": topic,
+            "read_privileges": read_privileges,
+            "write_privileges": write_privileges,
+            "auto_join": auto_join,
+        },
+    )
+
+    assert channel is not None
+    return dict(channel._mapping)
+
+
 async def fetch_all() -> list[dict[str, Any]]:
     channels = await clients.database.fetch_all(
         query=f"""

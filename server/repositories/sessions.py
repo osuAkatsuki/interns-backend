@@ -130,6 +130,19 @@ async def fetch_by_id(session_id: UUID) -> Session | None:
     return deserialize(session) if session is not None else None
 
 
+async def fetch_by_username(username: str) -> Session | None:
+    sessions = await fetch_all(osu_clients_only=True)
+
+    for session in sessions:
+        if session["presence"] is None:
+            return None
+
+        if session["presence"]["username"] == username:
+            return session
+
+    return None
+
+
 async def fetch_all(osu_clients_only: bool = False) -> list[Session]:
     session_key = make_key("*")
 
