@@ -23,7 +23,7 @@ async def create(
 ) -> dict[str, Any]:
     channel = await clients.database.fetch_one(
         query=f"""\
-            INSERT INTO channel (name, topic, read_privileges, write_privileges, auto_join, created_at, updated_at)
+            INSERT INTO channels (name, topic, read_privileges, write_privileges, auto_join, created_at, updated_at)
             VALUES (:name, :topic, :read_privileges, :write_privileges, :auto_join, :created_at, :updated_at)
             RETURNING {READ_PARAMS}
         """,
@@ -63,4 +63,19 @@ async def fetch_one(channel_id: int) -> dict[str, Any] | None:
         },
     )
 
+    return dict(channel._mapping) if channel is not None else None
+
+
+async def fetch_one_by_name(name: str) -> dict[str, Any] | None:
+    channel = await clients.database.fetch_one(
+        query=f"""
+            SELECT {READ_PARAMS}
+            from channels
+            WHERE name = :name
+        """,
+        values={
+            "name": name,
+        },
+    )
+    
     return dict(channel._mapping) if channel is not None else None

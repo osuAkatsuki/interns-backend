@@ -26,6 +26,7 @@ from server.repositories import channels
 from server.repositories import packet_bundles
 from server.repositories import sessions
 from server.repositories import stats
+from server.repositories import channel_members
 
 app = FastAPI()
 
@@ -49,6 +50,7 @@ def db_dsn(
     database: str,
 ) -> str:
     return f"{scheme}://{user}:{passwd}@{host}:{port}/{database}"
+
 
 
 @app.on_event("startup")
@@ -248,10 +250,12 @@ async def handle_login(request: Request) -> Response:
     # osu chat channels
     for channel in await channels.fetch_all():
         # TODO: privilege check - do they have access to this channel?
+        current_channel_members = await channel_members.members(channel["channel_id"])
+        
         response_data += packets.write_channel_info_packet(
             channel["name"],
             channel["topic"],
-            channel["num_sessions"],
+            len(current_channel_members)
         )
 
     # notify the client that we're done sending channel info
