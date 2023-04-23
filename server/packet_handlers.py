@@ -192,37 +192,6 @@ async def request_status_update_handler(session: "Session", packet_data: bytes):
     )
 
 
-@bancho_handler(packets.ClientPackets.CHANNEL_PART)
-async def user_leaves_channel_handler(session: "Session", packet_data: bytes):
-    packet_reader = packets.PacketReader(packet_data)
-    channel_name = packet_reader.read_string()
-
-    channel = await channels.fetch_one_by_name(channel_name)
-
-    if not channel:
-        return
-
-    await channel_members.remove(channel["channel_id"], session["session_id"])
-
-
-@bancho_handler(packets.ClientPackets.CHANNEL_JOIN)
-async def user_joins_channel_handler(session: "Session", packet_data: bytes):
-    packet_reader = packets.PacketReader(packet_data)
-    channel_name = packet_reader.read_string()
-
-    channel = await channels.fetch_one_by_name(channel_name)
-
-    if not channel:
-        return
-
-    current_channel_members = await channel_members.members(channel["channel_id"])
-
-    if session["session_id"] in current_channel_members:
-        return
-
-    await channel_members.add(channel["channel_id"], session["session_id"])
-
-
 # PING = 4
 
 
@@ -315,6 +284,24 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
 # CHANNEL_JOIN = 63
 
 
+@bancho_handler(packets.ClientPackets.CHANNEL_JOIN)
+async def user_joins_channel_handler(session: "Session", packet_data: bytes):
+    packet_reader = packets.PacketReader(packet_data)
+    channel_name = packet_reader.read_string()
+
+    channel = await channels.fetch_one_by_name(channel_name)
+
+    if not channel:
+        return
+
+    current_channel_members = await channel_members.members(channel["channel_id"])
+
+    if session["session_id"] in current_channel_members:
+        return
+
+    await channel_members.add(channel["channel_id"], session["session_id"])
+
+
 # BEATMAP_INFO_REQUEST = 68
 
 
@@ -347,6 +334,19 @@ async def friend_remove_handler(session: "Session", packet_data: bytes):
 
 
 # CHANNEL_PART = 78
+
+
+@bancho_handler(packets.ClientPackets.CHANNEL_PART)
+async def user_leaves_channel_handler(session: "Session", packet_data: bytes):
+    packet_reader = packets.PacketReader(packet_data)
+    channel_name = packet_reader.read_string()
+
+    channel = await channels.fetch_one_by_name(channel_name)
+
+    if not channel:
+        return
+
+    await channel_members.remove(channel["channel_id"], session["session_id"])
 
 
 # RECEIVE_UPDATES = 79
