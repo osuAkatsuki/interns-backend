@@ -242,9 +242,6 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
     if not recipient_session:
         return
 
-    print(sender_name)
-    print(session["presence"]["username"])
-
     await packet_bundles.enqueue(
         recipient_session["session_id"], send_message_packet_data
     )
