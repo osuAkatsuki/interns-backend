@@ -223,30 +223,6 @@ async def user_joins_channel_handler(session: "Session", packet_data: bytes):
     await channel_members.add(channel["channel_id"], session["session_id"])
 
 
-@bancho_handler(packets.ClientPackets.FRIEND_ADD)
-async def user_adds_friend_handler(session: "Session", packet_data: bytes):
-    packet_reader = packets.PacketReader(packet_data)
-    target_id = packet_reader.read_i32()
-
-    await relationships.create(session["account_id"], target_id, "friend")
-
-
-@bancho_handler(packets.ClientPackets.FRIEND_REMOVE)
-async def user_removes_friend_handler(session: "Session", packet_data: bytes):
-    packet_reader = packets.PacketReader(packet_data)
-    target_id = packet_reader.read_i32()
-
-    await relationships.remove(session["account_id"], target_id)
-
-
-@bancho_handler(packets.ClientPackets.SEND_PRIVATE_MESSAGE)
-async def send_private_message_handler(session: "Session", packet_data: bytes):
-    pass
-
-
-# TOGGLE BLOCK NON FRIEND DMS WRITTEN TWICE IN PACKETS
-
-
 # PING = 4
 
 
@@ -272,6 +248,11 @@ async def ping_handler(session: "Session", packet_data: bytes):
 
 
 # SEND_PRIVATE_MESSAGE = 25
+
+
+@bancho_handler(packets.ClientPackets.SEND_PRIVATE_MESSAGE)
+async def send_private_message_handler(session: "Session", packet_data: bytes):
+    pass
 
 
 # PART_LOBBY = 29
@@ -343,7 +324,23 @@ async def ping_handler(session: "Session", packet_data: bytes):
 # FRIEND_ADD = 73
 
 
+@bancho_handler(packets.ClientPackets.FRIEND_ADD)
+async def friend_add_handler(session: "Session", packet_data: bytes):
+    packet_reader = packets.PacketReader(packet_data)
+    target_id = packet_reader.read_i32()
+
+    await relationships.create(session["account_id"], target_id, "friend")
+
+
 # FRIEND_REMOVE = 74
+
+
+@bancho_handler(packets.ClientPackets.FRIEND_REMOVE)
+async def friend_remove_handler(session: "Session", packet_data: bytes):
+    packet_reader = packets.PacketReader(packet_data)
+    target_id = packet_reader.read_i32()
+
+    await relationships.remove(session["account_id"], target_id)
 
 
 # MATCH_CHANGE_TEAM = 77
