@@ -77,5 +77,5 @@ async def fetch_one_by_name(name: str) -> dict[str, Any] | None:
             "name": name,
         },
     )
-    
+
     return dict(channel._mapping) if channel is not None else None
