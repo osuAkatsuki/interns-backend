@@ -114,23 +114,27 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
     # TODO: why am i getting 0 for sender_id?
     sender_name = packet_reader.read_string()
     message_content = packet_reader.read_string()
-    recipient_name = packet_reader.read_string()
+    channel_name = packet_reader.read_string()
     sender_id = packet_reader.read_i32()
 
     # send message to everyone else
     send_message_packet_data = packets.write_send_message_packet(
         session["presence"]["username"],
         message_content,
-        recipient_name,
+        channel_name,
         session["presence"]["account_id"],
     )
 
-    for other_session in await sessions.fetch_all(osu_clients_only=True):
-        if other_session["session_id"] == session["session_id"]:
+    channel = await channels.fetch_one_by_name(channel_name)
+    if channel is None:
+        return
+
+    for session_id in await channel_members.members(channel["channel_id"]):
+        if session_id == session["session_id"]:
             continue
 
         await packet_bundles.enqueue(
-            other_session["session_id"],
+            session_id,
             data=send_message_packet_data,
         )
 
