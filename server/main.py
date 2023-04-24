@@ -191,6 +191,17 @@ async def handle_login(request: Request) -> Response:
             headers={"cho-token": "no"},
         )
 
+    # TODO: support for this specifically for tournament clients
+    other_session = await sessions.fetch_by_username(login_data["username"])
+    if other_session is not None:
+        return Response(
+            content=(
+                packets.write_user_id_packet(-1)
+                + packets.write_notification_packet("User already logged in.")
+            ),
+            headers={"cho-token": "no"},
+        )
+
     raw_ip_address = request.headers.get("X-Real-IP")
     if raw_ip_address is None:
         return Response(
