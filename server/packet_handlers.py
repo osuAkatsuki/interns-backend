@@ -15,15 +15,13 @@ from server.repositories import stats
 if TYPE_CHECKING:
     from server.repositories.sessions import Session
 
+BanchoHandler = Callable[["Session", bytes], Awaitable[None]]
 
-packet_handlers = {}
+packet_handlers: dict[packets.ClientPackets, BanchoHandler] = {}
 
 
 def get_packet_handler(packet_id: packets.ClientPackets):
     return packet_handlers.get(packet_id)
-
-
-BanchoHandler = Callable[["Session", bytes], Awaitable[None]]
 
 
 def bancho_handler(
