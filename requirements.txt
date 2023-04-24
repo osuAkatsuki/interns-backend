@@ -8,7 +8,9 @@ Faker
 fastapi
 httpx
 orjson
+py3rijndael
 python-dotenv
+python-multipart
 redis
 structlog
 uvicorn

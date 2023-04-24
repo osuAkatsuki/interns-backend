@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import base64
 import ipaddress
 from datetime import datetime
 from typing import Any
@@ -13,6 +14,11 @@ from fastapi import FastAPI
 from fastapi import Query
 from fastapi import Request
 from fastapi import Response
+from fastapi import Form
+from fastapi import status
+from fastapi import UploadFile
+from py3rijndael import Pkcs7Padding
+from py3rijndael import RijndaelCbc
 
 from server import clients
 from server import geolocation
@@ -719,3 +725,36 @@ def format_leaderboard_response(
         )
 
     return buffer
+
+
+@osu_web_handler.post("/web/osu-submit-modular-selector.php")
+async def submit_score_handler(
+    request: Request,
+    iv_b64: bytes = Form(..., alias="iv"),
+    client_hash_aes_b64: bytes = Form(..., alias="s"),
+    osu_version: str = Form(..., alias="osuver"),
+):
+    score_data_aes_b64, replay_file = (await request.form()).getlist("score")
+
+    assert isinstance(score_data_aes_b64, str)
+    assert isinstance(replay_file, UploadFile)
+
+    score_data_aes = base64.b64decode(score_data_aes_b64)
+    client_hash_aes = base64.b64decode(client_hash_aes_b64)
+
+    aes_cipher = RijndaelCbc(
+        key=f"osu!-scoreburgr---------{osu_version}".encode(),
+        iv=base64.b64decode(iv_b64),
+        padding=Pkcs7Padding(block_size=32),
+        block_size=32,
+    )
+
+    score_data = aes_cipher.decrypt(score_data_aes).decode().split(":")
+    client_hash = aes_cipher.decrypt(client_hash_aes).decode()
+
+    # TODO: fetch account
+    # TODO: fetch session
+    # TODO: validate password
+    # TODO: fetch beatmap metadata
+
+    ...
