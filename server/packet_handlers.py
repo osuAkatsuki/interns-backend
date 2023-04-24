@@ -131,12 +131,12 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
     if channel is None:
         return
 
-    for session_id in await channel_members.members(channel["channel_id"]):
-        if session_id == session["session_id"]:
+    for other_session_id in await channel_members.members(channel["channel_id"]):
+        if other_session_id == session["session_id"]:
             continue
 
         await packet_bundles.enqueue(
-            session_id,
+            other_session_id,
             data=send_message_packet_data,
         )
 
