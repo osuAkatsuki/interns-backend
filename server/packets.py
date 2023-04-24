@@ -207,6 +207,12 @@ class PacketReader:
         length = self.read_uleb128()
         return self.read(length).decode()
 
+    def read_i32_list_i16_length(self) -> list[int]:
+        return [self.read_i32() for _ in range(self.read_i16())]
+
+    def read_i32_list_i32_length(self) -> list[int]:
+        return [self.read_i32() for _ in range(self.read_i32())]
+
 
 def read_packets(request_data: bytes) -> list[Packet]:
     packets = []
