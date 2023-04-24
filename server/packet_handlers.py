@@ -342,7 +342,11 @@ async def friend_add_handler(session: "Session", packet_data: bytes):
     packet_reader = packets.PacketReader(packet_data)
     target_id = packet_reader.read_i32()
 
-    await relationships.create(session["account_id"], target_id, "friend")
+    await relationships.create(
+        session["account_id"],
+        target_id,
+        relationship="friend",
+    )
 
 
 # FRIEND_REMOVE = 74
