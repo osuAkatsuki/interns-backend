@@ -26,13 +26,8 @@ CREATE TABLE scores
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX ON scores
-(account_id);
-CREATE INDEX ON scores
-(online_checksum);
-CREATE INDEX ON scores
-(beatmap_md5);
-CREATE INDEX ON scores
-(submission_status);
-CREATE INDEX ON scores
-(game_mode);
+CREATE INDEX ON scores (account_id);
+CREATE INDEX ON scores (online_checksum);
+CREATE INDEX ON scores (beatmap_md5);
+CREATE INDEX ON scores (submission_status);
+CREATE INDEX ON scores (game_mode);
