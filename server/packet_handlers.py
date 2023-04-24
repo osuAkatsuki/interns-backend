@@ -1,3 +1,4 @@
+import random
 from collections.abc import Awaitable
 from collections.abc import Callable
 from typing import TYPE_CHECKING
@@ -112,12 +113,13 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
     # read packet data
     packet_reader = packets.PacketReader(packet_data)
 
-    # TODO: why am i getting "" for sender_name?
-    # TODO: why am i getting 0 for sender_id?
-    sender_name = packet_reader.read_string()
+    sender_name = packet_reader.read_string()  # always ""
     message_content = packet_reader.read_string()
     recipient_name = packet_reader.read_string()
-    sender_id = packet_reader.read_i32()
+    sender_id = packet_reader.read_i32()  # always 0
+
+    if len(message_content) > 2000:
+        message_content = message_content[:2000] + "..."
 
     # send message to everyone else
     send_message_packet_data = packets.write_send_message_packet(
@@ -135,6 +137,29 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
             other_session["session_id"],
             data=send_message_packet_data,
         )
+
+    if message_content.startswith("!"):
+        trigger, *args = message_content.split(" ")
+
+        bancho_bot_message = None
+        if trigger == "!echo":
+            bancho_bot_message = "HELLO"
+        elif trigger == "!roll":
+            random_number_max = int(args[0])
+            bancho_bot_message = str(random.randrange(0, random_number_max))
+
+        if bancho_bot_message is not None:
+            bancho_bot_message_packet_data = packets.write_send_message_packet(
+                "BanchoBot",
+                bancho_bot_message,
+                recipient_name,
+                0,
+            )
+            for other_session in await sessions.fetch_all(osu_clients_only=True):
+                await packet_bundles.enqueue(
+                    other_session["session_id"],
+                    data=bancho_bot_message_packet_data,
+                )
 
 
 # LOGOUT = 2
@@ -219,19 +244,21 @@ async def ping_handler(session: "Session", packet_data: bytes):
 # SEND_PRIVATE_MESSAGE = 25
 @bancho_handler(packets.ClientPackets.SEND_PRIVATE_MESSAGE)
 async def send_private_message_handler(session: "Session", packet_data: bytes):
+    assert session["presence"] is not None
+
     packet_reader = packets.PacketReader(packet_data)
 
-    sender_name = packet_reader.read_string()  # NOTHING
-    message = packet_reader.read_string()
-    sendable_message = message.encode()
+    sender_name = packet_reader.read_string()  # always ""
+    message_content = packet_reader.read_string()
     recipient_name = packet_reader.read_string()
-    sender_id = packet_reader.read_i32()  # 0
+    sender_id = packet_reader.read_i32()  # always 0
 
-    assert session["presence"] is not None
+    if len(message_content) > 2000:
+        message_content = message_content[:2000] + "..."
 
     send_message_packet_data = packets.write_send_message_packet(
         session["presence"]["username"],
-        message,
+        message_content,
         recipient_name,
         session["account_id"],
     )
@@ -245,11 +272,6 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
     await packet_bundles.enqueue(
         recipient_session["session_id"], send_message_packet_data
     )
-
-
-@bancho_handler(packets.ClientPackets.SEND_PRIVATE_MESSAGE)
-async def send_private_message_handler(session: "Session", packet_data: bytes):
-    pass
 
 
 # PART_LOBBY = 29
