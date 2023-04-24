@@ -166,6 +166,14 @@ async def fetch_by_id(session_id: UUID) -> Session | None:
     session = await clients.redis.get(session_key)
     return deserialize(session) if session is not None else None
 
+async def fetch_by_account_id(account_id: int) -> Session | None:
+    all_sessions = await fetch_all(osu_clients_only=True)
+    for session in all_sessions:
+        if session["account_id"] == account_id:
+            return session
+    
+    return None
+
 
 async def fetch_by_account_id(account_id: int) -> Session | None:
     sessions = await fetch_all(osu_clients_only=True)
