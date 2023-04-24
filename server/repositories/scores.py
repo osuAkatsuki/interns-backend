@@ -99,6 +99,7 @@ async def create(
                     num_misses, :num_gekis, :num_katus, :grade,
                     submission_status, :game_mode, :play_time, :country,
                     time_elapsed, :client_anticheat_flags)
+            RETURNING {READ_PARAMS}
         """,
         values={
             "account_id": account_id,
