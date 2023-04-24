@@ -520,6 +520,17 @@ async def user_leaves_channel_handler(session: "Session", packet_data: bytes):
 
 
 # USER_STATS_REQUEST = 85
+bancho_handler(packets.ClientPackets.USER_STATS_REQUEST)
+
+
+async def user_stats_request_handler(session: "Session", packet_data: bytes) -> None:
+    assert session is not None
+
+    reader = packets.PacketReader(packet_data)
+
+    account_ids = reader.read_i32_list_i16_length()
+
+    # for account_id in account_ids:
 
 
 # MATCH_INVITE = 87
