@@ -3,7 +3,7 @@ from typing import TypedDict
 
 from server import clients
 
-READ_PARAMS = """
+READ_PARAMS = """\
     account_id,
     game_mode,
     total_score,
