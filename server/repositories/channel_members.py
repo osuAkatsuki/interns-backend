@@ -40,4 +40,3 @@ async def members(channel_id: int) -> set[UUID]:
     channel_key = make_key(channel_id)
     members = await clients.redis.smembers(channel_key)
     return {deserialize(member) for member in members}
-
