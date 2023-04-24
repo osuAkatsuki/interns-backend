@@ -3,6 +3,7 @@ from collections.abc import Awaitable
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
+from server import command_handlers
 from server import logger
 from server import packets
 from server import ranking
@@ -128,6 +129,7 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
         session["presence"]["account_id"],
     )
 
+    # TODO: send response only to those in the channel
     for other_session in await sessions.fetch_all(osu_clients_only=True):
         if other_session["session_id"] == session["session_id"]:
             continue
@@ -137,35 +139,24 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
             data=send_message_packet_data,
         )
 
+    # handle commands
     if message_content.startswith("!"):
         trigger, *args = message_content.split(" ")
-
-        bancho_bot_message = None
-        if trigger == "!echo":
-            bancho_bot_message = "HELLO"
-        elif trigger == "!roll":
-            random_number_max = int(args[0])
-            bancho_bot_message = str(random.randrange(0, random_number_max))
-        elif trigger == "!py":
-            try:
-                namespace = {}
-                exec("async def f():\n " + " ".join(args), namespace)
-                bancho_bot_message = str(await namespace["f"]())
-            except Exception as exc:
-                bancho_bot_message = str(exc)
-
-        if bancho_bot_message is not None:
-            bancho_bot_message_packet_data = packets.write_send_message_packet(
-                sender_name="BanchoBot",
-                message_content=bancho_bot_message,
-                recipient_name=recipient_name,
-                sender_id=0,
-            )
-            for other_session in await sessions.fetch_all(osu_clients_only=True):
-                await packet_bundles.enqueue(
-                    other_session["session_id"],
-                    data=bancho_bot_message_packet_data,
-                )
+        command_handler = command_handlers.get_command_handler(trigger)
+        if command_handler is not None:
+            response = await command_handler(session, args)
+            if response is not None:
+                # TODO: send response to the whole channel
+                for other_session in await sessions.fetch_all(osu_clients_only=True):
+                    await packet_bundles.enqueue(
+                        other_session["session_id"],
+                        data=packets.write_send_message_packet(
+                            sender_name="BanchoBot",
+                            message_content=response,
+                            recipient_name=recipient_name,
+                            sender_id=0,
+                        ),
+                    )
 
 
 # LOGOUT = 2
