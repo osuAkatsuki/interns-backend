@@ -9,6 +9,7 @@ import redis.asyncio
 from databases import Database
 from fastapi import APIRouter
 from fastapi import FastAPI
+from fastapi import Query
 from fastapi import Request
 from fastapi import Response
 from fastapi import status
@@ -473,3 +474,47 @@ async def handle_bancho_http_request(request: Request):
         response = await handle_bancho_request(request)
 
     return response
+
+
+# GET /web/osu-osz2-getscores.php
+# ?s=0
+# &vv=4
+# &v=1
+# &c=1cf5b2c2edfafd055536d2cefcb89c0e
+# &f=FAIRY+FORE+-+Vivid+(Hitoshirenu+Shourai)+%5bInsane%5d.osu
+# &m=0
+# &i=141
+# &mods=192
+# &h=
+# &a=0
+# &us=cmyui
+# &ha=0cc175b9c0f1b6a831c399e269772661
+@osu_web_handler.get("/web/osu-osz2-getscores.php")
+async def get_scores_handler(
+    username: str = Query(..., alias="us"),
+    password_md5: str = Query(..., alias="ha"),
+    requesting_score_data: bool = Query(..., alias="s"),
+    leaderboard_version: int = Query(..., alias="vv"),
+    leaderboard_type: int = Query(..., alias="v"),
+    beatmap_md5: str = Query(..., alias="c"),
+    beatmap_filename: str = Query(..., alias="f"),
+    game_mode: int = Query(..., alias="m"),
+    beatmap_set_id: int = Query(..., alias="i"),
+    mods: int = Query(..., alias="mods"),
+    map_package_hash: str = Query(..., alias="h"),
+    aqn_files_found: bool = Query(..., alias="a"),
+):
+    account = await accounts.fetch_by_username(username)
+    if account is None:
+        return
+
+    session = await sessions.fetch_by_username(username)
+    if session is None:
+        return
+
+    hashword = account["password"].encode()
+
+    if not security.check_password(password_md5, hashword):
+        return
+
+    ...
