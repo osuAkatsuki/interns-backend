@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import asyncio
 import hashlib
+import sys
 import os
 from getpass import getpass
 
@@ -8,6 +9,11 @@ import bcrypt
 import databases
 from dotenv import load_dotenv
 
+script_dir = os.path.dirname(os.path.abspath(__file__))
+mount_dir = os.path.join(script_dir, "..")
+sys.path.append(mount_dir)
+
+from server import validation, geolocation, security
 
 load_dotenv(dotenv_path=".env")
 
@@ -35,16 +41,43 @@ database = databases.Database(
 )
 
 
-def hash_password(plaintext_password: str) -> bytes:
-    md5_password = hashlib.md5(plaintext_password.encode()).hexdigest()
-    bcrypt_password = bcrypt.hashpw(
-        password=md5_password.encode(),
-        salt=bcrypt.gensalt(),
-    )
-    return bcrypt_password
+DEFAULT_PRIVILEGES = (1 << 31) - 1  # big for now cuz full admin lol
 
 
 async def main() -> int:
+    while True:
+        username = input("Username: ")
+        if not validation.validate_username(username):
+            print("Invalid Username! Retry!")
+        else:
+            break
+
+    while True:
+        email_address = input("Email address: ")
+        if not validation.validate_email(email_address):
+            print("Invalid Email! Retry!")
+        else:
+            break
+
+    privileges = DEFAULT_PRIVILEGES
+
+    while True:
+        password = getpass("Password: ")
+        if not validation.validate_password(password):
+            print("Invalid Password! Retry!")
+        else:
+            break
+
+    while True:
+        country = input("Country: ")
+
+        if geolocation.COUNTRY_STR_TO_INT.get(country) is None:
+            print("Invalid Country! Retry!")
+        else:
+            break
+
+    password = security.hash_password(password).decode()
+
     async with database:
         account_id = await database.fetch_val(
             query="""\
@@ -53,11 +86,11 @@ async def main() -> int:
                 RETURNING account_id
             """,
             values={
-                "username": input("Username: "),
-                "email_address": input("Email address: "),
-                "privileges": 2_147_483_647,
-                "password": hash_password(getpass("Password: ")).decode(),
-                "country": input("Country: "),
+                "username": username,
+                "email_address": email_address,
+                "privileges": privileges,
+                "password": password,
+                "country": country,
             },
         )
         for game_mode in range(8):
