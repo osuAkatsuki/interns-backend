@@ -12,6 +12,7 @@ from server.repositories import packet_bundles
 from server.repositories import relationships
 from server.repositories import sessions
 from server.repositories import stats
+from server.repositories import spectators
 
 if TYPE_CHECKING:
     from server.repositories.sessions import Session
@@ -226,12 +227,42 @@ async def ping_handler(session: "Session", packet_data: bytes):
 
 # START_SPECTATING = 16
 
+@bancho_handler(packets.ClientPackets.START_SPECTATING)
+async def start_spectating_handler(session: "Session", packet_data: bytes):
+    assert session["presence"] is not None
+    
+    packet_reader = packets.PacketReader(packet_data)
+    host_account_id = packet_reader.read_i32()
 
+    
+
+    host_session_UUID = await spectators.start_spectating(host_account_id, session["session_id"])
+    
+    # tell client to send frames of host's session to spectator's
+    
+    
+    
+    # all_spectators = await spectators.all_spectators(
+        
+    # )
+    
+    
 # STOP_SPECTATING = 17
 
 
 # SPECTATE_FRAMES = 18
 
+@bancho_handler(packets.ClientPackets.SPECTATE_FRAMES)
+async def spectate_frames_handler(session: "Session", packet_data: bytes):
+    packet_reader = packets.PacketReader(packet_data)
+    host_account_id = packet_reader.read_i32()
+
+    frames = packets.write_spectate_frames_packet(host_account_id, session["account_id"])
+    
+    print(frames)
+
+
+    host_session_UUID = await spectators.start_spectating(host_account_id, session["session_id"])
 
 # ERROR_REPORT = 20
 

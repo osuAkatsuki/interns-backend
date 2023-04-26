@@ -410,12 +410,27 @@ def write_logout_packet(user_id: int) -> bytes:
 
 # SPECTATOR_JOINED = 13
 
+def write_spectator_joined_packet(user_id: int) -> bytes:
+    return write_packet(
+        packet_id=ClientPackets.START_SPECTATING,
+        packet_data_inputs=[
+            (DataType.I32, user_id),
+        ]
+    )
 
 # SPECTATOR_LEFT = 14
 
 
 # SPECTATE_FRAMES = 15
 
+def write_spectate_frames_packet(data: bytes, user_id: int) -> bytes:
+    return write_packet(
+        packet_id=ServerPackets.SPECTATE_FRAMES,
+        packet_data_inputs=[
+            (DataType.RAW_DATA, data),
+            (DataType.I32, user_id),
+        ]
+    )
 
 # VERSION_UPDATE = 19
 

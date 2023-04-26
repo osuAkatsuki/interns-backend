@@ -12,8 +12,8 @@ def serialize(session_id: UUID) -> str:
     return str(session_id)
 
 
-def deserialize(channel_id: bytes) -> UUID:
-    return UUID(channel_id.decode())
+def deserialize(host_session_id: bytes) -> UUID:
+    return UUID(host_session_id.decode())
 
 
 async def start_spectating(
@@ -34,3 +34,9 @@ async def stop_spectating(
     host_key = make_key(host_session_id)
     success = await clients.redis.srem(host_key, serialize(session_id))
     return session_id if success == 1 else None
+
+
+async def all_spectators(host_session_id: int) -> set[UUID]:
+    host_key = make_key(host_session_id)
+    spectators = await clients.redis.smembers(host_key)
+    return {deserialize(spectator["session_id"]) for spectator in spectators}
