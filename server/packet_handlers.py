@@ -233,18 +233,29 @@ async def start_spectating_handler(session: "Session", packet_data: bytes):
     
     packet_reader = packets.PacketReader(packet_data)
     host_account_id = packet_reader.read_i32()
+    host_account_UUID = packet_reader.read_i32()
+
+    spectator_joined = packets.write_spectator_joined_packet(session["account_id"])
+
+    spectator_joined_packet_reader = packets.PacketReader(spectator_joined)
+
+    await packet_bundles.enqueue(
+        session["session_id"],
+        spectator_joined,
+    )
+    
+    await sessions.fetch_by_id()
+    
+    session["presence"]["action"] = packets.UserPresenceAction.SPECTATING
+
+    # get host's session
+    # set user's presence to spectating
+    # send spectator_joined packet to host
 
     
-
-    host_session_UUID = await spectators.start_spectating(host_account_id, session["session_id"])
+    # host_session_UUID = await spectators.start_spectating(host_account_id, session["session_id"])
     
     # tell client to send frames of host's session to spectator's
-    
-    
-    
-    # all_spectators = await spectators.all_spectators(
-        
-    # )
     
     
 # STOP_SPECTATING = 17
@@ -257,12 +268,18 @@ async def spectate_frames_handler(session: "Session", packet_data: bytes):
     packet_reader = packets.PacketReader(packet_data)
     host_account_id = packet_reader.read_i32()
 
-    frames = packets.write_spectate_frames_packet(host_account_id, session["account_id"])
+    print(host_account_id)
+    spectator_data = await packet_bundles.enqueue(
+        session["session_id"],
+        packet_data,
+    )
     
-    print(frames)
-
-
-    host_session_UUID = await spectators.start_spectating(host_account_id, session["session_id"])
+    # frames = packets.write_spectate_frames_packet(spectator_data["data"], session["account_id"])
+   
+    # host_session = await sessions.fetch_by_id(host_account_id)
+    
+    #     await packet_bundles.enqueue(
+    #         session["presence"]["action"] = frames
 
 # ERROR_REPORT = 20
 

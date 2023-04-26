@@ -420,6 +420,13 @@ def write_spectator_joined_packet(user_id: int) -> bytes:
 
 # SPECTATOR_LEFT = 14
 
+def write_spectator_left_packet(user_id: int) -> bytes:
+    return write_packet(
+        packet_id=ClientPackets.STOP_SPECTATING,
+        packet_data_inputs=[
+            (DataType.I32, user_id),
+        ]
+    )
 
 # SPECTATE_FRAMES = 15
 
