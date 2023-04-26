@@ -146,6 +146,10 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
         elif trigger == "!roll":
             random_number_max = int(args[0])
             bancho_bot_message = str(random.randrange(0, random_number_max))
+            
+        #DELETE THIS
+        elif trigger == "!pres":
+            bancho_bot_message = str(session["presence"]["action"])
 
         if bancho_bot_message is not None:
             bancho_bot_message_packet_data = packets.write_send_message_packet(
@@ -233,31 +237,24 @@ async def start_spectating_handler(session: "Session", packet_data: bytes):
     
     packet_reader = packets.PacketReader(packet_data)
     host_account_id = packet_reader.read_i32()
-    host_account_UUID = packet_reader.read_i32()
 
-    spectator_joined = packets.write_spectator_joined_packet(session["account_id"])
+    host_session = await sessions.fetch_by_account_id(host_account_id)
+    
+    assert host_session is not None
 
-    spectator_joined_packet_reader = packets.PacketReader(spectator_joined)
-
-    await packet_bundles.enqueue(
-        session["session_id"],
-        spectator_joined,
+    host_account_UUID = await spectators.start_spectating(
+        host_account_id,
+        host_session["session_id"],
     )
     
-    await sessions.fetch_by_id()
-    
-    session["presence"]["action"] = 
+    await packet_bundles.enqueue(
+        host_account_UUID,
+        packets.write_spectator_joined_packet(session["account_id"])
+    )
 
-    # get host's session
-    # set user's presence to spectating
-    # send spectator_joined packet to host
 
-    
-    # host_session_UUID = await spectators.start_spectating(host_account_id, session["session_id"])
-    
-    # tell client to send frames of host's session to spectator's
-    
-    
+
+
 # STOP_SPECTATING = 17
 
 
@@ -268,7 +265,6 @@ async def spectate_frames_handler(session: "Session", packet_data: bytes):
     packet_reader = packets.PacketReader(packet_data)
     host_account_id = packet_reader.read_i32()
 
-    print(host_account_id)
     spectator_data = await packet_bundles.enqueue(
         session["session_id"],
         packet_data,
