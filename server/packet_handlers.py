@@ -137,7 +137,7 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
             other_session["session_id"],
             data=send_message_packet_data,
         )
-
+    # user commands 
     if message_content.startswith("!"):
         trigger, *args = message_content.split(" ")
 
