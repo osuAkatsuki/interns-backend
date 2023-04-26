@@ -246,7 +246,7 @@ async def start_spectating_handler(session: "Session", packet_data: bytes):
     
     await sessions.fetch_by_id()
     
-    session["presence"]["action"] = packets.UserPresenceAction.SPECTATING
+    session["presence"]["action"] = 
 
     # get host's session
     # set user's presence to spectating
