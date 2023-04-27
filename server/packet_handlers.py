@@ -146,10 +146,6 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
         elif trigger == "!roll":
             random_number_max = int(args[0])
             bancho_bot_message = str(random.randrange(0, random_number_max))
-            
-        #DELETE THIS
-        elif trigger == "!pres":
-            bancho_bot_message = str(session["presence"]["action"])
 
         if bancho_bot_message is not None:
             bancho_bot_message_packet_data = packets.write_send_message_packet(
@@ -231,34 +227,33 @@ async def ping_handler(session: "Session", packet_data: bytes):
 
 # START_SPECTATING = 16
 
+
 @bancho_handler(packets.ClientPackets.START_SPECTATING)
 async def start_spectating_handler(session: "Session", packet_data: bytes):
     assert session["presence"] is not None
-    
+
     packet_reader = packets.PacketReader(packet_data)
     host_account_id = packet_reader.read_i32()
 
     host_session = await sessions.fetch_by_account_id(host_account_id)
-    
+
     assert host_session is not None
 
     host_account_UUID = await spectators.start_spectating(
         host_account_id,
         host_session["session_id"],
     )
-    
+
     await packet_bundles.enqueue(
-        host_account_UUID,
-        packets.write_spectator_joined_packet(session["account_id"])
+        host_account_UUID, packets.write_spectator_joined_packet(session["account_id"])
     )
-
-
 
 
 # STOP_SPECTATING = 17
 
 
 # SPECTATE_FRAMES = 18
+
 
 @bancho_handler(packets.ClientPackets.SPECTATE_FRAMES)
 async def spectate_frames_handler(session: "Session", packet_data: bytes):
@@ -269,13 +264,14 @@ async def spectate_frames_handler(session: "Session", packet_data: bytes):
         session["session_id"],
         packet_data,
     )
-    
+
     # frames = packets.write_spectate_frames_packet(spectator_data["data"], session["account_id"])
-   
+
     # host_session = await sessions.fetch_by_id(host_account_id)
-    
+
     #     await packet_bundles.enqueue(
     #         session["presence"]["action"] = frames
+
 
 # ERROR_REPORT = 20
 

@@ -39,4 +39,4 @@ async def stop_spectating(
 async def all_spectators(host_session_id: int) -> set[UUID]:
     host_key = make_key(host_session_id)
     spectators = await clients.redis.smembers(host_key)
-    return {deserialize(spectator["session_id"]) for spectator in spectators}
+    return {deserialize(spectator) for spectator in spectators}
