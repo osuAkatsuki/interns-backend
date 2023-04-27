@@ -423,8 +423,13 @@ async def handle_bancho_request(request: Request) -> Response:
     # authenticate the request
     session_id = UUID(request.headers["osu-token"])
     session = await sessions.fetch_by_id(session_id)
-    if not session:
-        return Response(content=b"", status_code=status.HTTP_400_BAD_REQUEST)
+    if session is None:
+        return Response(
+            content=(
+                packets.write_restart_packet(millseconds_until_restart=0)
+                + packets.write_notification_packet("The server has restarted.")
+            )
+        )
 
     # read packets
     request_body = await request.body()

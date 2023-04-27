@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 import asyncio
-import hashlib
-import sys
 import os
+import sys
 from getpass import getpass
 
-import bcrypt
 import databases
 from dotenv import load_dotenv
 
