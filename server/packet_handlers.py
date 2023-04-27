@@ -240,7 +240,13 @@ async def start_spectating_handler(session: "Session", packet_data: bytes):
 
     host_session = await sessions.fetch_by_account_id(host_account_id)
     
-    assert host_session is not None
+    if host_session is None:
+        logger.warning(
+            "A user attempted to spectate another user who is offline",
+            spectator_id=session["account_id"],
+            host_id=host_session["account_id"],
+        )
+        return
 
     host_account_UUID = await spectators.start_spectating(
         host_account_id,
