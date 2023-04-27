@@ -90,7 +90,7 @@ async def main() -> int:
                 "email_address": email_address,
                 "privileges": privileges,
                 "password": password,
-                "country": country,
+                "country": country.upper(),
             },
         )
         for game_mode in range(8):
