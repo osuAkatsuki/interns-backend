@@ -28,10 +28,10 @@ async def start_spectating(
 
 
 async def stop_spectating(
-    host_session_id: int,
+    host_account_id: int,
     session_id: UUID,
 ) -> UUID | None:
-    host_key = make_key(host_session_id)
+    host_key = make_key(host_account_id)
     success = await clients.redis.srem(host_key, serialize(session_id))
     return session_id if success == 1 else None
 

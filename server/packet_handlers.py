@@ -247,18 +247,28 @@ async def start_spectating_handler(session: "Session", packet_data: bytes):
         )
         return
 
-    host_account_UUID = await spectators.start_spectating(
-        host_account_id,
-        host_session["session_id"],
-    )
+    # host_account_UUID = await spectators.start_spectating(
+    #     host_account_id,
+    #     host_session["session_id"],
+    # )
 
     await packet_bundles.enqueue(
-        host_account_UUID, packets.write_spectator_joined_packet(session["account_id"])
+        host_session["session_id"], packets.write_spectator_joined_packet(session["account_id"])
     )
 
 
 # STOP_SPECTATING = 17
 
+@bancho_handler(packets.ClientPackets.STOP_SPECTATING)
+async def stop_spectating_handler(session: "Session", packet_data: bytes):
+    packet_reader = packets.PacketReader(packet_data)
+    host_account_id = packet_reader.read_i32()
+
+    host_session = await sessions.fetch_by_account_id(host_account_id)
+    
+    assert host_session is not None
+    
+    await spectators.stop_spectating(host_session["account_id"], session["session_id"])
 
 # SPECTATE_FRAMES = 18
 
@@ -267,15 +277,17 @@ async def start_spectating_handler(session: "Session", packet_data: bytes):
 async def spectate_frames_handler(session: "Session", packet_data: bytes):
     packet_reader = packets.PacketReader(packet_data)
     host_account_id = packet_reader.read_i32()
+    host_session = await sessions.fetch_by_account_id(host_account_id)
 
-    spectator_data = await packet_bundles.enqueue(
-        session["session_id"],
-        packet_data,
-    )
+    assert host_session is not None
+    
+    for frame in host_session["presence"]["action"]:
+        await packet_bundles.enqueue(
+            session["session_id"],
+            frame,
+        )
 
     # frames = packets.write_spectate_frames_packet(spectator_data["data"], session["account_id"])
-
-    # host_session = await sessions.fetch_by_id(host_account_id)
 
     #     await packet_bundles.enqueue(
     #         session["presence"]["action"] = frames
