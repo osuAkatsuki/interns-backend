@@ -531,6 +531,9 @@ async def user_stats_request_handler(session: "Session", packet_data: bytes) -> 
     account_ids = reader.read_i32_list_i16_length()
 
     for account_id in account_ids:
+        if account_id == session["account_id"]:
+            continue
+
         other_session = await sessions.fetch_by_account_id(account_id)
         if other_session is None:
             continue
