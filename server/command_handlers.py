@@ -1,3 +1,4 @@
+import random
 from collections.abc import Awaitable
 from collections.abc import Callable
 from typing import TYPE_CHECKING
@@ -25,3 +26,19 @@ def command_handler(trigger: str) -> Callable[[CommandHandler], CommandHandler]:
 @command_handler("!echo")
 async def echo_handler(session: "Session", args: list[str]) -> str | None:
     return " ".join(args)
+
+
+@command_handler("!roll")
+async def roll_handler(session: "Session", args: list[str]) -> str | None:
+    random_number_max = int(args[0])
+    return str(random.randrange(0, random_number_max))
+
+
+@command_handler("!py")
+async def py_handler(session: "Session", args: list[str]) -> str | None:
+    try:
+        namespace = {}
+        exec("async def f():\n " + " ".join(args), namespace)
+        return str(await namespace["f"]())
+    except Exception as exc:
+        return str(exc)
