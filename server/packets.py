@@ -410,34 +410,39 @@ def write_logout_packet(user_id: int) -> bytes:
 
 # SPECTATOR_JOINED = 13
 
+
 def write_spectator_joined_packet(user_id: int) -> bytes:
     return write_packet(
-        packet_id=ClientPackets.START_SPECTATING,
+        packet_id=ServerPackets.SPECTATOR_JOINED,
         packet_data_inputs=[
             (DataType.I32, user_id),
-        ]
+        ],
     )
+
 
 # SPECTATOR_LEFT = 14
 
+
 def write_spectator_left_packet(user_id: int) -> bytes:
     return write_packet(
-        packet_id=ClientPackets.STOP_SPECTATING,
+        packet_id=ServerPackets.SPECTATOR_LEFT,
         packet_data_inputs=[
             (DataType.I32, user_id),
-        ]
+        ],
     )
+
 
 # SPECTATE_FRAMES = 15
 
-def write_spectate_frames_packet(data: bytes, user_id: int) -> bytes:
+
+def write_spectate_frames_packet(data: bytes) -> bytes:
     return write_packet(
         packet_id=ServerPackets.SPECTATE_FRAMES,
         packet_data_inputs=[
             (DataType.RAW_DATA, data),
-            (DataType.I32, user_id),
-        ]
+        ],
     )
+
 
 # VERSION_UPDATE = 19
 
@@ -480,7 +485,25 @@ def write_notification_packet(
 # FELLOW_SPECTATOR_JOINED = 42
 
 
+def write_fellow_spectator_joined_packet(user_id: int) -> bytes:
+    return write_packet(
+        packet_id=ServerPackets.FELLOW_SPECTATOR_JOINED,
+        packet_data_inputs=[
+            (DataType.I32, user_id),
+        ],
+    )
+
+
 # FELLOW_SPECTATOR_LEFT = 43
+
+
+def write_fellow_spectator_left_packet(user_id: int) -> bytes:
+    return write_packet(
+        packet_id=ServerPackets.FELLOW_SPECTATOR_LEFT,
+        packet_data_inputs=[
+            (DataType.I32, user_id),
+        ],
+    )
 
 
 # ALL_PLAYERS_LOADED = 45
@@ -602,6 +625,13 @@ def write_user_presence_packet(
 
 
 # RESTART = 86
+
+
+def write_restart_packet(millseconds_until_restart: int) -> bytes:
+    return write_packet(
+        packet_id=ServerPackets.RESTART,
+        packet_data_inputs=[(DataType.I32, millseconds_until_restart)],
+    )
 
 
 # MATCH_INVITE = 88
