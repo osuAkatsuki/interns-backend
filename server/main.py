@@ -25,11 +25,16 @@ from server import security
 from server import settings
 from server.adapters import ip_api
 from server.repositories import accounts
+from server.repositories import beatmaps
 from server.repositories import channel_members
 from server.repositories import channels
 from server.repositories import packet_bundles
+from server.repositories import scores
 from server.repositories import sessions
 from server.repositories import stats
+from server.repositories.accounts import Account
+from server.repositories.beatmaps import Beatmap
+from server.repositories.scores import Score
 
 app = FastAPI()
 
@@ -512,9 +517,114 @@ async def get_scores_handler(
     if session is None:
         return
 
-    hashword = account["password"].encode()
-
-    if not security.check_password(password_md5, hashword):
+    if not security.check_password(
+        password=password_md5,
+        hashword=account["password"].encode(),
+    ):
         return
 
+    beatmap = await beatmaps.fetch_one_by_md5(beatmap_md5)
+    if beatmap is None:
+        # TODO: JIT beatmaps?
+        return
+
+    # TODO: leaderboard type handling
+
+    leaderboard_scores = await scores.fetch_many(
+        beatmap_md5=beatmap_md5,
+        submission_status=2,  # TODO?
+        game_mode=game_mode,
+        sort_by="performance_points",  # TODO: score for certain gamemodes?
+        page_size=50,
+    )
+
+    personal_best_scores = await scores.fetch_many(
+        account_id=account["account_id"],
+        beatmap_md5=beatmap_md5,
+        submission_status=2,  # TODO?
+        game_mode=game_mode,
+        sort_by="performance_points",  # TODO: score for certain gamemodes?
+        page_size=1,
+    )
+    if personal_best_scores:
+        personal_best_score = personal_best_scores[0]
+    else:
+        personal_best_score = None
+
+    return format_leaderboard_response(
+        leaderboard_scores,
+        personal_best_score,
+        account,
+        beatmap,
+    )
+
+
+def format_leaderboard_response(
+    leaderboard_scores: list[Score],
+    personal_best_score: Score | None,
+    account: Account,
+    beatmap: Beatmap,
+) -> str:
+    """\
+    {ranked_status}|{serv_has_osz2}|{bid}|{bsid}|{len(scores)}|{fa_track_id}|{fa_license_text}
+    {offset}\n{beatmap_name}\n{rating}
+    {id}|{name}|{score}|{max_combo}|{n50}|{n100}|{n300}|{nmiss}|{nkatu}|{ngeki}|{perfect}|{mods}|{userid}|{rank}|{time}|{has_replay}
+    {id}|{name}|{score}|{max_combo}|{n50}|{n100}|{n300}|{nmiss}|{nkatu}|{ngeki}|{perfect}|{mods}|{userid}|{rank}|{time}|{has_replay}
     ...
+    """
+    # 3rd line is peronsal best, rest are leaderboard scores
+
+    buffer = ""
+
+    # first line
+    buffer += f"{beatmap['ranked_status']}|0|{beatmap['beatmap_id']}|{beatmap['beatmap_set_id']}|{len(leaderboard_scores)}|0|0\n"
+
+    # second line
+    beatmap_name = "{artist} - {title} [{version}]".format(**beatmap)
+    buffer += f"0\n{beatmap_name}\n{beatmap['star_rating']}\n"
+
+    # third line
+    if personal_best_score is None:
+        buffer += "0\n"
+    else:
+        buffer += (
+            f"{personal_best_score['score_id']}|"
+            f"{account['username']}|"
+            f"{personal_best_score['score']}|"
+            f"{personal_best_score['highest_combo']}|"
+            f"{personal_best_score['num_50s']}|"
+            f"{personal_best_score['num_100s']}|"
+            f"{personal_best_score['num_300s']}|"
+            f"{personal_best_score['num_misses']}|"
+            f"{personal_best_score['num_katus']}|"
+            f"{personal_best_score['num_gekis']}|"
+            f"{personal_best_score['full_combo']}|"
+            f"{personal_best_score['mods']}|"
+            f"{account['account_id']}|"
+            f"{personal_best_score['rank']}|"
+            f"{personal_best_score['time']}|"
+            f"{personal_best_score['has_replay']}\n"
+        )
+
+    # rest of the lines
+    for score in leaderboard_scores:
+        buffer += (
+            f"{score['score_id']}|"
+            f"{score['username']}|"
+            f"{score['score']}|"
+            f"{score['highest_combo']}|"
+            f"{score['num_50s']}|"
+            f"{score['num_100s']}|"
+            f"{score['num_300s']}|"
+            f"{score['num_misses']}|"
+            f"{score['num_katus']}|"
+            f"{score['num_gekis']}|"
+            f"{score['full_combo']}|"
+            f"{score['mods']}|"
+            f"{score['account_id']}|"
+            f"{score['rank']}|"
+            f"{score['time']}|"
+            f"{score['has_replay']}\n"
+        )
+
+    return buffer

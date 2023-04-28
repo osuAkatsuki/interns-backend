@@ -114,9 +114,7 @@ async def fetch_many(
     return [dict(beatmap._mapping) for beatmap in beatmaps]
 
 
-async def fetch_one(
-    beatmap_id: int,
-) -> dict[str, Any] | None:
+async def fetch_one_by_id(beatmap_id: int) -> dict[str, Any] | None:
     beatmap = await clients.database.fetch_one(
         query=f"""\
             SELECT {READ_PARAMS}
@@ -125,6 +123,20 @@ async def fetch_one(
         """,
         values={
             "beatmap_id": beatmap_id,
+        },
+    )
+    return dict(beatmap._mapping) if beatmap is not None else None
+
+
+async def fetch_one_by_md5(beatmap_md5: str) -> dict[str, Any] | None:
+    beatmap = await clients.database.fetch_one(
+        query=f"""\
+            SELECT {READ_PARAMS}
+            FROM beatmaps
+            WHERE beatmap_md5 = :beatmap_md5
+        """,
+        values={
+            "beatmap_md5": beatmap_md5,
         },
     )
     return dict(beatmap._mapping) if beatmap is not None else None
