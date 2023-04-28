@@ -254,6 +254,7 @@ async def handle_login(request: Request) -> Response:
             "beatmap_id": 0,
             "mods": 0,
             "mode": 0,
+            "spectator_host_session_id": None,
         },
     )
     assert own_session["presence"] is not None  # TODO: is there a better way?

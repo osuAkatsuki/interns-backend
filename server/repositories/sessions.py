@@ -22,7 +22,6 @@ def make_key(session_id: UUID | Literal["*"]) -> str:
 class Session(TypedDict):
     session_id: UUID
     account_id: int
-    # user_agent: str
     presence: Presence | None
     expires_at: datetime
     created_at: datetime
@@ -44,37 +43,77 @@ class Presence(TypedDict):
     beatmap_id: int
     mods: int
     mode: int
+    spectator_host_session_id: UUID | None
+
+
+class _SerializablePresence(TypedDict):
+    account_id: int
+    username: str
+    utc_offset: int
+    country: str
+    bancho_privileges: int
+    game_mode: int
+    latitude: float
+    longitude: float
+    action: int
+    info_text: str
+    beatmap_md5: str
+    beatmap_id: int
+    mods: int
+    mode: int
+    spectator_host_session_id: str | None
+
+
+class _SerializableSession(TypedDict):
+    session_id: str
+    account_id: int
+    presence: _SerializablePresence | None
+    expires_at: str
+    created_at: str
+    updated_at: str
+
+
+def serialize_presence(presence: Presence) -> _SerializablePresence:
+    return {
+        "account_id": presence["account_id"],
+        "username": presence["username"],
+        "utc_offset": presence["utc_offset"],
+        "country": presence["country"],
+        "bancho_privileges": presence["bancho_privileges"],
+        "game_mode": presence["game_mode"],
+        "latitude": presence["latitude"],
+        "longitude": presence["longitude"],
+        "action": presence["action"],
+        "info_text": presence["info_text"],
+        "beatmap_md5": presence["beatmap_md5"],
+        "beatmap_id": presence["beatmap_id"],
+        "mods": presence["mods"],
+        "mode": presence["mode"],
+        "spectator_host_session_id": (
+            str(presence["spectator_host_session_id"])
+            if presence["spectator_host_session_id"] is not None
+            else None
+        ),
+    }
+
+
+def serialize_session(session: Session) -> _SerializableSession:
+    return {
+        "session_id": str(session["session_id"]),
+        "account_id": session["account_id"],
+        "presence": (
+            serialize_presence(session["presence"])
+            if session["presence"] is not None
+            else None
+        ),
+        "expires_at": session["expires_at"].isoformat(),
+        "created_at": session["created_at"].isoformat(),
+        "updated_at": session["updated_at"].isoformat(),
+    }
 
 
 def serialize(session: Session) -> str:
-    return json.dumps(
-        {
-            "session_id": str(session["session_id"]),
-            "account_id": session["account_id"],
-            # "user_agent": session["user_agent"],
-            "presence": {
-                "account_id": session["presence"]["account_id"],
-                "username": session["presence"]["username"],
-                "utc_offset": session["presence"]["utc_offset"],
-                "country": session["presence"]["country"],
-                "bancho_privileges": session["presence"]["bancho_privileges"],
-                "game_mode": session["presence"]["game_mode"],
-                "latitude": session["presence"]["latitude"],
-                "longitude": session["presence"]["longitude"],
-                "action": session["presence"]["action"],
-                "info_text": session["presence"]["info_text"],
-                "beatmap_md5": session["presence"]["beatmap_md5"],
-                "beatmap_id": session["presence"]["beatmap_id"],
-                "mods": session["presence"]["mods"],
-                "mode": session["presence"]["mode"],
-            }
-            if session["presence"] is not None
-            else None,
-            "expires_at": session["expires_at"].isoformat(),
-            "created_at": session["created_at"].isoformat(),
-            "updated_at": session["updated_at"].isoformat(),
-        }
-    )
+    return json.dumps(serialize_session(session))
 
 
 def deserialize(raw_session: str) -> Session:
@@ -101,14 +140,12 @@ async def create(
     session_id: UUID,
     account_id: int,
     presence: Presence | None = None,
-    # user_agent: str,
 ) -> Session:
     now = datetime.now()
     expires_at = now + timedelta(seconds=SESSION_EXPIRY)
     session: Session = {
         "session_id": session_id,
         "account_id": account_id,
-        # "user_agent": user_agent,
         "presence": presence,
         "expires_at": expires_at,
         "created_at": now,
@@ -240,6 +277,10 @@ async def update_by_id(session_id: UUID, **kwargs: Any) -> Session | None:
         mode = kwargs["presence"].get("mode")
         if mode is not None:
             session["presence"]["mode"] = mode
+
+        spectator_host_session_id = kwargs["presence"].get("spectator_host_session_id")
+        if spectator_host_session_id is not None:
+            session["presence"]["spectator_host_session_id"] = spectator_host_session_id
 
     session["updated_at"] = datetime.now().isoformat()
 

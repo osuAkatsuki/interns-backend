@@ -148,18 +148,18 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
             bancho_bot_message = str(random.randrange(0, random_number_max))
         elif trigger == "!py":
             try:
-                namespace = {**locals()}
-                exec("def f():\n " + " ".join(args), namespace)
-                bancho_bot_message = str(namespace["f"]())
+                namespace = {}
+                exec("async def f():\n " + " ".join(args), namespace)
+                bancho_bot_message = str(await namespace["f"]())
             except Exception as exc:
                 bancho_bot_message = str(exc)
 
         if bancho_bot_message is not None:
             bancho_bot_message_packet_data = packets.write_send_message_packet(
-                "BanchoBot",
-                bancho_bot_message,
-                recipient_name,
-                0,
+                sender_name="BanchoBot",
+                message_content=bancho_bot_message,
+                recipient_name=recipient_name,
+                sender_id=0,
             )
             for other_session in await sessions.fetch_all(osu_clients_only=True):
                 await packet_bundles.enqueue(
@@ -232,9 +232,6 @@ async def ping_handler(session: "Session", packet_data: bytes):
     pass
 
 
-# TODO:TEMPFIX: make this stateless
-who_spectating_who = {}
-
 # START_SPECTATING = 16
 
 
@@ -260,8 +257,10 @@ async def start_spectating_handler(session: "Session", packet_data: bytes):
         session["session_id"],
     )
 
-    # TODO: make this stateless
-    who_spectating_who[session["session_id"]] = host_session["session_id"]
+    await sessions.update_by_id(
+        session["session_id"],
+        presence={"spectator_host_session_id": host_session["session_id"]},
+    )
 
     await packet_bundles.enqueue(
         host_session["session_id"],
@@ -285,16 +284,23 @@ async def start_spectating_handler(session: "Session", packet_data: bytes):
 async def stop_spectating_handler(session: "Session", packet_data: bytes):
     assert session["presence"] is not None
 
-    # TODO: make this stateless
-    host_session_id = who_spectating_who[session["session_id"]]
-    host_session = await sessions.fetch_by_id(host_session_id)
+    if session["presence"]["spectator_host_session_id"] is None:
+        logger.warning(
+            "A user attempted to stop spectating user while not spectating anyone",
+            spectator_id=session["account_id"],
+        )
+        return
+
+    host_session = await sessions.fetch_by_id(
+        session["presence"]["spectator_host_session_id"]
+    )
 
     if host_session is None:
-        # logger.warning(
-        #     "A user attempted to stop spectating another user who is offline",
-        #     spectator_id=session["account_id"],
-        #     host_id=host_account_id,
-        # )
+        logger.warning(
+            "A user attempted to stop spectating another user who is offline",
+            spectator_id=session["account_id"],
+            # host_id=host_session["account_id"], # not possible to eval
+        )
         return
 
     await spectators.remove(
@@ -302,8 +308,10 @@ async def stop_spectating_handler(session: "Session", packet_data: bytes):
         session["session_id"],
     )
 
-    # TODO: make this stateless
-    del who_spectating_who[session["session_id"]]
+    await sessions.update_by_id(
+        session["session_id"],
+        presence={"spectator_host_session_id": None},
+    )
 
     await packet_bundles.enqueue(
         host_session["session_id"],
@@ -339,6 +347,8 @@ async def spectate_frames_handler(session: "Session", packet_data: bytes):
 
 
 # SEND_PRIVATE_MESSAGE = 25
+
+
 @bancho_handler(packets.ClientPackets.SEND_PRIVATE_MESSAGE)
 async def send_private_message_handler(session: "Session", packet_data: bytes):
     assert session["presence"] is not None
