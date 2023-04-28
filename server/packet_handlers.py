@@ -346,6 +346,28 @@ async def spectate_frames_handler(session: "Session", packet_data: bytes):
 # CANT_SPECTATE = 21
 
 
+@bancho_handler(packets.ClientPackets.CANT_SPECTATE)
+async def cant_spectate_handler(session: "Session", packet_data: bytes):
+    assert session["presence"] is not None
+    
+    packet_reader = packets.PacketReader(packet_data)
+    host_account_id = packet_reader.read_i32()
+
+    host_session = await sessions.fetch_by_account_id(host_account_id)
+
+    if host_session is None:
+        logger.warning(
+            "A user attempted to spectate an offline user",
+            spectator_id=session["account_id"],
+        )
+        return
+
+    await packet_bundles.enqueue(
+        host_session["session_id"],
+        packets.write_spectator_cant_spectate_packet(session["account_id"])
+    )
+
+
 # SEND_PRIVATE_MESSAGE = 25
 
 
@@ -355,13 +377,27 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
 
     packet_reader = packets.PacketReader(packet_data)
 
-    sender_name = packet_reader.read_string()  # always ""
+    packet_reader.read_string()  # always ""
     message_content = packet_reader.read_string()
     recipient_name = packet_reader.read_string()
-    sender_id = packet_reader.read_i32()  # always 0
 
     if len(message_content) > 2000:
         message_content = message_content[:2000] + "..."
+
+    recipient_session = await sessions.fetch_by_username(recipient_name)
+
+    if recipient_session is None:
+        logger.warning("Recipient is currently offline")
+        return
+
+    relationship_info = await relationships.fetch_one(session["account_id"], recipient_session["account_id"])
+
+    assert relationship_info is not None
+
+    if relationship_info["relationship"] == "blocked":
+        return
+
+    # if relationships.fetch_one(session["account_id"], sender_id):
 
     send_message_packet_data = packets.write_send_message_packet(
         session["presence"]["username"],
