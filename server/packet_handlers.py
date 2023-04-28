@@ -14,6 +14,7 @@ from server.repositories import relationships
 from server.repositories import sessions
 from server.repositories import spectators
 from server.repositories import stats
+from server.repositories import accounts
 
 if TYPE_CHECKING:
     from server.repositories.sessions import Session
