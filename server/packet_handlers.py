@@ -525,6 +525,51 @@ async def user_leaves_channel_handler(session: "Session", packet_data: bytes):
 # USER_STATS_REQUEST = 85
 
 
+@bancho_handler(packets.ClientPackets.USER_STATS_REQUEST)
+async def user_stats_request_handler(session: "Session", packet_data: bytes) -> None:
+    assert session is not None
+
+    reader = packets.PacketReader(packet_data)
+
+    account_ids = reader.read_i32_list_i16_length()
+
+    for account_id in account_ids:
+        if account_id == session["account_id"]:
+            continue
+
+        other_session = await sessions.fetch_by_account_id(account_id)
+        if other_session is None:
+            continue
+
+        assert other_session["presence"] is not None
+
+        other_stats = await stats.fetch_one(
+            account_id,
+            other_session["presence"]["game_mode"],
+        )
+        if other_stats is None:
+            continue
+
+        await packet_bundles.enqueue(
+            session["session_id"],
+            data=packets.write_user_stats_packet(
+                other_stats["account_id"],
+                other_session["presence"]["action"],
+                other_session["presence"]["info_text"],
+                other_session["presence"]["beatmap_md5"],
+                other_session["presence"]["mods"],
+                other_session["presence"]["mode"],
+                other_session["presence"]["beatmap_id"],
+                other_stats["ranked_score"],
+                other_stats["accuracy"],
+                other_stats["play_count"],
+                other_stats["total_score"],
+                ranking.get_global_rank(other_stats["account_id"]),
+                other_stats["performance_points"],
+            ),
+        )
+
+
 # MATCH_INVITE = 87
 
 
