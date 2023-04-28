@@ -146,7 +146,7 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
         if command_handler is not None:
             response = await command_handler(session, args)
             if response is not None:
-                # TODO: send response to the whole channel
+                # TODO: send response only to those in the channel
                 for other_session in await sessions.fetch_all(osu_clients_only=True):
                     await packet_bundles.enqueue(
                         other_session["session_id"],
