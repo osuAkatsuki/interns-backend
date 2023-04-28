@@ -321,20 +321,6 @@ def write_packet(
     return packet_header + packet_body
 
 
-# CLIENT PACKETS
-
-
-# CANT_SPECTATE
-
-
-def write_cant_spectate_packet(user_id: int) -> bytes:
-    return write_packet(
-        packet_id=ClientPackets.CANT_SPECTATE,
-        packet_data_inputs=[(DataType.I32, user_id)]
-    )
-
-
-# SERVER PACKETS
 
 # USER_ID = 5
 

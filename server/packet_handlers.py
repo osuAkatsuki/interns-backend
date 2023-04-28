@@ -367,6 +367,15 @@ async def cant_spectate_handler(session: "Session", packet_data: bytes):
         packets.write_spectator_cant_spectate_packet(session["account_id"])
     )
 
+    for spectator_session_id in await spectators.members(host_session["session_id"]):
+        if spectator_session_id == session["session_id"]:
+            continue
+        
+        await packet_bundles.enqueue(
+            spectator_session_id,
+            packets.write_spectator_cant_spectate_packet(session["account_id"]),
+        )
+
 
 # SEND_PRIVATE_MESSAGE = 25
 
