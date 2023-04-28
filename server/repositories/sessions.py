@@ -168,13 +168,9 @@ async def fetch_by_id(session_id: UUID) -> Session | None:
 
 
 async def fetch_by_account_id(account_id: int) -> Session | None:
-    sessions = await fetch_all(osu_clients_only=True)
-
-    for session in sessions:
-        if session["presence"] is None:
-            return None
-
-        if session["presence"]["account_id"] == account_id:
+    all_sessions = await fetch_all(osu_clients_only=True)
+    for session in all_sessions:
+        if session["account_id"] == account_id:
             return session
 
     return None
