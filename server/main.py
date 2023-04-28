@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import ipaddress
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 from uuid import uuid4
@@ -194,13 +195,19 @@ async def handle_login(request: Request) -> Response:
     # TODO: support for this specifically for tournament clients
     other_session = await sessions.fetch_by_username(login_data["username"])
     if other_session is not None:
-        return Response(
-            content=(
-                packets.write_user_id_packet(-1)
-                + packets.write_notification_packet("User already logged in.")
-            ),
-            headers={"cho-token": "no"},
-        )
+        # TODO: store the last time a client pinged the server, and check that instead
+        time_since_last_update = datetime.now() - other_session["updated_at"]
+
+        if time_since_last_update.total_seconds() > 10:  # trust the new user
+            await sessions.delete_by_id(other_session["session_id"])
+        else:
+            return Response(
+                content=(
+                    packets.write_user_id_packet(-1)
+                    + packets.write_notification_packet("User already logged in.")
+                ),
+                headers={"cho-token": "no"},
+            )
 
     raw_ip_address = request.headers.get("X-Real-IP")
     if raw_ip_address is None:
