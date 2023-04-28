@@ -406,8 +406,6 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
     if relationship_info["relationship"] == "blocked":
         return
 
-    # if relationships.fetch_one(session["account_id"], sender_id):
-
     send_message_packet_data = packets.write_send_message_packet(
         session["presence"]["username"],
         message_content,
