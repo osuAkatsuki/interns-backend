@@ -1,4 +1,5 @@
-from typing import Any
+from typing import cast
+from typing import TypedDict
 
 from server import clients
 
@@ -28,6 +29,30 @@ READ_PARAMS = """\
 """
 
 
+class Beatmap(TypedDict):
+    beatmap_id: int
+    beatmap_set_id: int
+    ranked_status: int
+    beatmap_md5: str
+    artist: str
+    title: str
+    version: str
+    creator: str
+    filename: str
+    total_length: int
+    max_combo: int
+    ranked_status_manually_changed: bool
+    plays: int
+    passes: int
+    mode: int
+    bpm: float
+    cs: float
+    ar: float
+    od: float
+    hp: float
+    star_rating: float
+
+
 async def create(
     beatmap_id: int,
     beatmap_set_id: int,
@@ -50,7 +75,7 @@ async def create(
     od: float,
     hp: float,
     star_rating: float,
-) -> dict[str, Any]:
+) -> Beatmap:
     beatmap = await clients.database.fetch_one(
         query=f"""\
             INSERT INTO beatmaps (beatmap_id, beatmap_set_id, ranked_status,
@@ -91,13 +116,13 @@ async def create(
     )
 
     assert beatmap is not None
-    return dict(beatmap._mapping)
+    return cast(Beatmap, dict(beatmap._mapping))
 
 
 async def fetch_many(
     page: int = 1,
     page_size: int = 50,
-) -> list[dict[str, Any]]:
+) -> list[Beatmap]:
     beatmaps = await clients.database.fetch_all(
         query=f"""\
             SELECT {READ_PARAMS}
@@ -111,10 +136,10 @@ async def fetch_many(
         },
     )
 
-    return [dict(beatmap._mapping) for beatmap in beatmaps]
+    return [cast(Beatmap, dict(beatmap._mapping)) for beatmap in beatmaps]
 
 
-async def fetch_one_by_id(beatmap_id: int) -> dict[str, Any] | None:
+async def fetch_one_by_id(beatmap_id: int) -> Beatmap | None:
     beatmap = await clients.database.fetch_one(
         query=f"""\
             SELECT {READ_PARAMS}
@@ -125,10 +150,10 @@ async def fetch_one_by_id(beatmap_id: int) -> dict[str, Any] | None:
             "beatmap_id": beatmap_id,
         },
     )
-    return dict(beatmap._mapping) if beatmap is not None else None
+    return cast(Beatmap, dict(beatmap._mapping)) if beatmap is not None else None
 
 
-async def fetch_one_by_md5(beatmap_md5: str) -> dict[str, Any] | None:
+async def fetch_one_by_md5(beatmap_md5: str) -> Beatmap | None:
     beatmap = await clients.database.fetch_one(
         query=f"""\
             SELECT {READ_PARAMS}
@@ -139,4 +164,4 @@ async def fetch_one_by_md5(beatmap_md5: str) -> dict[str, Any] | None:
             "beatmap_md5": beatmap_md5,
         },
     )
-    return dict(beatmap._mapping) if beatmap is not None else None
+    return cast(Beatmap, dict(beatmap._mapping)) if beatmap is not None else None
