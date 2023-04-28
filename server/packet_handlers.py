@@ -184,7 +184,7 @@ async def logout_handler(session: "Session", packet_data: bytes) -> None:
         )
 
     logger.info(
-        "Log out successful",
+        "User logout successful",
         session_id=session["session_id"],
         account_id=session["account_id"],
     )
@@ -373,7 +373,7 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
     recipient_session = await sessions.fetch_by_username(recipient_name)
 
     # Todo add notification
-    if not recipient_session:
+    if recipient_session is None:
         return
 
     await packet_bundles.enqueue(
@@ -447,13 +447,17 @@ async def user_joins_channel_handler(session: "Session", packet_data: bytes):
     channel_name = packet_reader.read_string()
 
     channel = await channels.fetch_one_by_name(channel_name)
-
-    if not channel:
+    if channel is None:
         return
 
     current_channel_members = await channel_members.members(channel["channel_id"])
 
     if session["session_id"] in current_channel_members:
+        logger.warning(
+            "A user attempted to join a channel they are already in",
+            user_id=session["account_id"],
+            channel_id=channel["channel_id"],
+        )
         return
 
     await channel_members.add(channel["channel_id"], session["session_id"])
@@ -503,8 +507,7 @@ async def user_leaves_channel_handler(session: "Session", packet_data: bytes):
     channel_name = packet_reader.read_string()
 
     channel = await channels.fetch_one_by_name(channel_name)
-
-    if not channel:
+    if channel is None:
         return
 
     await channel_members.remove(channel["channel_id"], session["session_id"])

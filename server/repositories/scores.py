@@ -85,7 +85,7 @@ async def create(
     time_elapsed: int,
     client_anticheat_flags: int,
 ) -> Score:
-    score = await clients.database.fetch_one(
+    _score = await clients.database.fetch_one(
         query=f"""
             INSERT INTO scores (account_id, online_checksum, beatmap_md5, score,
                                 performance_points, accuracy, highest_combo,
@@ -126,8 +126,8 @@ async def create(
             "client_anticheat_flags": client_anticheat_flags,
         },
     )
-    assert score is not None
-    return cast(Score, score)
+    assert _score is not None
+    return cast(Score, _score)
 
 
 async def fetch_all(

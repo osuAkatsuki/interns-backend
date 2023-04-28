@@ -409,7 +409,7 @@ async def handle_login(request: Request) -> Response:
     # TODO: main menu icon
 
     logger.info(
-        "Login successful",
+        "User login successful",
         account_id=own_session["account_id"],
         session_id=own_session["session_id"],
     )
