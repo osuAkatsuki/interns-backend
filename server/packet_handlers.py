@@ -47,22 +47,22 @@ async def change_action_handler(session: "Session", packet_data: bytes):
 
     action = data.read_u8()
     info_text = data.read_string()
-    map_md5 = data.read_string()
+    beatmap_md5 = data.read_string()
 
     mods = data.read_u32()
     mode = data.read_u8()
 
-    map_id = data.read_i32()
+    beatmap_id = data.read_i32()
 
     maybe_session = await sessions.update_by_id(
         session["session_id"],
         presence={
             "action": action,
             "info_text": info_text,
-            "map_md5": map_md5,
+            "beatmap_md5": beatmap_md5,
             "mods": mods,
             "mode": mode,
-            "map_id": map_id,
+            "beatmap_id": beatmap_id,
         },
     )
     assert maybe_session is not None
