@@ -144,15 +144,15 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
         trigger, *args = message_content.split(" ")
         command_handler = command_handlers.get_command_handler(trigger)
         if command_handler is not None:
-            response = await command_handler(session, args)
-            if response is not None:
-                # TODO: send response only to those in the channel
+            bancho_bot_message = await command_handler(session, args)
+            if bancho_bot_message is not None:
+                # TODO: send bancho bot message only to those in the channel
                 for other_session in await sessions.fetch_all(osu_clients_only=True):
                     await packet_bundles.enqueue(
                         other_session["session_id"],
                         data=packets.write_send_message_packet(
                             sender_name="BanchoBot",
-                            message_content=response,
+                            message_content=bancho_bot_message,
                             recipient_name=recipient_name,
                             sender_id=0,
                         ),
