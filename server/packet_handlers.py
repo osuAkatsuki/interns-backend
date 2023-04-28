@@ -532,14 +532,16 @@ async def user_stats_request_handler(session: "Session", packet_data: bytes) -> 
 
     for account_id in account_ids:
         other_session = await sessions.fetch_by_account_id(account_id)
-        if other_session is not None:
+        if other_session is None:
             continue
+
+        assert other_session["presence"] is not None
 
         other_stats = await stats.fetch_one(
             account_id,
             other_session["presence"]["game_mode"],
         )
-        if other_session is None:
+        if other_stats is None:
             continue
 
         await packet_bundles.enqueue(
