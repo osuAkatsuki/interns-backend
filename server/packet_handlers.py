@@ -537,7 +537,7 @@ async def user_stats_request_handler(session: "Session", packet_data: bytes) -> 
 
         other_stats = await stats.fetch_one(
             account_id,
-            other_session['presence']['game_mode'],
+            other_session["presence"]["game_mode"],
         )
         if other_session is None:
             continue
@@ -558,9 +558,8 @@ async def user_stats_request_handler(session: "Session", packet_data: bytes) -> 
                 other_stats["total_score"],
                 ranking.get_global_rank(other_stats["account_id"]),
                 other_stats["performance_points"],
-            )
+            ),
         )
-        
 
 
 # MATCH_INVITE = 87
