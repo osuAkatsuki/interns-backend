@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import cast
 from typing import TypedDict
 
@@ -39,6 +40,7 @@ class Beatmap(TypedDict):
     version: str
     creator: str
     filename: str
+    last_update: datetime
     total_length: int
     max_combo: int
     ranked_status_manually_changed: bool
@@ -63,6 +65,7 @@ async def create(
     version: str,
     creator: str,
     filename: str,
+    last_update: datetime,
     total_length: int,
     max_combo: int,
     ranked_status_manually_changed: bool,
@@ -80,12 +83,12 @@ async def create(
         query=f"""\
             INSERT INTO beatmaps (beatmap_id, beatmap_set_id, ranked_status,
                                   beatmap_md5, artist, title, version, creator,
-                                  filename, total_length, max_combo,
+                                  filename, last_update, total_length, max_combo,
                                   ranked_status_manually_changed, plays, passes,
                                   mode, bpm, cs, ar, od, hp, star_rating)
             VALUES (:beatmap_id, :beatmap_set_id, :ranked_status,
                     :beatmap_md5, :artist, :title, :version, :creator,
-                    :filename, :total_length, :max_combo,
+                    :filename, :last_update, :total_length, :max_combo,
                     :ranked_status_manually_changed, :plays, :passes,
                     :mode, :bpm, :cs, :ar, :od, :hp, :star_rating)
             RETURNING {READ_PARAMS}
@@ -100,6 +103,7 @@ async def create(
             "version": version,
             "creator": creator,
             "filename": filename,
+            "last_update": last_update,
             "total_length": total_length,
             "max_combo": max_combo,
             "ranked_status_manually_changed": ranked_status_manually_changed,
@@ -120,22 +124,23 @@ async def create(
 
 
 async def fetch_many(
-    page: int = 1,
-    page_size: int = 50,
+    page: int | None = None,
+    page_size: int | None = None,
 ) -> list[Beatmap]:
-    beatmaps = await clients.database.fetch_all(
-        query=f"""\
-            SELECT {READ_PARAMS}
-            FROM beatmaps
+    query = f"""\
+        SELECT {READ_PARAMS}
+        FROM beatmaps
+    """
+    values = {}
+    if page is not None and page_size is not None:
+        query += """\
             LIMIT :limit
             OFFSET :offset
-        """,
-        values={
-            "limit": page_size,
-            "offset": (page - 1) * page_size,
-        },
-    )
+        """
+        values["limit"] = page
+        values["offset"] = (page - 1) * page_size
 
+    beatmaps = await clients.database.fetch_all(query, values)
     return [cast(Beatmap, dict(beatmap._mapping)) for beatmap in beatmaps]
 
 

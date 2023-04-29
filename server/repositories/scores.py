@@ -173,7 +173,7 @@ async def fetch_many(
         AND mods = COALESCE(:mods, mods)
         ORDER BY {sort_by} DESC
     """
-    params = {
+    values = {
         "beatmap_md5": beatmap_md5,
         "account_id": account_id,
         "country": country,
@@ -188,9 +188,9 @@ async def fetch_many(
             LIMIT :page_size
             OFFSET :offset
         """
-        params["page_size"] = page_size
-        params["offset"] = page * page_size
-    scores = await clients.database.fetch_all(query, params)
+        values["page_size"] = page_size
+        values["offset"] = page * page_size
+    scores = await clients.database.fetch_all(query, values)
     return [cast(Score, dict(score._mapping)) for score in scores]
 
 
