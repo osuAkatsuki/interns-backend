@@ -53,13 +53,13 @@ async def block_handler(session: "Session", args: list[str]) -> str | None:
 
     account_to_be_blocked = await accounts.fetch_by_username(args[0])
     if account_to_be_blocked is None:
-        return f"{args[0]} Could not be blocked!"
+        return f"{args[0]} could not be blocked"
 
     all_relationships = await relationships.fetch_all(session["account_id"])
 
     for relationship in all_relationships:
         if relationship["target_id"] == account_to_be_blocked["account_id"]:
-            return f"{args[0]} is already blocked!"
+            return f"{args[0]} is already blocked"
 
     await relationships.create(
         account_id=session["account_id"],

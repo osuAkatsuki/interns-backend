@@ -14,7 +14,7 @@ async def create(
     target_id: int,
     relationship: str,
 ) -> dict[str, Any]:
-    channel = await clients.database.fetch_one(
+    _relationship = await clients.database.fetch_one(
         query=f"""
             INSERT INTO relationships (account_id, target_id, relationship)
             VALUES (:account_id, :target_id, :relationship)
@@ -27,8 +27,8 @@ async def create(
         },
     )
 
-    assert channel is not None
-    return dict(channel._mapping)
+    assert _relationship is not None
+    return dict(_relationship._mapping)
 
 
 async def fetch_all(
@@ -45,14 +45,14 @@ async def fetch_all(
         values={"account_id": account_id, "relationship": relationship},
     )
 
-    return [dict(channel._mapping) for channel in channels]
+    return [dict(_relationship._mapping) for _relationship in channels]
 
 
 async def remove(
     account_id: int,
     target_id: int,
 ) -> dict[str, Any] | None:
-    channel = await clients.database.fetch_one(
+    _relationship = await clients.database.fetch_one(
         query=f"""
             DELETE FROM relationships
             WHERE account_id = :account_id
@@ -64,4 +64,4 @@ async def remove(
             "target_id": target_id,
         },
     )
-    return dict(channel._mapping) if channel is not None else None
+    return dict(_relationship._mapping) if _relationship is not None else None

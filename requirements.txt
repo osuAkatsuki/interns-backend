@@ -4,6 +4,7 @@ asyncpg
 bcrypt
 databases
 email_validator
+Faker
 fastapi
 httpx
 orjson
