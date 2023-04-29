@@ -67,9 +67,9 @@ async def fetch_many(
             OFFSET :offset
         """,
         values={
+            "privileges": privileges,
             "limit": page_size,
             "offset": (page - 1) * page_size,
-            "privileges": privileges,
         },
     )
     return [cast(Account, account) for account in accounts]
