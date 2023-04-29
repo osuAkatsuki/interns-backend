@@ -22,7 +22,7 @@ def make_key(session_id: UUID | Literal["*"]) -> str:
 class Session(TypedDict):
     session_id: UUID
     account_id: int
-    presence: Presence | None
+    presence: Presence
     expires_at: datetime
     created_at: datetime
     updated_at: datetime
@@ -33,7 +33,7 @@ class Presence(TypedDict):
     username: str
     utc_offset: int
     country: str
-    bancho_privileges: int
+    privileges: int
     game_mode: int
     latitude: float
     longitude: float
@@ -51,7 +51,7 @@ class _SerializablePresence(TypedDict):
     username: str
     utc_offset: int
     country: str
-    bancho_privileges: int
+    privileges: int
     game_mode: int
     latitude: float
     longitude: float
@@ -79,7 +79,7 @@ def serialize_presence(presence: Presence) -> _SerializablePresence:
         "username": presence["username"],
         "utc_offset": presence["utc_offset"],
         "country": presence["country"],
-        "bancho_privileges": presence["bancho_privileges"],
+        "privileges": presence["privileges"],
         "game_mode": presence["game_mode"],
         "latitude": presence["latitude"],
         "longitude": presence["longitude"],
@@ -101,11 +101,7 @@ def serialize_session(session: Session) -> _SerializableSession:
     return {
         "session_id": str(session["session_id"]),
         "account_id": session["account_id"],
-        "presence": (
-            serialize_presence(session["presence"])
-            if session["presence"] is not None
-            else None
-        ),
+        "presence": serialize_presence(session["presence"]),
         "expires_at": session["expires_at"].isoformat(),
         "created_at": session["created_at"].isoformat(),
         "updated_at": session["updated_at"].isoformat(),
@@ -242,9 +238,9 @@ async def update_by_id(session_id: UUID, **kwargs: Any) -> Session | None:
         if username is not None:
             session["presence"]["username"] = username
 
-        bancho_privileges = kwargs["presence"].get("bancho_privileges")
-        if bancho_privileges is not None:
-            session["presence"]["bancho_privileges"] = bancho_privileges
+        privileges = kwargs["presence"].get("privileges")
+        if privileges is not None:
+            session["presence"]["privileges"] = privileges
 
         game_mode = kwargs["presence"].get("game_mode")
         if game_mode is not None:
