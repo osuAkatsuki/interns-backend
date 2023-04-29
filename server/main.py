@@ -13,7 +13,6 @@ from fastapi import FastAPI
 from fastapi import Query
 from fastapi import Request
 from fastapi import Response
-from fastapi import status
 
 from server import clients
 from server import geolocation
@@ -25,6 +24,7 @@ from server import ranking
 from server import security
 from server import settings
 from server.adapters import ip_api
+from server.adapters import osu_api_v2
 from server.repositories import accounts
 from server.repositories import beatmaps
 from server.repositories import channel_members
@@ -497,6 +497,15 @@ async def handle_bancho_http_request(request: Request):
     return response
 
 
+def create_beatmap_filename(
+    artist: str,
+    title: str,
+    version: str,
+    creator: str,
+) -> str:
+    return f"{artist} - {title} ({creator}) [{version}].osu"
+
+
 # GET /web/osu-osz2-getscores.php
 # ?s=0
 # &vv=4
@@ -525,6 +534,7 @@ async def get_scores_handler(
     map_package_hash: str = Query(..., alias="h"),
     aqn_files_found: bool = Query(..., alias="a"),
 ):
+    # TODO: fix the responses in the case of an error
     account = await accounts.fetch_by_username(username)
     if account is None:
         return
@@ -541,8 +551,45 @@ async def get_scores_handler(
 
     beatmap = await beatmaps.fetch_one_by_md5(beatmap_md5)
     if beatmap is None:
-        # TODO: JIT beatmaps?
-        return
+        # attempt to fetch the beatmap from the osu! api JIT
+        api_v2_beatmap = await osu_api_v2.lookup_beatmap(beatmap_md5=beatmap_md5)
+        if api_v2_beatmap is None:
+            logger.error("Beatmap not found", beatmap_md5=beatmap_md5)
+            return
+
+        assert api_v2_beatmap.beatmap_md5 is not None
+        assert api_v2_beatmap.beatmapset is not None
+        assert api_v2_beatmap.last_updated is not None
+
+        beatmap = await beatmaps.create(
+            api_v2_beatmap.beatmap_id,
+            api_v2_beatmap.beatmap_set_id,
+            api_v2_beatmap.ranked_status,
+            api_v2_beatmap.beatmap_md5,
+            api_v2_beatmap.beatmapset.artist,
+            api_v2_beatmap.beatmapset.title,
+            api_v2_beatmap.version,
+            api_v2_beatmap.beatmapset.creator_name,
+            create_beatmap_filename(
+                artist=api_v2_beatmap.beatmapset.artist,
+                title=api_v2_beatmap.beatmapset.title,
+                version=api_v2_beatmap.version,
+                creator=api_v2_beatmap.beatmapset.creator_name,
+            ),
+            api_v2_beatmap.last_updated,
+            api_v2_beatmap.total_length,
+            api_v2_beatmap.max_combo or 0,
+            False,  # manually ranked
+            0,  # plays
+            0,  # passes
+            api_v2_beatmap.game_mode,
+            api_v2_beatmap.bpm or 0,
+            api_v2_beatmap.cs or 0,
+            api_v2_beatmap.ar or 0,
+            api_v2_beatmap.od or 0,
+            api_v2_beatmap.hp or 0,
+            api_v2_beatmap.star_rating,
+        )
 
     # TODO: leaderboard type handling
 
