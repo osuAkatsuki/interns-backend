@@ -37,7 +37,6 @@ from server.repositories import stats
 from server.repositories.accounts import Account
 from server.repositories.beatmaps import Beatmap
 from server.repositories.scores import Score
-from aiobotocore.session import get_session
 
 app = FastAPI()
 

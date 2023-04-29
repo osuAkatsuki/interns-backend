@@ -1,5 +1,5 @@
-aiosu
 aiobotocore
+aiosu
 asyncpg
 bcrypt
 databases
