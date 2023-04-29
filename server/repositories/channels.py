@@ -37,7 +37,7 @@ async def create(
     )
 
     assert channel is not None
-    return dict(channel._mapping)
+    return channel
 
 
 async def fetch_all() -> list[dict[str, Any]]:
@@ -48,7 +48,7 @@ async def fetch_all() -> list[dict[str, Any]]:
         """
     )
 
-    return [dict(channel._mapping) for channel in channels]
+    return [channel for channel in channels]
 
 
 async def fetch_one(channel_id: int) -> dict[str, Any] | None:
@@ -63,7 +63,7 @@ async def fetch_one(channel_id: int) -> dict[str, Any] | None:
         },
     )
 
-    return dict(channel._mapping) if channel is not None else None
+    return channel if channel is not None else None
 
 
 async def fetch_one_by_name(name: str) -> dict[str, Any] | None:
@@ -78,4 +78,4 @@ async def fetch_one_by_name(name: str) -> dict[str, Any] | None:
         },
     )
 
-    return dict(channel._mapping) if channel is not None else None
+    return channel if channel is not None else None

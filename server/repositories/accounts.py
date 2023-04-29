@@ -44,7 +44,7 @@ async def create(
         values={
             "account_id": account_id,
             "username": username,
-            "email": email_address,
+            "email_address": email_address,
             "password": password,
             "privileges": privileges,
             "country": country,
@@ -52,7 +52,7 @@ async def create(
     )
 
     assert account is not None
-    return cast(Account, dict(account._mapping))
+    return cast(Account, account)
 
 
 async def fetch_many(
@@ -74,7 +74,7 @@ async def fetch_many(
             "privileges": privileges,
         },
     )
-    return [cast(Account, dict(account._mapping)) for account in accounts]
+    return [cast(Account, account) for account in accounts]
 
 
 async def fetch_by_account_id(account_id: int) -> Account | None:
@@ -86,7 +86,7 @@ async def fetch_by_account_id(account_id: int) -> Account | None:
         """,
         values={"account_id": account_id},
     )
-    return cast(Account, dict(account._mapping)) if account is not None else None
+    return cast(Account, account) if account is not None else None
 
 
 async def fetch_by_username(username: str) -> Account | None:
@@ -98,4 +98,4 @@ async def fetch_by_username(username: str) -> Account | None:
         """,
         values={"username": username},
     )
-    return cast(Account, dict(account._mapping)) if account is not None else None
+    return cast(Account, account) if account is not None else None

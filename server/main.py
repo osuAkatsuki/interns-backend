@@ -8,7 +8,6 @@ from uuid import uuid4
 import aiosu
 import redis.asyncio
 from aiobotocore.session import get_session
-from databases import Database
 from fastapi import APIRouter
 from fastapi import FastAPI
 from fastapi import Query
@@ -26,6 +25,7 @@ from server import security
 from server import settings
 from server.adapters import ip_api
 from server.adapters import osu_api_v2
+from server.adapters.database import Database
 from server.repositories import accounts
 from server.repositories import beatmaps
 from server.repositories import channel_members
@@ -80,17 +80,29 @@ def db_dsn(
 async def start_database():
     logger.info("Connecting to database...")
     clients.database = Database(
-        url=db_dsn(
-            scheme=settings.DB_SCHEME,
-            user=settings.DB_USER,
-            passwd=settings.DB_PASS,
-            host=settings.DB_HOST,
-            port=settings.DB_PORT,
-            database=settings.DB_NAME,
-        )
+        read_dsn=db_dsn(
+            scheme=settings.READ_DB_SCHEME,
+            user=settings.READ_DB_USER,
+            passwd=settings.READ_DB_PASS,
+            host=settings.READ_DB_HOST,
+            port=settings.READ_DB_PORT,
+            database=settings.READ_DB_NAME,
+        ),
+        read_db_ssl=settings.READ_DB_USE_SSL,
+        write_dsn=db_dsn(
+            scheme=settings.WRITE_DB_SCHEME,
+            user=settings.WRITE_DB_USER,
+            passwd=settings.WRITE_DB_PASS,
+            host=settings.WRITE_DB_HOST,
+            port=settings.WRITE_DB_PORT,
+            database=settings.WRITE_DB_NAME,
+        ),
+        write_db_ssl=settings.WRITE_DB_USE_SSL,
+        min_pool_size=settings.DB_POOL_MIN_SIZE,
+        max_pool_size=settings.DB_POOL_MAX_SIZE,
     )
     await clients.database.connect()
-    logger.info("Connected to database.")
+    logger.info("Connected to database(s)")
 
 
 @app.on_event("shutdown")
@@ -98,7 +110,7 @@ async def shutdown_database():
     logger.info("Closing database connection...")
     await clients.database.disconnect()
     del clients.database
-    logger.info("Closed database connection.")
+    logger.info("Closed database connection")
 
 
 def redis_dsn(
@@ -125,7 +137,7 @@ async def start_redis():
             database=settings.REDIS_DB,
         ),
     )
-    logger.info("Connected to Redis.")
+    logger.info("Connected to Redis")
 
 
 @app.on_event("shutdown")
@@ -133,7 +145,7 @@ async def shutdown_redis():
     logger.info("Closing Redis connection...")
     await clients.redis.close()
     del clients.redis
-    logger.info("Closed Redis connection.")
+    logger.info("Closed Redis connection")
 
 
 @app.on_event("startup")
