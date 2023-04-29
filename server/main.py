@@ -5,6 +5,7 @@ from typing import Any
 from uuid import UUID
 from uuid import uuid4
 
+import aiosu
 import redis.asyncio
 from databases import Database
 from fastapi import APIRouter
@@ -132,6 +133,21 @@ async def shutdown_redis():
     await clients.redis.close()
     del clients.redis
     logger.info("Closed Redis connection.")
+
+
+@app.on_event("startup")
+async def start_osu_api_client():
+    clients.osu_api = aiosu.v2.Client(
+        client_id=settings.OSU_API_V2_CLIENT_ID,
+        client_secret=settings.OSU_API_V2_CLIENT_SECRET,
+        token=aiosu.models.OAuthToken(),
+    )
+
+
+@app.on_event("shutdown")
+async def shutdown_osu_api_client():
+    await clients.osu_api.close()
+    del clients.osu_api
 
 
 def parse_login_data(data: bytes) -> dict[str, Any]:

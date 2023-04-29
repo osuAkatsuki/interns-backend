@@ -1,3 +1,4 @@
+aiosu
 asyncpg
 bcrypt
 databases

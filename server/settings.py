@@ -29,3 +29,6 @@ REDIS_PASS = os.environ["REDIS_PASS"]
 REDIS_HOST = os.environ["REDIS_HOST"]
 REDIS_PORT = int(os.environ["REDIS_PORT"])
 REDIS_DB = int(os.environ["REDIS_DB"])
+
+OSU_API_V2_CLIENT_ID = os.environ["OSU_API_V2_CLIENT_ID"]
+OSU_API_V2_CLIENT_SECRET = os.environ["OSU_API_V2_CLIENT_SECRET"]
