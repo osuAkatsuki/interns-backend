@@ -28,7 +28,6 @@ class Account(TypedDict):
 
 
 async def create(
-    account_id: int,
     username: str,
     email_address: str,
     password: str,
@@ -37,12 +36,11 @@ async def create(
 ) -> Account:
     account = await clients.database.fetch_one(
         query=f"""\
-            INSERT INTO accounts (account_id, username, email_address, password, privileges, country)
-            VALUES (:account_id, :username, :email_address, :password, :privileges, :country)
+            INSERT INTO accounts (username, email_address, password, privileges, country)
+            VALUES (:username, :email_address, :password, :privileges, :country)
             RETURNING {READ_PARAMS}
         """,
         values={
-            "account_id": account_id,
             "username": username,
             "email_address": email_address,
             "password": password,
