@@ -49,7 +49,7 @@ async def py_handler(session: "Session", args: list[str]) -> str | None:
 
 @command_handler("!block")
 async def block_handler(session: "Session", args: list[str]) -> str | None:
-    assert session["presence"] is not None
+    own_presence = session["presence"]
 
     account_to_be_blocked = await accounts.fetch_by_username(args[0])
     if account_to_be_blocked is None:
@@ -67,4 +67,4 @@ async def block_handler(session: "Session", args: list[str]) -> str | None:
         relationship="blocked",
     )
 
-    return f"{session['presence']['username']} successfully blocked {args[0]}"
+    return f"{own_presence['username']} successfully blocked {args[0]}"

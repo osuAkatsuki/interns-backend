@@ -15,7 +15,13 @@ class ClientPrivileges(IntFlag):
 class ServerPrivileges(IntFlag):
     """Server side user privileges."""
 
-    ...
+    UNRESTRICTED = 1 << 0
+    SUBMITTED_HARDWARE_IDENTITY = 1 << 1
+    BEATMAP_NOMINATOR = 1 << 7
+    CHAT_MODERATIOR = 1 << 9
+    MULTIPLAYER_STAFF = 1 << 11
+    ACCOUNT_MANAGEMENT = 1 << 13
+    SUPER_ADMIN = 1 << 31
 
 
 def server_to_client_privileges(value: int) -> ClientPrivileges:

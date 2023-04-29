@@ -25,6 +25,7 @@ from server import security
 from server import settings
 from server.adapters import ip_api
 from server.adapters import osu_api_v2
+from server.privileges import ServerPrivileges
 from server.repositories import accounts
 from server.repositories import beatmaps
 from server.repositories import channel_members
@@ -271,9 +272,7 @@ async def handle_login(request: Request) -> Response:
             "username": account["username"],
             "utc_offset": login_data["utc_offset"],
             "country": account["country"],
-            "bancho_privileges": privileges.server_to_client_privileges(
-                account["privileges"]
-            ),
+            "privileges": account["privileges"],
             "game_mode": 0,
             "latitude": user_geolocation["latitude"],
             "longitude": user_geolocation["longitude"],
@@ -286,7 +285,7 @@ async def handle_login(request: Request) -> Response:
             "spectator_host_session_id": None,
         },
     )
-    assert own_session["presence"] is not None  # TODO: is there a better way?
+    own_presence = own_session["presence"]
 
     # we will respond to this request with several bancho packets
     response_data = bytearray()
@@ -318,24 +317,21 @@ async def handle_login(request: Request) -> Response:
 
     # user presence
     own_presence_packet_data = packets.write_user_presence_packet(
-        own_session["presence"]["account_id"],
-        own_session["presence"]["username"],
-        own_session["presence"]["utc_offset"],
-        geolocation.country_str_to_int(own_session["presence"]["country"]),
-        # TODO: is this right?
-        privileges.server_to_client_privileges(
-            own_session["presence"]["bancho_privileges"]
-        ),
-        own_session["presence"]["game_mode"],
-        int(own_session["presence"]["latitude"]),
-        int(own_session["presence"]["longitude"]),
-        ranking.get_global_rank(own_session["presence"]["account_id"]),
+        own_presence["account_id"],
+        own_presence["username"],
+        own_presence["utc_offset"],
+        geolocation.country_str_to_int(own_presence["country"]),
+        privileges.server_to_client_privileges(own_presence["privileges"]),
+        own_presence["game_mode"],
+        int(own_presence["latitude"]),
+        int(own_presence["longitude"]),
+        ranking.get_global_rank(own_presence["account_id"]),
     )
 
     # user stats
     own_stats = await stats.fetch_one(
         account_id=account["account_id"],
-        game_mode=own_session["presence"]["game_mode"],
+        game_mode=own_presence["game_mode"],
     )
     if not own_stats:
         return Response(
@@ -348,12 +344,12 @@ async def handle_login(request: Request) -> Response:
 
     own_stats_packet_data = packets.write_user_stats_packet(
         own_stats["account_id"],
-        own_session["presence"]["action"],
-        own_session["presence"]["info_text"],
-        own_session["presence"]["beatmap_md5"],
-        own_session["presence"]["mods"],
-        own_session["presence"]["mode"],
-        own_session["presence"]["beatmap_id"],
+        own_presence["action"],
+        own_presence["info_text"],
+        own_presence["beatmap_md5"],
+        own_presence["mods"],
+        own_presence["mode"],
+        own_presence["beatmap_id"],
         own_stats["ranked_score"],
         own_stats["accuracy"],
         own_stats["play_count"],
@@ -370,28 +366,25 @@ async def handle_login(request: Request) -> Response:
         if other_session["session_id"] == own_session["session_id"]:
             continue
 
-        assert other_session["presence"] is not None  # TODO: is there a better way?
+        other_presence = other_session["presence"]
 
         # send other user's presence to us
         response_data += packets.write_user_presence_packet(
-            other_session["presence"]["account_id"],
-            other_session["presence"]["username"],
-            other_session["presence"]["utc_offset"],
-            geolocation.country_str_to_int(other_session["presence"]["country"]),
-            # TODO: is this right?
-            privileges.server_to_client_privileges(
-                other_session["presence"]["bancho_privileges"]
-            ),
-            other_session["presence"]["game_mode"],
-            int(other_session["presence"]["latitude"]),
-            int(other_session["presence"]["longitude"]),
+            other_presence["account_id"],
+            other_presence["username"],
+            other_presence["utc_offset"],
+            geolocation.country_str_to_int(other_presence["country"]),
+            privileges.server_to_client_privileges(other_presence["privileges"]),
+            other_presence["game_mode"],
+            int(other_presence["latitude"]),
+            int(other_presence["longitude"]),
             ranking.get_global_rank(other_session["account_id"]),
         )
 
         # send other user's stats to us
         others_stats = await stats.fetch_one(
             account_id=other_session["account_id"],
-            game_mode=other_session["presence"]["game_mode"],
+            game_mode=other_presence["game_mode"],
         )
         if not others_stats:
             return Response(
@@ -404,12 +397,12 @@ async def handle_login(request: Request) -> Response:
 
         response_data += packets.write_user_stats_packet(
             others_stats["account_id"],
-            other_session["presence"]["action"],
-            other_session["presence"]["info_text"],
-            other_session["presence"]["beatmap_md5"],
-            other_session["presence"]["mods"],
-            other_session["presence"]["mode"],
-            other_session["presence"]["beatmap_id"],
+            other_presence["action"],
+            other_presence["info_text"],
+            other_presence["beatmap_md5"],
+            other_presence["mods"],
+            other_presence["mode"],
+            other_presence["beatmap_id"],
             others_stats["ranked_score"],
             others_stats["accuracy"],
             others_stats["play_count"],
@@ -418,11 +411,12 @@ async def handle_login(request: Request) -> Response:
             others_stats["performance_points"],
         )
 
-        # send our presence & stats to other user
-        await packet_bundles.enqueue(
-            other_session["session_id"],
-            data=own_presence_packet_data + own_stats_packet_data,
-        )
+        if own_presence["privileges"] & ServerPrivileges.UNRESTRICTED:
+            # send our presence & stats to other user
+            await packet_bundles.enqueue(
+                other_session["session_id"],
+                data=own_presence_packet_data + own_stats_packet_data,
+            )
 
     # welcome message/notification
     response_data += packets.write_notification_packet(
@@ -431,7 +425,9 @@ async def handle_login(request: Request) -> Response:
 
     # TODO: silence end
 
-    # TODO: whether they're restricted
+    # whether they're restricted
+    if not (own_presence["privileges"] & ServerPrivileges.UNRESTRICTED):
+        response_data += packets.write_account_restricted_packet()
 
     # TODO: friends list
 
