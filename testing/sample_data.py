@@ -1,13 +1,20 @@
+import random
 import uuid
 from typing import TYPE_CHECKING
 
 from faker import Faker
+
+from server import geolocation
 
 if TYPE_CHECKING:
     from server.repositories.sessions import Session
     from server.repositories.accounts import Account
 
 fake = Faker()
+
+
+def fake_country() -> str:
+    return random.choice(tuple(geolocation.COUNTRY_STR_TO_INT))
 
 
 def fake_session() -> "Session":
@@ -19,7 +26,7 @@ def fake_session() -> "Session":
             "username": fake.user_name(),
             "utc_offset": fake.pyint(),
             "country": fake.country(),
-            "bancho_privileges": fake.pyint(),
+            "privileges": fake.pyint(),
             "game_mode": fake.pyint(),
             "latitude": fake.pyfloat(),
             "longitude": fake.pyfloat(),
@@ -44,7 +51,7 @@ def fake_account() -> "Account":
         "email_address": fake.email(),
         "privileges": fake.pyint(),
         "password": fake.password(),
-        "country": fake.country(),
+        "country": fake_country(),
         "created_at": fake.date_time(),
         "updated_at": fake.date_time(),
     }
