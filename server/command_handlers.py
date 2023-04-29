@@ -3,7 +3,8 @@ from collections.abc import Awaitable
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from server.repositories import accounts, relationships
+from server.repositories import accounts
+from server.repositories import relationships
 
 if TYPE_CHECKING:
     from server.repositories.sessions import Session
@@ -65,4 +66,5 @@ async def block_handler(session: "Session", args: list[str]) -> str | None:
         target_id=account_to_be_blocked["account_id"],
         relationship="blocked",
     )
+
     return f"{session['presence']['username']} successfully blocked {args[0]}"
