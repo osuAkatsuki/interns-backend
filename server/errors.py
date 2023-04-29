@@ -14,3 +14,6 @@ class ServiceError(str, Enum):
 
     CREDENTIALS_NOT_FOUND = "credentials.incorrect_credentials"
     CREDENTIALS_INCORRECT = "credentials.incorrect_credentials"
+
+    SCREENSHOTS_UPLOAD_FAILED = "screenshots.upload_failed"
+    SCREENSHOTS_IMAGE_INVALID = "screenshots.image_invalid"
