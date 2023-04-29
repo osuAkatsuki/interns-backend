@@ -3,8 +3,16 @@ from uuid import UUID
 
 from server import clients
 
-READ_PARAMS = "screenshot_id, file_name, file_type, file_size, download_url, created_at"
+READ_PARAMS = """
+    screenshot_id,
+    file_name,
+    file_type,
+    file_size,
+    download_url,
+    created_at
+"""
 
+from typing import TypedDict
 
 async def create(
     screenshot_id: UUID,
