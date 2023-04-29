@@ -16,7 +16,7 @@ from fastapi import Request
 from fastapi import Response
 from fastapi import Form
 from fastapi import status
-from fastapi import UploadFile
+from starlette.datastructures import UploadFile
 from py3rijndael import Pkcs7Padding
 from py3rijndael import RijndaelCbc
 
@@ -44,6 +44,8 @@ from server.repositories import stats
 from server.repositories.accounts import Account
 from server.repositories.beatmaps import Beatmap
 from server.repositories.scores import Score
+from server.repositories import scores
+from server.repositories import beatmaps
 
 app = FastAPI()
 
@@ -751,6 +753,69 @@ async def submit_score_handler(
 
     score_data = aes_cipher.decrypt(score_data_aes).decode().split(":")
     client_hash = aes_cipher.decrypt(client_hash_aes).decode()
+
+    beatmap_md5 = str(score_data[0])
+    username = str(score_data[1])
+    online_checksum = score_data[2]
+    num_300s = int(score_data[3])
+    num_100s = int(score_data[4])
+    num_50s = int(score_data[5])
+    num_gekis = score_data[6]
+    num_katus = score_data[7]
+    num_misses = int(score_data[8])
+    score_points = score_data[9]
+    highest_combo = score_data[10]
+    perfect = score_data[11]
+    grade = score_data[12]
+    mods = score_data[13]
+    passed = score_data[14]
+    mode = score_data[15]
+    time_elapsed = score_data[16]
+    client_flags = score_data[17]
+    client_checksum = score_data[18]
+
+    session = await sessions.fetch_by_username(username)
+
+    # assert session is not None
+
+    total_notes = num_300s + num_100s + num_50s + num_misses
+
+    accuracy = (
+        ((num_300s * 3) + (num_100s * 1) + (num_50s * 0.5)) / total_notes * 100 / 3
+    )
+
+    beatmap = await beatmaps.fetch_by_md5(beatmap_md5)
+
+    print(beatmap)
+
+    # score = await scores.create(
+    #     account_id,
+    #     online_checksum,
+    #     beatmap_md5,
+    #     score,
+    #     performance_points=0,
+    #     accuracy,
+    #     highest_combo,
+    #     full_combo,
+    #     mods,
+    #     num_300s,
+    #     num_100s,
+    #     num_50s,
+    #     num_misses,
+    #     num_gekis,
+    #     num_katus,
+    #     grade,
+    #     submission_status,
+    #     game_mode,
+    #     play_time,
+    #     country,
+    #     time_elapsed,
+    #     client_anticheat_flags,
+    # )
+
+    print(score_data)
+
+    # await accounts.fetch_by_account_id
 
     # TODO: fetch account
     # TODO: fetch session
