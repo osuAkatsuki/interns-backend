@@ -151,6 +151,7 @@ async def shutdown_osu_api_client():
     del clients.osu_api
 
 
+@app.on_event("startup")
 async def start_s3_client():
     session = get_session()
 
