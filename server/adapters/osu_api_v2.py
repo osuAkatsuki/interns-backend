@@ -115,6 +115,9 @@ class Beatmap(BaseModel):
     failtimes: BeatmapFailtimes | None
 
 
+BeatmapSet.update_forward_refs()  # fix circular reference for runtime
+
+
 def beatmap_from_aiosu(aiosu_beatmap: aiosu.models.Beatmap) -> Beatmap:
     aiosu_beatmapset = aiosu_beatmap.beatmapset
     assert aiosu_beatmapset is not None
