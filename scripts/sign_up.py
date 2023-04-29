@@ -11,7 +11,11 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 mount_dir = os.path.join(script_dir, "..")
 sys.path.append(mount_dir)
 
-from server import validation, geolocation, security
+from server import geolocation
+from server import security
+from server import settings
+from server import validation
+from server.privileges import ServerPrivileges
 
 load_dotenv(dotenv_path=".env")
 
@@ -39,9 +43,6 @@ database = databases.Database(
 )
 
 
-DEFAULT_PRIVILEGES = (1 << 31) - 1  # big for now cuz full admin lol
-
-
 async def main() -> int:
     while True:
         username = input("Username: ")
@@ -57,7 +58,11 @@ async def main() -> int:
         else:
             break
 
-    privileges = DEFAULT_PRIVILEGES
+    if settings.APP_ENV == "development":
+        # give all privileges in development
+        privileges = int("1" * 31, base=2)
+    else:
+        privileges = ServerPrivileges.UNRESTRICTED
 
     while True:
         password = getpass("Password: ")
