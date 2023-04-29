@@ -5,13 +5,14 @@ from typing import Any
 from uuid import UUID
 from uuid import uuid4
 
+import aiosu
 import redis.asyncio
 from databases import Database
 from fastapi import APIRouter
 from fastapi import FastAPI
+from fastapi import Query
 from fastapi import Request
 from fastapi import Response
-from fastapi import status
 
 from server import clients
 from server import geolocation
@@ -23,12 +24,18 @@ from server import ranking
 from server import security
 from server import settings
 from server.adapters import ip_api
+from server.adapters import osu_api_v2
 from server.repositories import accounts
+from server.repositories import beatmaps
 from server.repositories import channel_members
 from server.repositories import channels
 from server.repositories import packet_bundles
+from server.repositories import scores
 from server.repositories import sessions
 from server.repositories import stats
+from server.repositories.accounts import Account
+from server.repositories.beatmaps import Beatmap
+from server.repositories.scores import Score
 
 app = FastAPI()
 
@@ -126,6 +133,21 @@ async def shutdown_redis():
     await clients.redis.close()
     del clients.redis
     logger.info("Closed Redis connection.")
+
+
+@app.on_event("startup")
+async def start_osu_api_client():
+    clients.osu_api = aiosu.v2.Client(
+        client_id=settings.OSU_API_V2_CLIENT_ID,
+        client_secret=settings.OSU_API_V2_CLIENT_SECRET,
+        token=aiosu.models.OAuthToken(),
+    )
+
+
+@app.on_event("shutdown")
+async def shutdown_osu_api_client():
+    await clients.osu_api.close()
+    del clients.osu_api
 
 
 def parse_login_data(data: bytes) -> dict[str, Any]:
@@ -473,3 +495,199 @@ async def handle_bancho_http_request(request: Request):
         response = await handle_bancho_request(request)
 
     return response
+
+
+def create_beatmap_filename(
+    artist: str,
+    title: str,
+    version: str,
+    creator: str,
+) -> str:
+    return f"{artist} - {title} ({creator}) [{version}].osu"
+
+
+# GET /web/osu-osz2-getscores.php
+# ?s=0
+# &vv=4
+# &v=1
+# &c=1cf5b2c2edfafd055536d2cefcb89c0e
+# &f=FAIRY+FORE+-+Vivid+(Hitoshirenu+Shourai)+%5bInsane%5d.osu
+# &m=0
+# &i=141
+# &mods=192
+# &h=
+# &a=0
+# &us=cmyui
+# &ha=0cc175b9c0f1b6a831c399e269772661
+@osu_web_handler.get("/web/osu-osz2-getscores.php")
+async def get_scores_handler(
+    username: str = Query(..., alias="us"),
+    password_md5: str = Query(..., alias="ha"),
+    requesting_score_data: bool = Query(..., alias="s"),
+    leaderboard_version: int = Query(..., alias="vv"),
+    leaderboard_type: int = Query(..., alias="v"),
+    beatmap_md5: str = Query(..., alias="c"),
+    beatmap_filename: str = Query(..., alias="f"),
+    game_mode: int = Query(..., alias="m"),
+    beatmap_set_id: int = Query(..., alias="i"),
+    mods: int = Query(..., alias="mods"),
+    map_package_hash: str = Query(..., alias="h"),
+    aqn_files_found: bool = Query(..., alias="a"),
+):
+    # TODO: fix the responses in the case of an error
+    account = await accounts.fetch_by_username(username)
+    if account is None:
+        return
+
+    session = await sessions.fetch_by_username(username)
+    if session is None:
+        return
+
+    if not security.check_password(
+        password=password_md5,
+        hashword=account["password"].encode(),
+    ):
+        return
+
+    beatmap = await beatmaps.fetch_one_by_md5(beatmap_md5)
+    if beatmap is None:
+        # attempt to fetch the beatmap from the osu! api JIT
+        api_v2_beatmap = await osu_api_v2.lookup_beatmap(beatmap_md5=beatmap_md5)
+        if api_v2_beatmap is None:
+            logger.error("Beatmap not found", beatmap_md5=beatmap_md5)
+            return
+
+        assert api_v2_beatmap.beatmap_md5 is not None
+        assert api_v2_beatmap.beatmapset is not None
+        assert api_v2_beatmap.last_updated is not None
+
+        beatmap = await beatmaps.create(
+            api_v2_beatmap.beatmap_id,
+            api_v2_beatmap.beatmap_set_id,
+            api_v2_beatmap.ranked_status,
+            api_v2_beatmap.beatmap_md5,
+            api_v2_beatmap.beatmapset.artist,
+            api_v2_beatmap.beatmapset.title,
+            api_v2_beatmap.version,
+            api_v2_beatmap.beatmapset.creator_name,
+            create_beatmap_filename(
+                artist=api_v2_beatmap.beatmapset.artist,
+                title=api_v2_beatmap.beatmapset.title,
+                version=api_v2_beatmap.version,
+                creator=api_v2_beatmap.beatmapset.creator_name,
+            ),
+            api_v2_beatmap.last_updated,
+            api_v2_beatmap.total_length,
+            api_v2_beatmap.max_combo or 0,
+            False,  # manually ranked
+            0,  # plays
+            0,  # passes
+            api_v2_beatmap.game_mode,
+            api_v2_beatmap.bpm or 0,
+            api_v2_beatmap.cs or 0,
+            api_v2_beatmap.ar or 0,
+            api_v2_beatmap.od or 0,
+            api_v2_beatmap.hp or 0,
+            api_v2_beatmap.star_rating,
+        )
+
+    # TODO: leaderboard type handling
+
+    leaderboard_scores = await scores.fetch_many(
+        beatmap_md5=beatmap_md5,
+        submission_status=2,  # TODO?
+        game_mode=game_mode,
+        sort_by="performance_points",  # TODO: score for certain gamemodes?
+        page_size=50,
+    )
+
+    personal_best_scores = await scores.fetch_many(
+        account_id=account["account_id"],
+        beatmap_md5=beatmap_md5,
+        submission_status=2,  # TODO?
+        game_mode=game_mode,
+        sort_by="performance_points",  # TODO: score for certain gamemodes?
+        page_size=1,
+    )
+    if personal_best_scores:
+        personal_best_score = personal_best_scores[0]
+    else:
+        personal_best_score = None
+
+    return format_leaderboard_response(
+        leaderboard_scores,
+        personal_best_score,
+        account,
+        beatmap,
+    )
+
+
+def format_leaderboard_response(
+    leaderboard_scores: list[Score],
+    personal_best_score: Score | None,
+    account: Account,
+    beatmap: Beatmap,
+) -> str:
+    """\
+    {ranked_status}|{serv_has_osz2}|{bid}|{bsid}|{len(scores)}|{fa_track_id}|{fa_license_text}
+    {offset}\n{beatmap_name}\n{rating}
+    {id}|{name}|{score}|{max_combo}|{n50}|{n100}|{n300}|{nmiss}|{nkatu}|{ngeki}|{perfect}|{mods}|{userid}|{rank}|{time}|{has_replay}
+    {id}|{name}|{score}|{max_combo}|{n50}|{n100}|{n300}|{nmiss}|{nkatu}|{ngeki}|{perfect}|{mods}|{userid}|{rank}|{time}|{has_replay}
+    ...
+    """
+    # 3rd line is peronsal best, rest are leaderboard scores
+
+    buffer = ""
+
+    # first line
+    buffer += f"{beatmap['ranked_status']}|0|{beatmap['beatmap_id']}|{beatmap['beatmap_set_id']}|{len(leaderboard_scores)}|0|0\n"
+
+    # second line
+    beatmap_name = "{artist} - {title} [{version}]".format(**beatmap)
+    buffer += f"0\n{beatmap_name}\n{beatmap['star_rating']}\n"
+
+    # third line
+    if personal_best_score is None:
+        buffer += "0\n"
+    else:
+        buffer += (
+            f"{personal_best_score['score_id']}|"
+            f"{account['username']}|"
+            f"{personal_best_score['score']}|"
+            f"{personal_best_score['highest_combo']}|"
+            f"{personal_best_score['num_50s']}|"
+            f"{personal_best_score['num_100s']}|"
+            f"{personal_best_score['num_300s']}|"
+            f"{personal_best_score['num_misses']}|"
+            f"{personal_best_score['num_katus']}|"
+            f"{personal_best_score['num_gekis']}|"
+            f"{personal_best_score['full_combo']}|"
+            f"{personal_best_score['mods']}|"
+            f"{account['account_id']}|"
+            f"{personal_best_score['rank']}|"
+            f"{personal_best_score['time']}|"
+            f"{personal_best_score['has_replay']}\n"
+        )
+
+    # rest of the lines
+    for score in leaderboard_scores:
+        buffer += (
+            f"{score['score_id']}|"
+            f"{score['username']}|"
+            f"{score['score']}|"
+            f"{score['highest_combo']}|"
+            f"{score['num_50s']}|"
+            f"{score['num_100s']}|"
+            f"{score['num_300s']}|"
+            f"{score['num_misses']}|"
+            f"{score['num_katus']}|"
+            f"{score['num_gekis']}|"
+            f"{score['full_combo']}|"
+            f"{score['mods']}|"
+            f"{score['account_id']}|"
+            f"{score['rank']}|"
+            f"{score['time']}|"
+            f"{score['has_replay']}\n"
+        )
+
+    return buffer

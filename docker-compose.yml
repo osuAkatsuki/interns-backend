@@ -38,6 +38,8 @@ services:
       - DB_NAME=${DB_NAME}
       - DB_USE_SSL=${DB_USE_SSL}
       - INITIALLY_AVAILABLE_DB=${INITIALLY_AVAILABLE_DB}
+      - OSU_API_V2_CLIENT_ID=${OSU_API_V2_CLIENT_ID}
+      - OSU_API_V2_CLIENT_SECRET=${OSU_API_V2_CLIENT_SECRET}
     volumes:
       - .:/srv/root
       - ./scripts:/scripts
