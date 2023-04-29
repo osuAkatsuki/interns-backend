@@ -10,3 +10,4 @@ python-dotenv
 redis
 structlog
 uvicorn
+aiobotocore
