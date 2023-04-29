@@ -151,7 +151,7 @@ async def shutdown_osu_api_client():
     del clients.osu_api
 
 
-async def create_s3_client():
+async def start_s3_client():
     session = get_session()
 
     clients.s3_client = await session._create_client(  # type: ignore
@@ -165,7 +165,7 @@ async def create_s3_client():
 
 
 @app.on_event("shutdown")
-async def destroy_s3_client():
+async def shutdown_s3_client():
     await app.state.services.s3_client.__aexit__(None, None, None)
 
 
