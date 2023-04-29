@@ -1,8 +1,9 @@
+from typing import Any
+
 import aiosu
 from databases import Database
 from httpx import AsyncClient
 from redis.asyncio import Redis
-from typing import Any
 
 database: Database
 redis: Redis

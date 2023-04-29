@@ -1,4 +1,5 @@
 aiosu
+aiobotocore
 asyncpg
 bcrypt
 databases
@@ -10,4 +11,3 @@ python-dotenv
 redis
 structlog
 uvicorn
-aiobotocore

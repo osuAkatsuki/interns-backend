@@ -7,6 +7,7 @@ from uuid import uuid4
 
 import aiosu
 import redis.asyncio
+from aiobotocore.session import get_session
 from databases import Database
 from fastapi import APIRouter
 from fastapi import FastAPI
@@ -154,7 +155,7 @@ async def shutdown_osu_api_client():
 async def create_s3_client():
     session = get_session()
 
-    clients.s3_client = await session._create_client( # type: ignore
+    clients.s3_client = await session._create_client(  # type: ignore
         service_name="s3",
         region_name=settings.AWS_S3_BUCKET_REGION,
         aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
