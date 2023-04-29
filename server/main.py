@@ -36,6 +36,7 @@ from server.repositories import stats
 from server.repositories.accounts import Account
 from server.repositories.beatmaps import Beatmap
 from server.repositories.scores import Score
+from aiobotocore.session import get_session
 
 app = FastAPI()
 
@@ -148,6 +149,24 @@ async def start_osu_api_client():
 async def shutdown_osu_api_client():
     await clients.osu_api.close()
     del clients.osu_api
+
+
+async def create_s3_client():
+    session = get_session()
+
+    clients.s3_client = await session._create_client(
+        service_name="s3",
+        region_name=settings.AWS_S3_BUCKET_REGION,
+        aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+        aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+    )
+
+    await clients.s3_client.__aenter__()
+
+
+@app.on_event("shutdown")
+async def destroy_s3_client():
+    await app.state.services.s3_client.__aexit__(None, None, None)
 
 
 def parse_login_data(data: bytes) -> dict[str, Any]:
