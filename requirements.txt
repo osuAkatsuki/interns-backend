@@ -12,3 +12,4 @@ python-dotenv
 redis
 structlog
 uvicorn
+pillow
