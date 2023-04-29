@@ -56,14 +56,14 @@ async def create(account_id: int, game_mode: int) -> Stats:
     )
 
     assert stats is not None
-    return cast(Stats, dict(stats._mapping))
+    return cast(Stats, stats)
 
 
 async def fetch_all(
     account_id: int | None = None,
     game_mode: int | None = None,
 ) -> list[Stats]:
-    stats = await clients.database.fetch_all(
+    all_stats = await clients.database.fetch_all(
         query=f"""
             SELECT {READ_PARAMS}
             FROM stats
@@ -75,7 +75,7 @@ async def fetch_all(
             "game_mode": game_mode,
         },
     )
-    return [cast(Stats, dict(stat._mapping)) for stat in stats]
+    return [cast(Stats, stats) for stats in all_stats]
 
 
 async def fetch_many(
@@ -84,7 +84,7 @@ async def fetch_many(
     page: int = 1,
     page_size: int = 50,
 ) -> list[Stats]:
-    stats = await clients.database.fetch_all(
+    all_stats = await clients.database.fetch_all(
         query=f"""
             SELECT {READ_PARAMS}
             FROM stats
@@ -100,7 +100,7 @@ async def fetch_many(
             "offset": (page - 1) * page_size,
         },
     )
-    return [cast(Stats, dict(stat._mapping)) for stat in stats]
+    return [cast(Stats, stats) for stats in all_stats]
 
 
 async def fetch_one(account_id: int, game_mode: int) -> Stats | None:
@@ -113,4 +113,4 @@ async def fetch_one(account_id: int, game_mode: int) -> Stats | None:
         """,
         values={"account_id": account_id, "game_mode": game_mode},
     )
-    return cast(Stats, dict(stats._mapping)) if stats is not None else None
+    return cast(Stats, stats) if stats is not None else None

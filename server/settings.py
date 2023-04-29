@@ -15,14 +15,26 @@ APP_HOST = os.environ["APP_HOST"]
 APP_PORT = int(os.environ["APP_PORT"])
 APP_LOG_LEVEL = int(os.environ["APP_LOG_LEVEL"])
 
-DB_SCHEME = os.environ["DB_SCHEME"]
-DB_HOST = os.environ["DB_HOST"]
-DB_PORT = int(os.environ["DB_PORT"])
-DB_USER = os.environ["DB_USER"]
-DB_PASS = os.environ["DB_PASS"]
-DB_NAME = os.environ["DB_NAME"]
-DB_USE_SSL = read_bool(os.environ["DB_USE_SSL"])
-INITIALLY_AVAILABLE_DB = os.environ["INITIALLY_AVAILABLE_DB"]
+READ_DB_SCHEME = os.environ["READ_DB_SCHEME"]
+READ_DB_HOST = os.environ["READ_DB_HOST"]
+READ_DB_PORT = int(os.environ["READ_DB_PORT"])
+READ_DB_USER = os.environ["READ_DB_USER"]
+READ_DB_PASS = os.environ["READ_DB_PASS"]
+READ_DB_NAME = os.environ["READ_DB_NAME"]
+READ_DB_USE_SSL = read_bool(os.environ["READ_DB_USE_SSL"])
+INITIALLY_AVAILABLE_READ_DB = os.environ["INITIALLY_AVAILABLE_READ_DB"]
+
+WRITE_DB_SCHEME = os.environ["WRITE_DB_SCHEME"]
+WRITE_DB_HOST = os.environ["WRITE_DB_HOST"]
+WRITE_DB_PORT = int(os.environ["WRITE_DB_PORT"])
+WRITE_DB_USER = os.environ["WRITE_DB_USER"]
+WRITE_DB_PASS = os.environ["WRITE_DB_PASS"]
+WRITE_DB_NAME = os.environ["WRITE_DB_NAME"]
+WRITE_DB_USE_SSL = read_bool(os.environ["WRITE_DB_USE_SSL"])
+INITIALLY_AVAILABLE_WRITE_DB = os.environ["INITIALLY_AVAILABLE_WRITE_DB"]
+
+DB_POOL_MIN_SIZE = int(os.environ["DB_POOL_MIN_SIZE"])
+DB_POOL_MAX_SIZE = int(os.environ["DB_POOL_MAX_SIZE"])
 
 REDIS_SCHEME = os.environ["REDIS_SCHEME"]
 REDIS_PASS = os.environ["REDIS_PASS"]

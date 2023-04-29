@@ -120,7 +120,7 @@ async def create(
     )
 
     assert beatmap is not None
-    return cast(Beatmap, dict(beatmap._mapping))
+    return cast(Beatmap, beatmap)
 
 
 async def fetch_many(
@@ -141,7 +141,7 @@ async def fetch_many(
         values["offset"] = (page - 1) * page_size
 
     beatmaps = await clients.database.fetch_all(query, values)
-    return [cast(Beatmap, dict(beatmap._mapping)) for beatmap in beatmaps]
+    return [cast(Beatmap, beatmap) for beatmap in beatmaps]
 
 
 async def fetch_one_by_id(beatmap_id: int) -> Beatmap | None:
@@ -155,7 +155,7 @@ async def fetch_one_by_id(beatmap_id: int) -> Beatmap | None:
             "beatmap_id": beatmap_id,
         },
     )
-    return cast(Beatmap, dict(beatmap._mapping)) if beatmap is not None else None
+    return cast(Beatmap, beatmap) if beatmap is not None else None
 
 
 async def fetch_one_by_md5(beatmap_md5: str) -> Beatmap | None:
@@ -169,4 +169,4 @@ async def fetch_one_by_md5(beatmap_md5: str) -> Beatmap | None:
             "beatmap_md5": beatmap_md5,
         },
     )
-    return cast(Beatmap, dict(beatmap._mapping)) if beatmap is not None else None
+    return cast(Beatmap, beatmap) if beatmap is not None else None
