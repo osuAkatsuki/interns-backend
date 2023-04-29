@@ -7,6 +7,7 @@ from uuid import uuid4
 
 import aiosu
 import redis.asyncio
+from aiobotocore.session import get_session
 from databases import Database
 from fastapi import APIRouter
 from fastapi import FastAPI
@@ -148,6 +149,25 @@ async def start_osu_api_client():
 async def shutdown_osu_api_client():
     await clients.osu_api.close()
     del clients.osu_api
+
+
+@app.on_event("startup")
+async def start_s3_client():
+    session = get_session()
+    clients.s3_client = await session._create_client(  # type: ignore
+        service_name="s3",
+        region_name=settings.S3_BUCKET_REGION,
+        aws_secret_access_key=settings.S3_SECRET_ACCESS_KEY,
+        aws_access_key_id=settings.S3_ACCESS_KEY_ID,
+        endpoint_url=settings.S3_ENDPOINT_URL,
+    )
+    await clients.s3_client.__aenter__()
+
+
+@app.on_event("shutdown")
+async def shutdown_s3_client():
+    await clients.s3_client.__aexit__(None, None, None)
+    del clients.s3_client
 
 
 def parse_login_data(data: bytes) -> dict[str, Any]:

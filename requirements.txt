@@ -1,3 +1,4 @@
+aiobotocore
 aiosu
 asyncpg
 bcrypt
