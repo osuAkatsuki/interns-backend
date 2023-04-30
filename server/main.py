@@ -11,12 +11,12 @@ import redis.asyncio
 from aiobotocore.session import get_session
 from fastapi import APIRouter
 from fastapi import FastAPI
-from fastapi import Query
 from fastapi import File
+from fastapi import Form
 from fastapi import Header
+from fastapi import Query
 from fastapi import Request
 from fastapi import Response
-from fastapi import Form
 from fastapi import status
 from py3rijndael import Pkcs7Padding
 from py3rijndael import RijndaelCbc
@@ -794,7 +794,7 @@ async def submit_score_handler(
 
     if not security.check_password(
         password=password_md5,
-        hashword=account["password"],
+        hashword=account["password"].encode(),
     ):
         return
 
@@ -804,7 +804,7 @@ async def submit_score_handler(
         ((num_300s * 3) + (num_100s * 1) + (num_50s * 0.5)) / total_notes * 100 / 3
     )
 
-    beatmap = await beatmaps.fetch_by_md5(beatmap_md5)
+    beatmap = await beatmaps.fetch_one_by_md5(beatmap_md5)
     if beatmap is None:
         # TODO: JIT beatmaps?
         return
