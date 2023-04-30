@@ -7,12 +7,13 @@ from server import logger
 from server.adapters import s3
 
 import secrets
-import server.repositories.screenshots as screenshots
+from server.repositories import screenshots
 
 
 async def create(
     screenshot_data: bytes,
-) -> dict[str, Any] | ServiceError:
+) -> screenshots.Screenshot | ServiceError:
+    # Read raw bytes
     with io.BytesIO(screenshot_data) as file:
         try:
             screenshot = Image.open(file)
@@ -24,22 +25,21 @@ async def create(
         screenshot_id = uuid4()
         screenshot_name = secrets.token_urlsafe(16)
         screenshot_size = len(screenshot_data)
-
         screenshot_type = screenshot.format
-        assert screenshot_type is not None
-
         screenshot_download_url = s3.get_s3_public_url(
             "osu-server-professing", f"screenshots/{screenshot_name}"
         )
 
-    # TODO: upload image to AWS S3
+        assert screenshot_type is not None
+
+    # Upload to Amazon S3
     try:
         await s3.upload(screenshot_data, screenshot_name, "screenshots")
     except Exception as exc:  # pragma: no cover
         logger.error("Failed to upload screenshot file", exc_info=exc)
         return ServiceError.SCREENSHOTS_UPLOAD_FAILED
 
-    # TODO: save screenshot metadata to database
+    # Store screenshot metadata in database
     try:
         screenshot = await screenshots.create(
             screenshot_id=screenshot_id,
@@ -55,10 +55,12 @@ async def create(
     return screenshot
 
 
-async def fetch_one(screenshot_id: UUID) -> dict[str, Any] | ServiceError:
+async def fetch_one(screenshot_id: UUID) -> screenshots.Screenshot | ServiceError:
     screenshot = await screenshots.fetch_one(screenshot_id)
 
     if isinstance(screenshot, ServiceError):
         return ServiceError.SCREENSHOTS_NOT_FOUND
+
+    assert screenshot is not None
 
     return screenshot
