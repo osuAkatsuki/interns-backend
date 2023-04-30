@@ -17,3 +17,4 @@ class ServiceError(str, Enum):
 
     SCREENSHOTS_UPLOAD_FAILED = "screenshots.upload_failed"
     SCREENSHOTS_IMAGE_INVALID = "screenshots.image_invalid"
+    SCREENSHOTS_NOT_FOUND = "screenshots.not_found"
