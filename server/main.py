@@ -12,13 +12,15 @@ from aiobotocore.session import get_session
 from fastapi import APIRouter
 from fastapi import FastAPI
 from fastapi import Query
+from fastapi import File
+from fastapi import Header
 from fastapi import Request
 from fastapi import Response
 from fastapi import Form
 from fastapi import status
-from starlette.datastructures import UploadFile
 from py3rijndael import Pkcs7Padding
 from py3rijndael import RijndaelCbc
+from starlette.datastructures import UploadFile
 
 from server import clients
 from server import geolocation
@@ -44,8 +46,6 @@ from server.repositories import stats
 from server.repositories.accounts import Account
 from server.repositories.beatmaps import Beatmap
 from server.repositories.scores import Score
-from server.repositories import scores
-from server.repositories import beatmaps
 
 app = FastAPI()
 
@@ -732,9 +732,19 @@ def format_leaderboard_response(
 @osu_web_handler.post("/web/osu-submit-modular-selector.php")
 async def submit_score_handler(
     request: Request,
+    token: str = Header(...),
+    exited_out: bool = Form(..., alias="x"),
+    fail_time: int = Form(..., alias="ft"),
+    visual_settings_b64: bytes = Form(..., alias="fs"),
+    updated_beatmap_hash: str = Form(..., alias="bmk"),
+    storyboard_md5: str | None = Form(None, alias="sbk"),
     iv_b64: bytes = Form(..., alias="iv"),
-    client_hash_aes_b64: bytes = Form(..., alias="s"),
+    unique_ids: str = Form(..., alias="c1"),
+    score_time: int = Form(..., alias="st"),  # TODO: is this real name?
+    password_md5: str = Form(..., alias="pass"),
     osu_version: str = Form(..., alias="osuver"),
+    client_hash_aes_b64: bytes = Form(..., alias="s"),
+    fl_cheat_screenshot: bytes | None = File(None, alias="i"),
 ):
     score_data_aes_b64, replay_file = (await request.form()).getlist("score")
 
@@ -754,29 +764,39 @@ async def submit_score_handler(
     score_data = aes_cipher.decrypt(score_data_aes).decode().split(":")
     client_hash = aes_cipher.decrypt(client_hash_aes).decode()
 
-    beatmap_md5 = str(score_data[0])
-    username = str(score_data[1])
+    beatmap_md5 = score_data[0]
+    username = score_data[1]
     online_checksum = score_data[2]
     num_300s = int(score_data[3])
     num_100s = int(score_data[4])
     num_50s = int(score_data[5])
-    num_gekis = score_data[6]
-    num_katus = score_data[7]
+    num_gekis = int(score_data[6])
+    num_katus = int(score_data[7])
     num_misses = int(score_data[8])
-    score_points = score_data[9]
-    highest_combo = score_data[10]
-    perfect = score_data[11]
+    score_points = int(score_data[9])
+    highest_combo = int(score_data[10])
+    full_combo = score_data[11] == "True"
     grade = score_data[12]
-    mods = score_data[13]
-    passed = score_data[14]
-    mode = score_data[15]
-    time_elapsed = score_data[16]
-    client_flags = score_data[17]
-    client_checksum = score_data[18]
+
+    mods = int(score_data[13])
+    passed = score_data[14] == "True"
+    game_mode = int(score_data[15])
+    client_time = datetime.strptime(score_data[16], "%y%m%d%H%M%S")
+    client_anticheat_flags = score_data[17].count(" ") & ~4
+
+    account = await accounts.fetch_by_username(username)
+    if account is None:
+        return
 
     session = await sessions.fetch_by_username(username)
+    if session is None:
+        return
 
-    # assert session is not None
+    if not security.check_password(
+        password=password_md5,
+        hashword=account["password"],
+    ):
+        return
 
     total_notes = num_300s + num_100s + num_50s + num_misses
 
@@ -785,41 +805,52 @@ async def submit_score_handler(
     )
 
     beatmap = await beatmaps.fetch_by_md5(beatmap_md5)
+    if beatmap is None:
+        # TODO: JIT beatmaps?
+        return
 
-    print(beatmap)
+    # TODO: handle differently depending on beatmap ranked status
 
-    # score = await scores.create(
-    #     account_id,
-    #     online_checksum,
-    #     beatmap_md5,
-    #     score,
-    #     performance_points=0,
-    #     accuracy,
-    #     highest_combo,
-    #     full_combo,
-    #     mods,
-    #     num_300s,
-    #     num_100s,
-    #     num_50s,
-    #     num_misses,
-    #     num_gekis,
-    #     num_katus,
-    #     grade,
-    #     submission_status,
-    #     game_mode,
-    #     play_time,
-    #     country,
-    #     time_elapsed,
-    #     client_anticheat_flags,
-    # )
+    # TODO: does this account for DT/HT?
+    time_elapsed = score_time if passed else fail_time
 
-    print(score_data)
+    # TODO: set submission status based on performance vs. old scores
+    submission_status = "best_score"
 
-    # await accounts.fetch_by_account_id
+    score = await scores.create(
+        account["account_id"],
+        online_checksum,
+        beatmap_md5,
+        score_points,
+        0.0,  # TODO: performance points
+        accuracy,
+        highest_combo,
+        full_combo,
+        mods,
+        num_300s,
+        num_100s,
+        num_50s,
+        num_misses,
+        num_gekis,
+        num_katus,
+        grade,
+        submission_status,
+        game_mode,
+        score_time,  # TODO is this right?
+        account["country"],  # TODO: should this be the session country?
+        time_elapsed,
+        client_anticheat_flags,
+    )
 
-    # TODO: fetch account
-    # TODO: fetch session
-    # TODO: validate password
-    # TODO: fetch beatmap metadata
+    # TODO: save replay to S3
 
-    ...
+    # TODO: update beatmap stats (plays, passes)
+
+    # TODO: update account stats
+    # TODO: send account stats to all other players if we're not restricted
+
+    # TODO: send to #announcements if the score is #1
+
+    # TODO: unlock achievements
+
+    # TODO: construct score submission charts
