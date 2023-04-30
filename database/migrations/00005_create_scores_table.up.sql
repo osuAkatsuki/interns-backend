@@ -19,7 +19,6 @@ CREATE TABLE scores
     grade TEXT NOT NULL DEFAULT 'N',
     submission_status INT NOT NULL,
     game_mode INT NOT NULL,
-    play_time TIMESTAMPTZ NOT NULL,
     country TEXT NOT NULL,
     time_elapsed INT NOT NULL,
     client_anticheat_flags INT NOT NULL,

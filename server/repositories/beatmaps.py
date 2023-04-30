@@ -14,7 +14,6 @@ READ_PARAMS = """\
     version,
     creator,
     filename,
-    last_update,
     total_length,
     max_combo,
     ranked_status_manually_changed,
@@ -26,7 +25,8 @@ READ_PARAMS = """\
     ar,
     od,
     hp,
-    star_rating
+    star_rating,
+    updated_at
 """
 
 
@@ -65,7 +65,6 @@ async def create(
     version: str,
     creator: str,
     filename: str,
-    last_update: datetime,
     total_length: int,
     max_combo: int,
     ranked_status_manually_changed: bool,
@@ -78,19 +77,20 @@ async def create(
     od: float,
     hp: float,
     star_rating: float,
+    updated_at: datetime,
 ) -> Beatmap:
     beatmap = await clients.database.fetch_one(
         query=f"""\
             INSERT INTO beatmaps (beatmap_id, beatmap_set_id, ranked_status,
                                   beatmap_md5, artist, title, version, creator,
-                                  filename, last_update, total_length, max_combo,
+                                  filename, total_length, max_combo,
                                   ranked_status_manually_changed, plays, passes,
-                                  mode, bpm, cs, ar, od, hp, star_rating)
+                                  mode, bpm, cs, ar, od, hp, star_rating, updated_at)
             VALUES (:beatmap_id, :beatmap_set_id, :ranked_status,
                     :beatmap_md5, :artist, :title, :version, :creator,
-                    :filename, :last_update, :total_length, :max_combo,
+                    :filename, :total_length, :max_combo,
                     :ranked_status_manually_changed, :plays, :passes,
-                    :mode, :bpm, :cs, :ar, :od, :hp, :star_rating)
+                    :mode, :bpm, :cs, :ar, :od, :hp, :star_rating, :updated_at)
             RETURNING {READ_PARAMS}
         """,
         values={
@@ -103,7 +103,6 @@ async def create(
             "version": version,
             "creator": creator,
             "filename": filename,
-            "last_update": last_update,
             "total_length": total_length,
             "max_combo": max_combo,
             "ranked_status_manually_changed": ranked_status_manually_changed,
@@ -116,6 +115,7 @@ async def create(
             "od": od,
             "hp": hp,
             "star_rating": star_rating,
+            "updated_at": updated_at,
         },
     )
 
