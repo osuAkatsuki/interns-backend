@@ -33,12 +33,12 @@ def db_dsn(
 
 database = databases.Database(
     db_dsn(
-        scheme=os.environ["DB_SCHEME"],
-        user=os.environ["DB_USER"],
-        password=os.environ["DB_PASS"],
+        scheme=os.environ["WRITE_DB_SCHEME"],
+        user=os.environ["WRITE_DB_USER"],
+        password=os.environ["WRITE_DB_PASS"],
         host="localhost",
-        port=int(os.environ["DB_PORT"]),
-        database=os.environ["DB_NAME"],
+        port=int(os.environ["WRITE_DB_PORT"]),
+        database=os.environ["WRITE_DB_NAME"],
     )
 )
 
@@ -64,12 +64,13 @@ async def main() -> int:
     else:
         privileges = ServerPrivileges.UNRESTRICTED
 
-    while True:
-        password = getpass("Password: ")
-        if not validation.validate_password(password):
-            print("Invalid Password! Retry!")
-        else:
-            break
+    password = getpass("Password: ")
+    # while True:
+    #     password = getpass("Password: ")
+    #     if not validation.validate_password(password):
+    #         print("Invalid Password! Retry!")
+    #     else:
+    #         break
 
     while True:
         country = input("Country: ")

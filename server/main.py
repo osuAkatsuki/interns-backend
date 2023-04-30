@@ -33,6 +33,7 @@ from server import security
 from server import settings
 from server.adapters import ip_api
 from server.adapters import osu_api_v2
+from server.adapters import s3
 from server.adapters.database import Database
 from server.privileges import ServerPrivileges
 from server.repositories import accounts
@@ -542,6 +543,95 @@ def create_beatmap_filename(
     return f"{artist} - {title} ({creator}) [{version}].osu"
 
 
+async def format_leaderboard_response(
+    leaderboard_scores: list[Score],
+    personal_best_score: Score | None,
+    account: Account,
+    beatmap: Beatmap,
+) -> bytes:
+    """\
+    {ranked_status}|{serv_has_osz2}|{bid}|{bsid}|{len(scores)}|{fa_track_id}|{fa_license_text}
+    {offset}\n{beatmap_name}\n{rating}
+    {id}|{name}|{score}|{max_combo}|{n50}|{n100}|{n300}|{nmiss}|{nkatu}|{ngeki}|{perfect}|{mods}|{userid}|{rank}|{time}|{has_replay}
+    {id}|{name}|{score}|{max_combo}|{n50}|{n100}|{n300}|{nmiss}|{nkatu}|{ngeki}|{perfect}|{mods}|{userid}|{rank}|{time}|{has_replay}
+    ...
+    """
+    # 3rd line is peronsal best, rest are leaderboard scores
+
+    buffer = ""
+
+    # first line
+    buffer += f"{2}|false|{beatmap['beatmap_id']}|{beatmap['beatmap_set_id']}|{len(leaderboard_scores)}|0|\n"
+
+    # second line
+    beatmap_name = "{artist} - {title} [{version}]".format(**beatmap)
+    buffer += f"0\n{beatmap_name}\n{0.0}\n"  # TODO: beatmap rating
+
+    # third line
+    if personal_best_score is None:
+        buffer += "\n"
+    else:
+        buffer += (
+            f"{personal_best_score['score_id']}|"
+            f"{account['username']}|"
+            f"{personal_best_score['score']}|"
+            f"{personal_best_score['highest_combo']}|"
+            f"{personal_best_score['num_50s']}|"
+            f"{personal_best_score['num_100s']}|"
+            f"{personal_best_score['num_300s']}|"
+            f"{personal_best_score['num_misses']}|"
+            f"{personal_best_score['num_katus']}|"
+            f"{personal_best_score['num_gekis']}|"
+            f"{'1' if personal_best_score['full_combo'] else '0'}|"
+            f"{personal_best_score['mods']}|"
+            f"{account['account_id']}|"
+            f"{1}|"  # TODO: leaderboard rank
+            f"{int(personal_best_score['created_at'].timestamp())}|"
+            f"{'1'}\n"  # TODO: has replay
+        )
+
+    # rest of the lines
+    if not leaderboard_scores:
+        buffer += "\n"
+    else:
+        for leaderboard_rank, score in enumerate(leaderboard_scores):
+            # TODO: this is quite unfortuante that we need to lookup each user
+            # an alternative might be to store the username in the score table
+            # but the problem with that is that the username can change
+            score_account = await accounts.fetch_by_account_id(score["account_id"])
+            if score_account is None:
+                logger.warning(
+                    "Score has no account",
+                    score_id=score["score_id"],
+                    account_id=score["account_id"],
+                )
+                continue
+
+            buffer += (
+                f"{score['score_id']}|"
+                f"{score_account['username']}|"
+                f"{score['score']}|"
+                f"{score['highest_combo']}|"
+                f"{score['num_50s']}|"
+                f"{score['num_100s']}|"
+                f"{score['num_300s']}|"
+                f"{score['num_misses']}|"
+                f"{score['num_katus']}|"
+                f"{score['num_gekis']}|"
+                f"{'1' if score['full_combo'] else '0'}|"
+                f"{score['mods']}|"
+                f"{score['account_id']}|"
+                f"{leaderboard_rank}|"
+                f"{int(score['created_at'].timestamp())}|"
+                f"{'1'}\n"  # TODO: has replay
+            )
+
+        # remove trailing "\n"
+        buffer = buffer.removesuffix("\n")
+
+    return buffer.encode()
+
+
 # GET /web/osu-osz2-getscores.php
 # ?s=0
 # &vv=4
@@ -612,7 +702,6 @@ async def get_scores_handler(
                 version=api_v2_beatmap.version,
                 creator=api_v2_beatmap.beatmapset.creator_name,
             ),
-            api_v2_beatmap.last_updated,
             api_v2_beatmap.total_length,
             api_v2_beatmap.max_combo or 0,
             False,  # manually ranked
@@ -625,6 +714,7 @@ async def get_scores_handler(
             api_v2_beatmap.od or 0,
             api_v2_beatmap.hp or 0,
             api_v2_beatmap.star_rating,
+            api_v2_beatmap.last_updated,
         )
 
     # TODO: leaderboard type handling
@@ -650,83 +740,31 @@ async def get_scores_handler(
     else:
         personal_best_score = None
 
-    return format_leaderboard_response(
+    response = await format_leaderboard_response(
         leaderboard_scores,
         personal_best_score,
         account,
         beatmap,
     )
+    return response
 
 
-def format_leaderboard_response(
-    leaderboard_scores: list[Score],
-    personal_best_score: Score | None,
-    account: Account,
-    beatmap: Beatmap,
-) -> str:
-    """\
-    {ranked_status}|{serv_has_osz2}|{bid}|{bsid}|{len(scores)}|{fa_track_id}|{fa_license_text}
-    {offset}\n{beatmap_name}\n{rating}
-    {id}|{name}|{score}|{max_combo}|{n50}|{n100}|{n300}|{nmiss}|{nkatu}|{ngeki}|{perfect}|{mods}|{userid}|{rank}|{time}|{has_replay}
-    {id}|{name}|{score}|{max_combo}|{n50}|{n100}|{n300}|{nmiss}|{nkatu}|{ngeki}|{perfect}|{mods}|{userid}|{rank}|{time}|{has_replay}
-    ...
-    """
-    # 3rd line is peronsal best, rest are leaderboard scores
+def calculate_accuracy(
+    num_300s: int,
+    num_100s: int,
+    num_50s: int,
+    num_gekis: int,
+    num_katus: int,
+    num_misses: int,
+) -> float:
+    # TODO: support for all game modes
 
-    buffer = ""
+    total_notes = num_300s + num_100s + num_50s + num_misses
 
-    # first line
-    buffer += f"{beatmap['ranked_status']}|0|{beatmap['beatmap_id']}|{beatmap['beatmap_set_id']}|{len(leaderboard_scores)}|0|0\n"
-
-    # second line
-    beatmap_name = "{artist} - {title} [{version}]".format(**beatmap)
-    buffer += f"0\n{beatmap_name}\n{beatmap['star_rating']}\n"
-
-    # third line
-    if personal_best_score is None:
-        buffer += "0\n"
-    else:
-        buffer += (
-            f"{personal_best_score['score_id']}|"
-            f"{account['username']}|"
-            f"{personal_best_score['score']}|"
-            f"{personal_best_score['highest_combo']}|"
-            f"{personal_best_score['num_50s']}|"
-            f"{personal_best_score['num_100s']}|"
-            f"{personal_best_score['num_300s']}|"
-            f"{personal_best_score['num_misses']}|"
-            f"{personal_best_score['num_katus']}|"
-            f"{personal_best_score['num_gekis']}|"
-            f"{personal_best_score['full_combo']}|"
-            f"{personal_best_score['mods']}|"
-            f"{account['account_id']}|"
-            f"{personal_best_score['rank']}|"
-            f"{personal_best_score['time']}|"
-            f"{personal_best_score['has_replay']}\n"
-        )
-
-    # rest of the lines
-    for score in leaderboard_scores:
-        buffer += (
-            f"{score['score_id']}|"
-            f"{score['username']}|"
-            f"{score['score']}|"
-            f"{score['highest_combo']}|"
-            f"{score['num_50s']}|"
-            f"{score['num_100s']}|"
-            f"{score['num_300s']}|"
-            f"{score['num_misses']}|"
-            f"{score['num_katus']}|"
-            f"{score['num_gekis']}|"
-            f"{score['full_combo']}|"
-            f"{score['mods']}|"
-            f"{score['account_id']}|"
-            f"{score['rank']}|"
-            f"{score['time']}|"
-            f"{score['has_replay']}\n"
-        )
-
-    return buffer
+    accuracy = (
+        ((num_300s * 3) + (num_100s * 1) + (num_50s * 0.5)) / total_notes * 100 / 3
+    )
+    return accuracy
 
 
 @osu_web_handler.post("/web/osu-submit-modular-selector.php")
@@ -765,7 +803,7 @@ async def submit_score_handler(
     client_hash = aes_cipher.decrypt(client_hash_aes).decode()
 
     beatmap_md5 = score_data[0]
-    username = score_data[1]
+    username = score_data[1].removesuffix(" ")  # " " for supporter
     online_checksum = score_data[2]
     num_300s = int(score_data[3])
     num_100s = int(score_data[4])
@@ -786,26 +824,24 @@ async def submit_score_handler(
 
     account = await accounts.fetch_by_username(username)
     if account is None:
+        logger.warning(f"Account {username} not found")
         return
 
     session = await sessions.fetch_by_username(username)
     if session is None:
+        logger.warning(f"Session for {username} not found")
         return
 
     if not security.check_password(
         password=password_md5,
         hashword=account["password"].encode(),
     ):
+        logger.warning(f"Invalid password for {username}")
         return
-
-    total_notes = num_300s + num_100s + num_50s + num_misses
-
-    accuracy = (
-        ((num_300s * 3) + (num_100s * 1) + (num_50s * 0.5)) / total_notes * 100 / 3
-    )
 
     beatmap = await beatmaps.fetch_one_by_md5(beatmap_md5)
     if beatmap is None:
+        logger.warning(f"Beatmap {beatmap_md5} not found")
         # TODO: JIT beatmaps?
         return
 
@@ -815,7 +851,25 @@ async def submit_score_handler(
     time_elapsed = score_time if passed else fail_time
 
     # TODO: set submission status based on performance vs. old scores
-    submission_status = "best_score"
+    # 2 = best score
+    # 1 = passed
+    # 0 = failed
+    if passed:
+        if "TODO: is best score":
+            submission_status = 2
+        else:
+            submission_status = 1
+    else:
+        submission_status = 0
+
+    accuracy = calculate_accuracy(
+        num_300s,
+        num_100s,
+        num_50s,
+        num_gekis,
+        num_katus,
+        num_misses,
+    )
 
     score = await scores.create(
         account["account_id"],
@@ -836,13 +890,17 @@ async def submit_score_handler(
         grade,
         submission_status,
         game_mode,
-        score_time,  # TODO is this right?
         account["country"],  # TODO: should this be the session country?
         time_elapsed,
         client_anticheat_flags,
     )
 
     # TODO: save replay to S3
+    await s3.upload(
+        body=await replay_file.read(),
+        filename=f"{score['score_id']}.osr",
+        folder="professing/replays",
+    )
 
     # TODO: update beatmap stats (plays, passes)
 
