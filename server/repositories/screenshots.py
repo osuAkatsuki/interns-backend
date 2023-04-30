@@ -1,7 +1,10 @@
 from typing import Any
 from uuid import UUID
-
 from server import clients
+from typing import TypedDict
+from datetime import datetime
+from typing import cast
+
 
 READ_PARAMS = """
     screenshot_id,
@@ -12,7 +15,15 @@ READ_PARAMS = """
     created_at
 """
 
-from typing import TypedDict
+
+class Screenshot(TypedDict):
+    screenshot_id: UUID
+    file_name: str
+    file_type: str
+    file_size: int
+    download_url: str
+    created_at: datetime
+
 
 async def create(
     screenshot_id: UUID,
@@ -20,7 +31,7 @@ async def create(
     file_type: str,
     file_size: int,
     download_url: str,
-) -> dict[str, Any]:
+) -> Screenshot:
     screenshot = await clients.database.fetch_one(
         query=f"""
             INSERT INTO screenshots (screenshot_id, file_name, file_type, file_size, download_url)
@@ -36,10 +47,10 @@ async def create(
         },
     )
     assert screenshot is not None
-    return dict(screenshot._mapping)
+    return cast(Screenshot, screenshot)
 
 
-async def fetch_one(screenshot_id: UUID) -> dict[str, Any] | None:
+async def fetch_one(screenshot_id: UUID) -> Screenshot | None:
     screenshot = await clients.database.fetch_one(
         query=f"""
             SELECT {READ_PARAMS}
@@ -50,4 +61,8 @@ async def fetch_one(screenshot_id: UUID) -> dict[str, Any] | None:
             "screenshot_id": screenshot_id,
         },
     )
-    return dict(screenshot._mapping) if screenshot is not None else None
+
+    if screenshot is not None:
+        return cast(Screenshot, screenshot)
+    else:
+        return None
