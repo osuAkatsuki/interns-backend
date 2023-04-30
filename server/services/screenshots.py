@@ -58,9 +58,7 @@ async def create(
 async def fetch_one(screenshot_id: UUID) -> screenshots.Screenshot | ServiceError:
     screenshot = await screenshots.fetch_one(screenshot_id)
 
-    if isinstance(screenshot, ServiceError):
+    if screenshot is None:
         return ServiceError.SCREENSHOTS_NOT_FOUND
-
-    assert screenshot is not None
 
     return screenshot
