@@ -27,7 +27,7 @@ async def create(
 
         screenshot_type = screenshot.format
         assert screenshot_type is not None
-        
+
         screenshot_download_url = s3.get_s3_public_url(
             "osu-server-professing", f"screenshots/{screenshot_name}"
         )
@@ -51,5 +51,14 @@ async def create(
     except Exception as exc:  # pragma: no cover
         logger.error("Failed to upload screenshot file", exc_info=exc)
         return ServiceError.SCREENSHOTS_UPLOAD_FAILED
+
+    return screenshot
+
+
+async def fetch_one(screenshot_id: UUID) -> dict[str, Any] | ServiceError:
+    screenshot = await screenshots.fetch_one(screenshot_id)
+
+    if isinstance(screenshot, ServiceError):
+        return ServiceError.SCREENSHOTS_NOT_FOUND
 
     return screenshot
