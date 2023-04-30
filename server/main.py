@@ -870,12 +870,14 @@ async def submit_score_handler(
         num_misses,
     )
 
+    performance_points = 0.0  # TODO
+
     score = await scores.create(
         account["account_id"],
         online_checksum,
         beatmap_md5,
         score_points,
-        0.0,  # TODO: performance points
+        performance_points,
         accuracy,
         highest_combo,
         full_combo,
@@ -901,10 +903,64 @@ async def submit_score_handler(
         folder="professing/replays",
     )
 
-    # TODO: update beatmap stats (plays, passes)
+    # update beatmap stats (plays, passes)
+    beatmap = await beatmaps.partial_update(
+        beatmap["beatmap_id"],
+        plays=beatmap["plays"] + 1,
+        passes=beatmap["passes"] + 1 if passed else beatmap["passes"],
+    )
 
-    # TODO: update account stats
-    # TODO: send account stats to all other players if we're not restricted
+    # update account stats
+    gamemode_stats = await stats.fetch_one(account["account_id"], game_mode)
+    assert gamemode_stats is not None
+
+    gamemode_stats = await stats.partial_update(
+        account["account_id"],
+        game_mode=game_mode,
+        total_score=gamemode_stats["total_score"] + score_points,
+        # TODO: only if best & on ranked map
+        ranked_score=gamemode_stats["ranked_score"] + score_points,
+        performance_points=int(0.0),  # TODO: weighted pp based on top 100 scores
+        play_count=gamemode_stats["play_count"] + 1,
+        play_time=gamemode_stats["play_time"] + time_elapsed,
+        accuracy=0.0,  # TODO: weighted acc based on top 100 scores
+        highest_combo=max(gamemode_stats["highest_combo"], highest_combo),
+        total_hits=(
+            gamemode_stats["total_hits"] + num_300s + num_100s + num_50s + num_misses
+        ),
+        xh_count=gamemode_stats["xh_count"] + (1 if grade == "XH" else 0),
+        x_count=gamemode_stats["x_count"] + (1 if grade == "X" else 0),
+        sh_count=gamemode_stats["sh_count"] + (1 if grade == "SH" else 0),
+        s_count=gamemode_stats["s_count"] + (1 if grade == "S" else 0),
+        a_count=gamemode_stats["a_count"] + (1 if grade == "A" else 0),
+    )
+    assert gamemode_stats is not None
+
+    # send account stats to all other osu! sessions if we're not restricted
+    if account["privileges"] & ServerPrivileges.UNRESTRICTED:
+        for other_session in await sessions.fetch_all(osu_clients_only=True):
+            if other_session["session_id"] == session["session_id"]:
+                continue
+
+            packet_data = packets.write_user_stats_packet(
+                gamemode_stats["account_id"],
+                session["presence"]["action"],
+                session["presence"]["info_text"],
+                session["presence"]["beatmap_md5"],
+                session["presence"]["mods"],
+                session["presence"]["mode"],
+                session["presence"]["beatmap_id"],
+                gamemode_stats["ranked_score"],
+                gamemode_stats["accuracy"],
+                gamemode_stats["play_count"],
+                gamemode_stats["total_score"],
+                ranking.get_global_rank(gamemode_stats["account_id"]),
+                gamemode_stats["performance_points"],
+            )
+            await packet_bundles.enqueue(
+                other_session["session_id"],
+                packet_data,
+            )
 
     # TODO: send to #announcements if the score is #1
 
