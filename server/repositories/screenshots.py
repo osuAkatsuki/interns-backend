@@ -61,8 +61,4 @@ async def fetch_one(screenshot_id: UUID) -> Screenshot | None:
             "screenshot_id": screenshot_id,
         },
     )
-
-    if screenshot is not None:
-        return cast(Screenshot, screenshot)
-    else:
-        return None
+    return cast(Screenshot, screenshot) if screenshot is not None else None
