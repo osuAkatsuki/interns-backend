@@ -21,29 +21,34 @@ async def create(
             logger.error("Failed to parse screenshot file", exc_info=exc)
             return ServiceError.SCREENSHOTS_IMAGE_INVALID
 
+        screenshot_id = uuid4()
         screenshot_name = secrets.token_urlsafe(16)
         screenshot_size = len(screenshot_data)
-        screenshot_filetype = screenshot.format
-        screenshot_id = uuid4()
 
+        screenshot_type = screenshot.format
+        assert screenshot_type is not None
+        
+        screenshot_download_url = s3.get_s3_public_url(
+            "osu-server-professing", f"screenshots/{screenshot_name}"
+        )
 
     # TODO: upload image to AWS S3
     try:
-        ...
-    except Exception as exc:# pragma: no cover
+        await s3.upload(screenshot_data, screenshot_name, "screenshots")
+    except Exception as exc:  # pragma: no cover
         logger.error("Failed to upload screenshot file", exc_info=exc)
         return ServiceError.SCREENSHOTS_UPLOAD_FAILED
 
     # TODO: save screenshot metadata to database
     try:
         screenshot = await screenshots.create(
-            screenshot_id=,
-            file_name=,
-            file_type=,
-            file_size=file_size,
-            download_url=, # determine where it was uploaded on s3 (a publicly accessible url to the image)
+            screenshot_id=screenshot_id,
+            file_name=screenshot_name,
+            file_type=screenshot_type,
+            file_size=screenshot_size,
+            download_url=screenshot_download_url,
         )
-    except Exception as exc: # pragma: no cover
+    except Exception as exc:  # pragma: no cover
         logger.error("Failed to upload screenshot file", exc_info=exc)
         return ServiceError.SCREENSHOTS_UPLOAD_FAILED
 
