@@ -1,9 +1,9 @@
-from typing import Any
-from uuid import UUID
-from server import clients
-from typing import TypedDict
 from datetime import datetime
 from typing import cast
+from typing import TypedDict
+from uuid import UUID
+
+from server import clients
 
 
 READ_PARAMS = """

@@ -8,8 +8,8 @@ Faker
 fastapi
 httpx
 orjson
+pillow
 python-dotenv
 redis
 structlog
 uvicorn
-pillow
