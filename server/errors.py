@@ -9,6 +9,7 @@ class ServiceError(str, Enum):
     ACCOUNTS_EMAIL_ADDRESS_INVALID = "accounts.email_address_invalid"
     ACCOUNTS_EMAIL_ADDRESS_EXISTS = "accounts.email_address_exists"
     ACCOUNTS_USERNAME_EXISTS = "accounts.username_exists"
+    ACCOUNTS_COUNTRY_INVALID = "accounts.country_invalid"
 
     SESSIONS_NOT_FOUND = "sessions.not_found"
 
