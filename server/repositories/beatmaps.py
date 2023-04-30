@@ -158,6 +158,86 @@ async def fetch_one_by_id(beatmap_id: int) -> Beatmap | None:
     return cast(Beatmap, beatmap) if beatmap is not None else None
 
 
+async def update_one(
+    beatmap_id: int | None,
+    beatmap_set_id: int | None,
+    ranked_status: int | None,
+    beatmap_md5: int | None,
+    artist: int | None,
+    title: int | None,
+    version: int | None,
+    creator: int | None,
+    filename: int | None,
+    last_update: int | None,
+    total_length: int | None,
+    max_combo: int | None,
+    ranked_status_manually_changed: int | None,
+    plays: int | None,
+    passes: int | None,
+    mode: int | None,
+    bpm: int | None,
+    cs: int | None,
+    ar: int | None,
+    od: int | None,
+    hp: int | None,
+    star_rating : int | None,
+) -> Beatmap | None:
+    beatmap = await clients.database.fetch_one(
+        query=f"""\
+            UPDATE beatmaps
+            SET beatmap_set_id = COALESCE(:beatmap_set_id, beatmap_set_id)
+                ranked_status = COALESCE(:ranked_status, ranked_status)
+                beatmap_md5 = COALESCE(:beatmap_md5, beatmap_md5)
+                artist = COALESCE(:artist, artist)
+                title = COALESCE(:title, title)
+                version = COALESCE(:version, version)
+                creator = COALESCE(:creator, creator)
+                filename = COALESCE(:filename, filename)
+                last_update = COALESCE(:last_update, last_update)
+                total_length = COALESCE(:total_length, total_length)
+                max_combo = COALESCE(:max_combo, max_combo)
+                ranked_status_manually_changed = COALESCE(:ranked_status_manually_changed, ranked_status_manually_changed)
+                plays = COALESCE(:plays, plays)
+                passes = COALESCE(:passes, passes)
+                mode = COALESCE(:mode, mode)
+                bpm = COALESCE(:bpm, bpm)
+                cs = COALESCE(:cs, cs)
+                ar = COALESCE(:ar, ar)
+                od = COALESCE(:od, od)
+                hp = COALESCE(:hp, hp)
+                star_rating = COALESCE(:star_rating, star_rating)
+            WHERE beatmap_id = :beatmap_id
+        
+            RETURNING {READ_PARAMS}
+        """,
+        values={
+            "beatmap_id": beatmap_id,
+            "beatmap_set_id": beatmap_set_id,
+            "ranked_status": ranked_status,
+            "beatmap_md5": beatmap_md5,
+            "artist": artist,
+            "title": title,
+            "version": version,
+            "creator": creator,
+            "filename": filename,
+            "last_update": last_update,
+            "total_length": total_length,
+            "max_combo": max_combo,
+            "ranked_status_manually_changed": ranked_status_manually_changed,
+            "plays": plays,
+            "passes": passes,
+            "mode": mode,
+            "bpm": bpm,
+            "cs": cs,
+            "ar": ar,
+            "od": od,
+            "hp": hp,
+            "star_rating": star_rating,
+        },
+    )
+    return cast(Beatmap, beatmap) if beatmap is not None else None
+
+
 async def fetch_one_by_md5(beatmap_md5: str) -> Beatmap | None:
     beatmap = await clients.database.fetch_one(
         query=f"""\
