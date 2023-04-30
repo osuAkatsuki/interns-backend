@@ -7,7 +7,7 @@ from server import settings
 
 async def upload(body: bytes, filename: str, folder: str) -> None:
     try:
-        response = await clients.s3_client.put_object(
+        await clients.s3_client.put_object(
             Bucket=settings.S3_BUCKET_NAME,
             Key=f"{folder}/{filename}",
             Body=body,
@@ -30,3 +30,7 @@ async def download(filename: str, folder: str) -> bytes | None:
         return None
 
     return await response["Body"].read()
+
+
+def get_s3_public_url(bucket_name: str, file_path: str) -> str:
+    return f"https://{bucket_name}.s3.amazonaws.com/{file_path}"
