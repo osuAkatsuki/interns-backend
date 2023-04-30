@@ -58,7 +58,7 @@ async def main() -> int:
         else:
             break
 
-    if settings.APP_ENV == "development":
+    if settings.APP_ENV == "local":
         # give all privileges in development
         privileges = int("1" * 31, base=2)
     else:
