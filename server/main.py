@@ -17,7 +17,6 @@ from fastapi import Header
 from fastapi import Query
 from fastapi import Request
 from fastapi import Response
-from fastapi import status
 from py3rijndael import Pkcs7Padding
 from py3rijndael import RijndaelCbc
 from starlette.datastructures import UploadFile
@@ -50,8 +49,8 @@ from server.repositories.scores import Score
 
 app = FastAPI()
 
-osu_web_handler = APIRouter()
-bancho_router = APIRouter()
+osu_web_handler = APIRouter(default_response_class=Response)
+bancho_router = APIRouter(default_response_class=Response)
 
 app.host("osu.cmyui.xyz", osu_web_handler)
 
