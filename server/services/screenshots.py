@@ -27,7 +27,8 @@ async def create(
         screenshot_size = len(screenshot_data)
         screenshot_type = screenshot.format
         screenshot_download_url = s3.get_s3_public_url(
-            "osu-server-professing", f"screenshots/{screenshot_name}"
+            bucket_name="osu-server-professing",
+            file_path=f"screenshots/{screenshot_name}",
         )
 
         assert screenshot_type is not None
