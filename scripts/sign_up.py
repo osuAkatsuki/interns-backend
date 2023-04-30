@@ -64,13 +64,12 @@ async def main() -> int:
     else:
         privileges = ServerPrivileges.UNRESTRICTED
 
-    password = getpass("Password: ")
-    # while True:
-    #     password = getpass("Password: ")
-    #     if not validation.validate_password(password):
-    #         print("Invalid Password! Retry!")
-    #     else:
-    #         break
+    while True:
+        password = getpass("Password: ")
+        if not validation.validate_password(password):
+            print("Invalid Password! Retry!")
+        else:
+            break
 
     while True:
         country = input("Country: ")
