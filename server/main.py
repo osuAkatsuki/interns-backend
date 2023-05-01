@@ -17,6 +17,8 @@ from fastapi import Header
 from fastapi import Query
 from fastapi import Request
 from fastapi import Response
+from fastapi import status
+from fastapi.responses import RedirectResponse
 from py3rijndael import Pkcs7Padding
 from py3rijndael import RijndaelCbc
 from starlette.datastructures import UploadFile
@@ -967,3 +969,11 @@ async def submit_score_handler(
     # TODO: unlock achievements
 
     # TODO: construct score submission charts
+
+
+@osu_web_handler.route("/difficulty-rating")
+async def difficulty_rating_handler(request: Request):
+    return RedirectResponse(
+        url=f"https://osu.ppy.sh{request['path']}",
+        status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+    )
