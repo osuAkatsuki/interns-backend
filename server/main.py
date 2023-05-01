@@ -29,6 +29,7 @@ from server import geolocation
 from server import logger
 from server import packet_handlers
 from server import packets
+from server import performance
 from server import privileges
 from server import ranking
 from server import security
@@ -877,14 +878,55 @@ async def submit_score_handler(
         num_misses,
     )
 
-    performance_points = 0.0  # TODO
+    try:
+        osu_file_contents = await s3.download(
+            filename=f"{beatmap['beatmap_id']}.osu",
+            folder="osu_beatmap_files",
+        )
+        assert osu_file_contents is not None
+    except Exception as exc:
+        # TODO: JIT .osu files
+        osu_file_contents = await osu_api_v2.fetch_osu_file_contents(
+            beatmap["beatmap_id"]
+        )
+        if osu_file_contents is None:
+            logger.error("Failed to download file from the osu! api")
+            return
+
+        try:
+            await s3.upload(
+                body=osu_file_contents,
+                filename=f"{beatmap['beatmap_id']}.osu",
+                folder="osu_beatmap_files",
+            )
+        except Exception as exc:
+            logger.error("Failed to upload file to S3", exc_info=exc)
+            return
+
+    if osu_file_contents is None:
+        logger.warning("Beatmap file for not found", beatmap_md5=beatmap_md5)
+        return
+
+    performance_attrs = performance.calculate_performance(
+        osu_file_contents,
+        game_mode,
+        mods,
+        accuracy,
+        num_300s,
+        num_100s,
+        num_50s,
+        num_misses,
+        num_gekis,
+        num_katus,
+        highest_combo,
+    )
 
     score = await scores.create(
         account["account_id"],
         online_checksum,
         beatmap_md5,
         score_points,
-        performance_points,
+        performance_attrs["performance_points"],
         accuracy,
         highest_combo,
         full_combo,
