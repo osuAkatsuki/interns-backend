@@ -971,7 +971,7 @@ async def submit_score_handler(
     # TODO: construct score submission charts
 
 
-@osu_web_handler.route("/difficulty-rating")
+@osu_web_handler.post("/difficulty-rating")
 async def difficulty_rating_handler(request: Request):
     return RedirectResponse(
         url=f"https://osu.ppy.sh{request['path']}",
