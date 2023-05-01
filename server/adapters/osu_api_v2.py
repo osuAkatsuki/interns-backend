@@ -2,10 +2,14 @@ from datetime import datetime
 from enum import Enum
 
 import aiosu
+import httpx
 from pydantic import BaseModel
 
 from server import clients
 from server import logger
+
+
+# TODO: implement retry logic
 
 
 class BeatmapRankedStatus(Enum):
@@ -272,3 +276,21 @@ async def lookup_beatmap(
     assert aiosu_beatmap.last_updated is not None
 
     return beatmap_from_aiosu(aiosu_beatmap)
+
+
+async def fetch_osu_file_contents(beatmap_id: int) -> bytes | None:
+    # TODO: this is not technically part of api v2
+    try:
+        response = await clients.http_client.get(
+            url=f"https://osu.ppy.sh/osu/{beatmap_id}",
+        )
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 404:
+            return None
+        else:
+            raise
+    except Exception as exc:
+        logger.error("Failed to fetch beatmap from osu! api", exc=exc)
+        return
+
+    return await response.aread()
