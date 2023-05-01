@@ -19,6 +19,9 @@ run: # run all containers in the foreground
 stop: # stop all containers
 	docker-compose down
 
+lint: # run pre-commit hooks
+	pre-commit run -a
+
 logs: # attach to the containers live to view their logs
 	docker-compose logs -f
 
