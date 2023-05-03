@@ -9,7 +9,9 @@ fastapi
 httpx
 orjson
 pillow
+py3rijndael
 python-dotenv
+python-multipart
 redis
 structlog
 uvicorn

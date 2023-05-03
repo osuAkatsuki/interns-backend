@@ -6,7 +6,9 @@ services:
   postgres:
     image: postgres:13
     environment:
-      POSTGRES_PASSWORD: ${DB_PASS}
+      # NOTE: running with the assumption that local dev will not have read replication
+      # (meaning that the read & write dbs will be the same)
+      POSTGRES_PASSWORD: ${WRITE_DB_PASS}
     volumes:
       - ./pgdata:/var/lib/postgresql/data
     ports:
@@ -29,7 +31,6 @@ services:
       - APP_HOST=${APP_HOST}
       - APP_PORT=${APP_PORT}
       - APP_LOG_LEVEL=${APP_LOG_LEVEL}
-      - DB_SCHEME=${DB_SCHEME}
       - SERVICE_READINESS_TIMEOUT=${SERVICE_READINESS_TIMEOUT}
       - READ_DB_SCHEME=${READ_DB_SCHEME}
       - READ_DB_HOST=${READ_DB_HOST}
