@@ -1,4 +1,5 @@
 aiobotocore
+aioredlock
 aiosu
 asyncpg
 bcrypt
