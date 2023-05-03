@@ -349,6 +349,26 @@ async def spectate_frames_handler(session: "Session", packet_data: bytes):
 # CANT_SPECTATE = 21
 
 
+@bancho_handler(packets.ClientPackets.CANT_SPECTATE)
+async def cant_spectate_handler(session: "Session", packet_data: bytes):
+    assert session["presence"] is not None
+
+    data = packets.write_spectator_cant_spectate_packet(session["account_id"])
+
+    if session["presence"]["spectator_host_session_id"] is None:
+        logger.warning(
+            "A user attempted to stop spectating user while not spectating anyone",
+            spectator_id=session["account_id"],
+        )
+        return
+
+    host_session = session["presence"]["spectator_host_session_id"]
+    await packet_bundles.enqueue(host_session, data)
+
+    for spectator_session_id in await spectators.members(host_session):
+        await packet_bundles.enqueue(spectator_session_id, data)
+
+
 # SEND_PRIVATE_MESSAGE = 25
 
 
