@@ -401,9 +401,7 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
 
     relationship_info = await relationships.fetch_one(session["account_id"], recipient_session["account_id"])
 
-    assert relationship_info is not None
-
-    if relationship_info["relationship"] == "blocked":
+    if relationship_info is not None and relationship_info["relationship"] == "blocked":
         return
 
     send_message_packet_data = packets.write_send_message_packet(
