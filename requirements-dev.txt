@@ -1,3 +1,8 @@
 black
+mock
 pre-commit
+pytest
+pytest-asyncio
+pytest-mock
 reorder-python-imports
+types-aiobotocore[s3]

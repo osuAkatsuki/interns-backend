@@ -1,5 +1,7 @@
 import email_validator
 
+from server import geolocation
+
 
 def validate_username(username: str) -> bool:
     return 3 <= len(username) <= 16
@@ -29,3 +31,7 @@ def validate_email(email: str) -> bool:
         return False
     else:
         return True
+
+
+def validate_country(country: str) -> bool:
+    return country in geolocation.COUNTRY_STR_TO_INT

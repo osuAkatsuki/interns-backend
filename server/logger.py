@@ -65,6 +65,7 @@ def configure_logging(app_env: str, log_level: str | int) -> None:
     handler.setLevel(log_level)
 
     _ROOT_LOGGER.addHandler(handler)
+    _ROOT_LOGGER.setLevel(log_level)
 
     for name in stdlib_logging.root.manager.loggerDict:
         logger = stdlib_logging.getLogger(name)

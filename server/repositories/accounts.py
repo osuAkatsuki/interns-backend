@@ -1,4 +1,6 @@
-from typing import Any
+from datetime import datetime
+from typing import cast
+from typing import TypedDict
 
 from server import clients
 
@@ -14,24 +16,33 @@ READ_PARAMS = """
 """
 
 
+class Account(TypedDict):
+    account_id: int
+    username: str
+    email_address: str
+    privileges: int
+    password: str
+    country: str
+    created_at: datetime
+    updated_at: datetime
+
+
 async def create(
-    account_id: int,
     username: str,
     email_address: str,
     password: str,
     privileges: int,
     country: str,
-) -> dict[str, Any]:
+) -> Account:
     account = await clients.database.fetch_one(
         query=f"""\
-            INSERT INTO accounts (account_id, username, email_address, password, privileges, country)
-            VALUES (:account_id, :username, :email_address, :password, :privileges, :country)
+            INSERT INTO accounts (username, email_address, password, privileges, country)
+            VALUES (:username, :email_address, :password, :privileges, :country)
             RETURNING {READ_PARAMS}
         """,
         values={
-            "account_id": account_id,
             "username": username,
-            "email": email_address,
+            "email_address": email_address,
             "password": password,
             "privileges": privileges,
             "country": country,
@@ -39,14 +50,14 @@ async def create(
     )
 
     assert account is not None
-    return dict(account._mapping)
+    return cast(Account, account)
 
 
 async def fetch_many(
     privileges: int | None = None,
     page: int = 1,
     page_size: int = 50,
-) -> list[dict[str, Any]]:
+) -> list[Account]:
     accounts = await clients.database.fetch_all(
         query=f"""\
             SELECT {READ_PARAMS}
@@ -56,15 +67,15 @@ async def fetch_many(
             OFFSET :offset
         """,
         values={
+            "privileges": privileges,
             "limit": page_size,
             "offset": (page - 1) * page_size,
-            "privileges": privileges,
         },
     )
-    return [dict(account._mapping) for account in accounts]
+    return [cast(Account, account) for account in accounts]
 
 
-async def fetch_by_account_id(account_id: int) -> dict[str, Any] | None:
+async def fetch_by_account_id(account_id: int) -> Account | None:
     account = await clients.database.fetch_one(
         query=f"""\
             SELECT {READ_PARAMS}
@@ -73,10 +84,10 @@ async def fetch_by_account_id(account_id: int) -> dict[str, Any] | None:
         """,
         values={"account_id": account_id},
     )
-    return dict(account._mapping) if account is not None else None
+    return cast(Account, account) if account is not None else None
 
 
-async def fetch_by_username(username: str) -> dict[str, Any] | None:
+async def fetch_by_username(username: str) -> Account | None:
     account = await clients.database.fetch_one(
         query=f"""\
             SELECT {READ_PARAMS}
@@ -85,4 +96,4 @@ async def fetch_by_username(username: str) -> dict[str, Any] | None:
         """,
         values={"username": username},
     )
-    return dict(account._mapping) if account is not None else None
+    return cast(Account, account) if account is not None else None

@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import cast
+from typing import Literal
 from typing import TypedDict
 
 from server import clients
@@ -24,7 +25,6 @@ READ_PARAMS = """\
     grade,
     submission_status,
     game_mode,
-    play_time,
     country,
     time_elapsed,
     client_anticheat_flags,
@@ -51,9 +51,8 @@ class Score(TypedDict):
     num_gekis: int
     num_katus: int
     grade: str  # enum
-    submission_status: str  # enum
+    submission_status: int  # enum
     game_mode: int  # enum
-    play_time: int
     country: str
     time_elapsed: int
     client_anticheat_flags: int
@@ -78,9 +77,8 @@ async def create(
     num_gekis: int,
     num_katus: int,
     grade: str,  # enum
-    submission_status: str,  # enum
+    submission_status: int,  # enum
     game_mode: int,  # enum
-    play_time: int,
     country: str,
     time_elapsed: int,
     client_anticheat_flags: int,
@@ -91,14 +89,14 @@ async def create(
                                 performance_points, accuracy, highest_combo,
                                 full_combo, mods, num_300s, num_100s, num_50s,
                                 num_misses, num_gekis, num_katus, grade,
-                                submission_status, game_mode, play_time, country,
+                                submission_status, game_mode, country,
                                 time_elapsed, client_anticheat_flags)
             VALUES (:account_id, :online_checksum, :beatmap_md5, :score,
-                    performance_points, :accuracy, :highest_combo,
-                    full_combo, :mods, :num_300s, :num_100s, :num_50s,
-                    num_misses, :num_gekis, :num_katus, :grade,
-                    submission_status, :game_mode, :play_time, :country,
-                    time_elapsed, :client_anticheat_flags)
+                    :performance_points, :accuracy, :highest_combo,
+                    :full_combo, :mods, :num_300s, :num_100s, :num_50s,
+                    :num_misses, :num_gekis, :num_katus, :grade,
+                    :submission_status, :game_mode, :country,
+                    :time_elapsed, :client_anticheat_flags)
             RETURNING {READ_PARAMS}
         """,
         values={
@@ -120,7 +118,6 @@ async def create(
             "grade": grade,
             "submission_status": submission_status,
             "game_mode": game_mode,
-            "play_time": play_time,
             "country": country,
             "time_elapsed": time_elapsed,
             "client_anticheat_flags": client_anticheat_flags,
@@ -130,34 +127,78 @@ async def create(
     return cast(Score, _score)
 
 
-async def fetch_all(
+async def fetch_many(
     beatmap_md5: str | None = None,
     account_id: int | None = None,
+    country: str | None = None,
     full_combo: bool | None = None,
     grade: str | None = None,
     submission_status: int | None = None,
     game_mode: int | None = None,
-    country: str | None = None,
+    mods: int | None = None,
+    sort_by: (
+        Literal[
+            "score",
+            "performance_points",
+            "accuracy",
+            "highest_combo",
+            "grade",
+        ]
+        | None
+    ) = None,
+    page: int | None = None,
+    page_size: int | None = None,
 ) -> list[Score]:
-    scores = await clients.database.fetch_all(
+    assert sort_by in (
+        "score",
+        "performance_points",
+        "accuracy",
+        "highest_combo",
+        "grade",
+    )
+    query = f"""\
+        SELECT {READ_PARAMS}
+        FROM scores
+        WHERE beatmap_md5 = COALESCE(:beatmap_md5, beatmap_md5)
+        AND account_id = COALESCE(:account_id, account_id)
+        AND country = COALESCE(:country, country)
+        AND full_combo = COALESCE(:full_combo, full_combo)
+        AND grade = COALESCE(:grade, grade)
+        AND submission_status = COALESCE(:submission_status, submission_status)
+        AND game_mode = COALESCE(:game_mode, game_mode)
+        AND mods = COALESCE(:mods, mods)
+        ORDER BY {sort_by} DESC
+    """
+    values = {
+        "beatmap_md5": beatmap_md5,
+        "account_id": account_id,
+        "country": country,
+        "full_combo": full_combo,
+        "grade": grade,
+        "submission_status": submission_status,
+        "game_mode": game_mode,
+        "mods": mods,
+    }
+    if page is not None and page_size is not None:
+        query += f"""\
+            LIMIT :page_size
+            OFFSET :offset
+        """
+        values["page_size"] = page_size
+        values["offset"] = page * page_size
+    scores = await clients.database.fetch_all(query, values)
+    return [cast(Score, score) for score in scores]
+
+
+async def fetch_one_by_id(score_id: int) -> Score | None:
+    score = await clients.database.fetch_one(
         query=f"""\
             SELECT {READ_PARAMS}
             FROM scores
-            WHERE beatmap_md5 = COALESCE(:beatmap_md5, beatmap_md5)
-            AND country = COALESCE(:country, country)
-            AND full_combo = COALESCE(:full_combo, full_combo)
-            AND grade = COALESCE(:grade, grade)
-            AND submission_status = COALESCE(:submission_status, submission_status)
-            AND game_mode = COALESCE(:game_mode, game_mode)
+            WHERE score_id = :score_id
         """,
         values={
-            "beatmap_md5": beatmap_md5,
-            "account_id": account_id,
-            "country": country,
-            "full_combo": full_combo,
-            "grade": grade,
-            "submission_status": submission_status,
-            "game_mode": game_mode,
+            "score_id": score_id,
         },
     )
-    return [cast(Score, dict(score._mapping)) for score in scores]
+    return cast(Score, score) if score is not None else None

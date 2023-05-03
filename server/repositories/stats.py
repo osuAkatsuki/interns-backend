@@ -56,14 +56,14 @@ async def create(account_id: int, game_mode: int) -> Stats:
     )
 
     assert stats is not None
-    return cast(Stats, dict(stats._mapping))
+    return cast(Stats, stats)
 
 
 async def fetch_all(
     account_id: int | None = None,
     game_mode: int | None = None,
 ) -> list[Stats]:
-    stats = await clients.database.fetch_all(
+    all_stats = await clients.database.fetch_all(
         query=f"""
             SELECT {READ_PARAMS}
             FROM stats
@@ -75,7 +75,7 @@ async def fetch_all(
             "game_mode": game_mode,
         },
     )
-    return [cast(Stats, dict(stat._mapping)) for stat in stats]
+    return [cast(Stats, stats) for stats in all_stats]
 
 
 async def fetch_many(
@@ -84,7 +84,7 @@ async def fetch_many(
     page: int = 1,
     page_size: int = 50,
 ) -> list[Stats]:
-    stats = await clients.database.fetch_all(
+    all_stats = await clients.database.fetch_all(
         query=f"""
             SELECT {READ_PARAMS}
             FROM stats
@@ -100,7 +100,7 @@ async def fetch_many(
             "offset": (page - 1) * page_size,
         },
     )
-    return [cast(Stats, dict(stat._mapping)) for stat in stats]
+    return [cast(Stats, stats) for stats in all_stats]
 
 
 async def fetch_one(account_id: int, game_mode: int) -> Stats | None:
@@ -113,4 +113,65 @@ async def fetch_one(account_id: int, game_mode: int) -> Stats | None:
         """,
         values={"account_id": account_id, "game_mode": game_mode},
     )
-    return cast(Stats, dict(stats._mapping)) if stats is not None else None
+    return cast(Stats, stats) if stats is not None else None
+
+
+async def partial_update(
+    account_id: int,
+    game_mode: int,
+    total_score: int | None = None,
+    ranked_score: int | None = None,
+    performance_points: int | None = None,
+    play_count: int | None = None,
+    play_time: int | None = None,
+    accuracy: float | None = None,
+    highest_combo: int | None = None,
+    total_hits: int | None = None,
+    replay_views: int | None = None,
+    xh_count: int | None = None,
+    x_count: int | None = None,
+    sh_count: int | None = None,
+    s_count: int | None = None,
+    a_count: int | None = None,
+) -> Stats | None:
+    stats = await clients.database.fetch_one(
+        query=f"""\
+            UPDATE stats
+            SET total_score = COALESCE(:total_score, total_score),
+                ranked_score = COALESCE(:ranked_score, ranked_score),
+                performance_points = COALESCE(:performance_points, performance_points),
+                play_count = COALESCE(:play_count, play_count),
+                play_time = COALESCE(:play_time, play_time),
+                accuracy = COALESCE(:accuracy, accuracy),
+                highest_combo = COALESCE(:highest_combo, highest_combo),
+                total_hits = COALESCE(:total_hits, total_hits),
+                replay_views = COALESCE(:replay_views, replay_views),
+                xh_count = COALESCE(:xh_count, xh_count),
+                x_count = COALESCE(:x_count, x_count),
+                sh_count = COALESCE(:sh_count, sh_count),
+                s_count = COALESCE(:s_count, s_count),
+                a_count = COALESCE(:a_count, a_count)
+            WHERE account_id = :account_id
+            AND game_mode = :game_mode
+            RETURNING {READ_PARAMS}
+        """,
+        values={
+            "account_id": account_id,
+            "game_mode": game_mode,
+            "total_score": total_score,
+            "ranked_score": ranked_score,
+            "performance_points": performance_points,
+            "play_count": play_count,
+            "play_time": play_time,
+            "accuracy": accuracy,
+            "highest_combo": highest_combo,
+            "total_hits": total_hits,
+            "replay_views": replay_views,
+            "xh_count": xh_count,
+            "x_count": x_count,
+            "sh_count": sh_count,
+            "s_count": s_count,
+            "a_count": a_count,
+        },
+    )
+    return cast(Stats, stats) if stats is not None else None

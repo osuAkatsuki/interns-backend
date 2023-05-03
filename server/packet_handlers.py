@@ -1,11 +1,12 @@
-import random
 from collections.abc import Awaitable
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
+from server import command_handlers
 from server import logger
 from server import packets
 from server import ranking
+from server.privileges import ServerPrivileges
 from server.repositories import channel_members
 from server.repositories import channels
 from server.repositories import packet_bundles
@@ -41,7 +42,10 @@ def bancho_handler(
 
 @bancho_handler(packets.ClientPackets.CHANGE_ACTION)
 async def change_action_handler(session: "Session", packet_data: bytes):
-    assert session["presence"] is not None
+    own_presence = session["presence"]
+
+    if not own_presence["privileges"] & ServerPrivileges.UNRESTRICTED:
+        return
 
     data = packets.PacketReader(packet_data)
 
@@ -68,36 +72,30 @@ async def change_action_handler(session: "Session", packet_data: bytes):
     assert maybe_session is not None
     session = maybe_session
 
-    assert session["presence"] is not None
-
-    # TODO: only when not restricted
-
-    session_stats = await stats.fetch_one(session["account_id"], mode)
-    assert session_stats is not None
+    own_stats = await stats.fetch_one(session["account_id"], mode)
+    assert own_stats is not None
 
     # send the stats update to all active osu sessions' packet bundles
     for other_session in await sessions.fetch_all(osu_clients_only=True):
-        # if other_session["session_id"] == session["session_id"]:
-        #     continue
-
-        assert other_session["presence"] is not None
+        if other_session["session_id"] == session["session_id"]:
+            continue
 
         await packet_bundles.enqueue(
             other_session["session_id"],
             packets.write_user_stats_packet(
                 session["account_id"],
-                session["presence"]["action"],
-                session["presence"]["info_text"],
-                session["presence"]["beatmap_md5"],
-                session["presence"]["mods"],
-                session["presence"]["mode"],
-                session["presence"]["beatmap_id"],
-                session_stats["ranked_score"],
-                session_stats["accuracy"],
-                session_stats["play_count"],
-                session_stats["total_score"],
+                own_presence["action"],
+                own_presence["info_text"],
+                own_presence["beatmap_md5"],
+                own_presence["mods"],
+                own_presence["mode"],
+                own_presence["beatmap_id"],
+                own_stats["ranked_score"],
+                own_stats["accuracy"],
+                own_stats["play_count"],
+                own_stats["total_score"],
                 ranking.get_global_rank(session["account_id"]),
-                session_stats["performance_points"],
+                own_stats["performance_points"],
             ),
         )
 
@@ -107,7 +105,10 @@ async def change_action_handler(session: "Session", packet_data: bytes):
 
 @bancho_handler(packets.ClientPackets.SEND_PUBLIC_MESSAGE)
 async def send_public_message_handler(session: "Session", packet_data: bytes):
-    assert session["presence"] is not None
+    own_presence = session["presence"]
+
+    if not own_presence["privileges"] & ServerPrivileges.UNRESTRICTED:
+        return
 
     # read packet data
     packet_reader = packets.PacketReader(packet_data)
@@ -122,12 +123,13 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
 
     # send message to everyone else
     send_message_packet_data = packets.write_send_message_packet(
-        session["presence"]["username"],
+        own_presence["username"],
         message_content,
         recipient_name,
-        session["presence"]["account_id"],
+        own_presence["account_id"],
     )
 
+    # TODO: send response only to those in the channel
     for other_session in await sessions.fetch_all(osu_clients_only=True):
         if other_session["session_id"] == session["session_id"]:
             continue
@@ -137,35 +139,24 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
             data=send_message_packet_data,
         )
 
+    # handle commands
     if message_content.startswith("!"):
         trigger, *args = message_content.split(" ")
-
-        bancho_bot_message = None
-        if trigger == "!echo":
-            bancho_bot_message = "HELLO"
-        elif trigger == "!roll":
-            random_number_max = int(args[0])
-            bancho_bot_message = str(random.randrange(0, random_number_max))
-        elif trigger == "!py":
-            try:
-                namespace = {}
-                exec("async def f():\n " + " ".join(args), namespace)
-                bancho_bot_message = str(await namespace["f"]())
-            except Exception as exc:
-                bancho_bot_message = str(exc)
-
-        if bancho_bot_message is not None:
-            bancho_bot_message_packet_data = packets.write_send_message_packet(
-                sender_name="BanchoBot",
-                message_content=bancho_bot_message,
-                recipient_name=recipient_name,
-                sender_id=0,
-            )
-            for other_session in await sessions.fetch_all(osu_clients_only=True):
-                await packet_bundles.enqueue(
-                    other_session["session_id"],
-                    data=bancho_bot_message_packet_data,
-                )
+        command_handler = command_handlers.get_command_handler(trigger)
+        if command_handler is not None:
+            bancho_bot_message = await command_handler(session, args)
+            if bancho_bot_message is not None:
+                # TODO: send bancho bot message only to those in the channel
+                for other_session in await sessions.fetch_all(osu_clients_only=True):
+                    await packet_bundles.enqueue(
+                        other_session["session_id"],
+                        data=packets.write_send_message_packet(
+                            sender_name="BanchoBot",
+                            message_content=bancho_bot_message,
+                            recipient_name=recipient_name,
+                            sender_id=0,
+                        ),
+                    )
 
 
 # LOGOUT = 2
@@ -173,15 +164,18 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
 
 @bancho_handler(packets.ClientPackets.LOGOUT)
 async def logout_handler(session: "Session", packet_data: bytes) -> None:
+    own_presence = session["presence"]
+
     await sessions.delete_by_id(session["session_id"])
 
     # tell everyone else we logged out
-    logout_packet_data = packets.write_logout_packet(session["account_id"])
-    for other_session in await sessions.fetch_all():
-        await packet_bundles.enqueue(
-            other_session["session_id"],
-            data=logout_packet_data,
-        )
+    if not own_presence["privileges"] & ServerPrivileges.UNRESTRICTED:
+        logout_packet_data = packets.write_logout_packet(session["account_id"])
+        for other_session in await sessions.fetch_all():
+            await packet_bundles.enqueue(
+                other_session["session_id"],
+                data=logout_packet_data,
+            )
 
     logger.info(
         "User logout successful",
@@ -195,11 +189,11 @@ async def logout_handler(session: "Session", packet_data: bytes) -> None:
 
 @bancho_handler(packets.ClientPackets.REQUEST_STATUS_UPDATE)
 async def request_status_update_handler(session: "Session", packet_data: bytes):
-    assert session["presence"] is not None
+    own_presence = session["presence"]
 
     own_stats = await stats.fetch_one(
         session["account_id"],
-        session["presence"]["game_mode"],
+        own_presence["game_mode"],
     )
     assert own_stats is not None
 
@@ -207,12 +201,12 @@ async def request_status_update_handler(session: "Session", packet_data: bytes):
         session["session_id"],
         packets.write_user_stats_packet(
             own_stats["account_id"],
-            session["presence"]["action"],
-            session["presence"]["info_text"],
-            session["presence"]["beatmap_md5"],
-            session["presence"]["mods"],
-            session["presence"]["game_mode"],
-            session["presence"]["beatmap_id"],
+            own_presence["action"],
+            own_presence["info_text"],
+            own_presence["beatmap_md5"],
+            own_presence["mods"],
+            own_presence["game_mode"],
+            own_presence["beatmap_id"],
             own_stats["ranked_score"],
             own_stats["accuracy"],
             own_stats["play_count"],
@@ -237,7 +231,10 @@ async def ping_handler(session: "Session", packet_data: bytes):
 
 @bancho_handler(packets.ClientPackets.START_SPECTATING)
 async def start_spectating_handler(session: "Session", packet_data: bytes):
-    assert session["presence"] is not None
+    own_presence = session["presence"]
+
+    if not own_presence["privileges"] & ServerPrivileges.UNRESTRICTED:
+        return
 
     packet_reader = packets.PacketReader(packet_data)
     host_account_id = packet_reader.read_i32()
@@ -282,18 +279,19 @@ async def start_spectating_handler(session: "Session", packet_data: bytes):
 
 @bancho_handler(packets.ClientPackets.STOP_SPECTATING)
 async def stop_spectating_handler(session: "Session", packet_data: bytes):
-    assert session["presence"] is not None
+    own_presence = session["presence"]
 
-    if session["presence"]["spectator_host_session_id"] is None:
+    if not own_presence["privileges"] & ServerPrivileges.UNRESTRICTED:
+        return
+
+    if own_presence["spectator_host_session_id"] is None:
         logger.warning(
             "A user attempted to stop spectating user while not spectating anyone",
             spectator_id=session["account_id"],
         )
         return
 
-    host_session = await sessions.fetch_by_id(
-        session["presence"]["spectator_host_session_id"]
-    )
+    host_session = await sessions.fetch_by_id(own_presence["spectator_host_session_id"])
 
     if host_session is None:
         logger.warning(
@@ -333,6 +331,11 @@ async def stop_spectating_handler(session: "Session", packet_data: bytes):
 
 @bancho_handler(packets.ClientPackets.SPECTATE_FRAMES)
 async def spectate_frames_handler(session: "Session", packet_data: bytes):
+    own_presence = session["presence"]
+
+    if not own_presence["privileges"] & ServerPrivileges.UNRESTRICTED:
+        return
+
     for spectator_session_id in await spectators.members(session["session_id"]):
         await packet_bundles.enqueue(
             spectator_session_id,
@@ -382,7 +385,10 @@ async def cant_spectate_handler(session: "Session", packet_data: bytes):
 
 @bancho_handler(packets.ClientPackets.SEND_PRIVATE_MESSAGE)
 async def send_private_message_handler(session: "Session", packet_data: bytes):
-    assert session["presence"] is not None
+    own_presence = session["presence"]
+
+    if not own_presence["privileges"] & ServerPrivileges.UNRESTRICTED:
+        return
 
     packet_reader = packets.PacketReader(packet_data)
 
@@ -405,10 +411,10 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
         return
 
     send_message_packet_data = packets.write_send_message_packet(
-        session["presence"]["username"],
+        own_presence["username"],
         message_content,
         recipient_name,
-        session["account_id"],
+        own_presence["account_id"],
     )
 
     recipient_session = await sessions.fetch_by_username(recipient_name)
@@ -503,6 +509,8 @@ async def user_joins_channel_handler(session: "Session", packet_data: bytes):
 
     await channel_members.add(channel["channel_id"], session["session_id"])
 
+    # TODO: tell everyone the channel size changed
+
 
 # BEATMAP_INFO_REQUEST = 68
 
@@ -553,6 +561,8 @@ async def user_leaves_channel_handler(session: "Session", packet_data: bytes):
 
     await channel_members.remove(channel["channel_id"], session["session_id"])
 
+    # TODO: tell everyone the channel size changed
+
 
 # RECEIVE_UPDATES = 79
 
@@ -568,8 +578,6 @@ async def user_leaves_channel_handler(session: "Session", packet_data: bytes):
 
 @bancho_handler(packets.ClientPackets.USER_STATS_REQUEST)
 async def user_stats_request_handler(session: "Session", packet_data: bytes) -> None:
-    assert session is not None
-
     reader = packets.PacketReader(packet_data)
 
     account_ids = reader.read_i32_list_i16_length()
@@ -581,8 +589,6 @@ async def user_stats_request_handler(session: "Session", packet_data: bytes) -> 
         other_session = await sessions.fetch_by_account_id(account_id)
         if other_session is None:
             continue
-
-        assert other_session["presence"] is not None
 
         other_stats = await stats.fetch_one(
             account_id,

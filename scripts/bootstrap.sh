@@ -16,7 +16,8 @@ fi
 cd /srv/root
 
 # await connected service availability
-/scripts/await-service.sh $DB_HOST $DB_PORT $SERVICE_READINESS_TIMEOUT
+/scripts/await-service.sh $READ_DB_HOST $READ_DB_PORT $SERVICE_READINESS_TIMEOUT
+/scripts/await-service.sh $WRITE_DB_HOST $WRITE_DB_PORT $SERVICE_READINESS_TIMEOUT
 
 # ensure database exists
 /scripts/init-db.sh

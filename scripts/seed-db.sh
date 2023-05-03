@@ -8,14 +8,14 @@ fi
 SEEDS_PATH=/srv/root/database/seeds
 SEEDS_SCHEMA_TABLE=schema_seeds
 
-FULL_DB_NAME=$DB_NAME
+FULL_WRITE_DB_NAME=$WRITE_DB_NAME
 
 if [[ "$APP_COMPONENT" == "tests" ]]; then
-  FULL_DB_NAME="${WRITE_DB_NAME}_test"
+  FULL_WRITE_DB_NAME="${WRITE_WRITE_DB_NAME}_test"
 fi
 
-DB_DSN="${DB_SCHEME}://${DB_USER}:${DB_PASS}@${DB_HOST}:${DB_PORT}/${FULL_DB_NAME}?x-migrations-table=${SEEDS_SCHEMA_TABLE}"
-if [[ $DB_USE_SSL == "true" ]]; then
+DB_DSN="${WRITE_DB_SCHEME}://${WRITE_DB_USER}:${WRITE_DB_PASS}@${WRITE_DB_HOST}:${WRITE_DB_PORT}/${FULL_WRITE_DB_NAME}?x-migrations-table=${SEEDS_SCHEMA_TABLE}"
+if [[ $WRITE_DB_USE_SSL == "true" ]]; then
   DB_DSN="${DB_DSN}&sslmode=require"
 else
   DB_DSN="${DB_DSN}&sslmode=disable"

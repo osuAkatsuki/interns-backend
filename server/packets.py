@@ -615,7 +615,7 @@ def write_user_presence_packet(
     username: str,
     utc_offset: int,
     country: int,
-    bancho_privileges: int,
+    privileges: int,
     game_mode: int,
     latitude: int,
     longitude: int,
@@ -628,7 +628,7 @@ def write_user_presence_packet(
             (DataType.STRING, username),
             (DataType.U8, utc_offset + 24),
             (DataType.U8, country),
-            (DataType.U8, bancho_privileges | (game_mode << 5)),
+            (DataType.U8, privileges | (game_mode << 5)),
             (DataType.F32, longitude),
             (DataType.F32, latitude),
             (DataType.I32, global_rank),
@@ -687,6 +687,13 @@ def write_channel_info_end_packet() -> bytes:
 
 
 # ACCOUNT_RESTRICTED = 104
+
+
+def write_account_restricted_packet() -> bytes:
+    return write_packet(
+        packet_id=ServerPackets.ACCOUNT_RESTRICTED,
+        packet_data_inputs=[],
+    )
 
 
 # RTX = 105  # unused
