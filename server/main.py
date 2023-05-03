@@ -655,7 +655,7 @@ def format_leaderboard_response(
     personal_best_score: Score | None,
     account: Account,
     beatmap: Beatmap,
-) -> str:
+) -> Any:
     """\
     {ranked_status}|{serv_has_osz2}|{bid}|{bsid}|{len(scores)}|{fa_track_id}|{fa_license_text}
     {offset}\n{beatmap_name}\n{rating}
@@ -675,47 +675,47 @@ def format_leaderboard_response(
     buffer += f"0\n{beatmap_name}\n{beatmap['star_rating']}\n"
 
     # third line
-    if personal_best_score is None:
-        buffer += "0\n"
-    else:
-        buffer += (
-            f"{personal_best_score['score_id']}|"
-            f"{account['username']}|"
-            f"{personal_best_score['score']}|"
-            f"{personal_best_score['highest_combo']}|"
-            f"{personal_best_score['num_50s']}|"
-            f"{personal_best_score['num_100s']}|"
-            f"{personal_best_score['num_300s']}|"
-            f"{personal_best_score['num_misses']}|"
-            f"{personal_best_score['num_katus']}|"
-            f"{personal_best_score['num_gekis']}|"
-            f"{personal_best_score['full_combo']}|"
-            f"{personal_best_score['mods']}|"
-            f"{account['account_id']}|"
-            f"{personal_best_score['rank']}|"
-            f"{personal_best_score['time']}|"
-            f"{personal_best_score['has_replay']}\n"
-        )
+    # if personal_best_score is None:
+    #     buffer += "0\n"
+    # else:
+    #     buffer += (
+    #         f"{personal_best_score['score_id']}|"
+    #         f"{account['username']}|"
+    #         f"{personal_best_score['score']}|"
+    #         f"{personal_best_score['highest_combo']}|"
+    #         f"{personal_best_score['num_50s']}|"
+    #         f"{personal_best_score['num_100s']}|"
+    #         f"{personal_best_score['num_300s']}|"
+    #         f"{personal_best_score['num_misses']}|"
+    #         f"{personal_best_score['num_katus']}|"
+    #         f"{personal_best_score['num_gekis']}|"
+    #         f"{personal_best_score['full_combo']}|"
+    #         f"{personal_best_score['mods']}|"
+    #         f"{account['account_id']}|"
+    #         f"{personal_best_score['rank']}|"
+    #         f"{personal_best_score['time']}|"
+    #         f"{personal_best_score['has_replay']}\n"
+    #     )
 
-    # rest of the lines
-    for score in leaderboard_scores:
-        buffer += (
-            f"{score['score_id']}|"
-            f"{score['username']}|"
-            f"{score['score']}|"
-            f"{score['highest_combo']}|"
-            f"{score['num_50s']}|"
-            f"{score['num_100s']}|"
-            f"{score['num_300s']}|"
-            f"{score['num_misses']}|"
-            f"{score['num_katus']}|"
-            f"{score['num_gekis']}|"
-            f"{score['full_combo']}|"
-            f"{score['mods']}|"
-            f"{score['account_id']}|"
-            f"{score['rank']}|"
-            f"{score['time']}|"
-            f"{score['has_replay']}\n"
-        )
+    # # rest of the lines
+    # for score in leaderboard_scores:
+    #     buffer += (
+    #         f"{score['score_id']}|"
+    #         f"{score['username']}|"
+    #         f"{score['score']}|"
+    #         f"{score['highest_combo']}|"
+    #         f"{score['num_50s']}|"
+    #         f"{score['num_100s']}|"
+    #         f"{score['num_300s']}|"
+    #         f"{score['num_misses']}|"
+    #         f"{score['num_katus']}|"
+    #         f"{score['num_gekis']}|"
+    #         f"{score['full_combo']}|"
+    #         f"{score['mods']}|"
+    #         f"{score['account_id']}|"
+    #         f"{score['rank']}|"
+    #         f"{score['time']}|"
+    #         f"{score['has_replay']}\n"
+    #     )
 
-    return buffer
+    # return buffer

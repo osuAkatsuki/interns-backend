@@ -276,7 +276,9 @@ async def update_by_id(session_id: UUID, **kwargs: Any) -> Session | None:
 
     session["updated_at"] = datetime.now().isoformat()
 
-    await clients.redis.set(session_key, json.dumps(session))
+    # TODO
+    data = deserialize(str(await clients.redis.get(session_key)))
+    await clients.redis.set(session_key, serialize(data))
 
     if expires_at is not None:
         await clients.redis.expireat(session_key, expires_at)
