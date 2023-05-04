@@ -15,7 +15,7 @@ READ_PARAMS = """\
 """
 
 
-class Login_Attempt(TypedDict):
+class LoginAttempt(TypedDict):
     login_attempt_id: int
     successful: bool
     ip_address: str
@@ -28,7 +28,7 @@ async def create(
     successful: bool,
     ip_address: str,
     user_agent: str,
-) -> Login_Attempt:
+) -> LoginAttempt:
     login_attempt = await clients.database.fetch_one(
         query=f"""\
             INSERT INTO login_attempts (login_attempt_id, successful, ip_address, user_agent)
@@ -44,10 +44,10 @@ async def create(
     )
 
     assert login_attempt is not None
-    return cast(Login_Attempt, login_attempt)
+    return cast(LoginAttempt, login_attempt)
 
 
-async def fetch_one(login_attempt_id: int) -> Login_Attempt | None:
+async def fetch_one(login_attempt_id: int) -> LoginAttempt | None:
     login_attempt = await clients.database.fetch_one(
         query=f"""\
             SELECT {READ_PARAMS}
@@ -58,7 +58,7 @@ async def fetch_one(login_attempt_id: int) -> Login_Attempt | None:
             "login_attempt_id": login_attempt_id,
         },
     )
-    return cast(Login_Attempt, login_attempt) if login_attempt is not None else None
+    return cast(LoginAttempt, login_attempt) if login_attempt is not None else None
 
 
 async def fetch_many(
@@ -67,7 +67,7 @@ async def fetch_many(
     user_agent: str | None,
     page: int | None = None,
     page_size: int | None = None,
-) -> list[Login_Attempt] | None:
+) -> list[LoginAttempt] | None:
     query = f"""\
         SELECT {READ_PARAMS}
         FROM login_attempts
@@ -89,4 +89,4 @@ async def fetch_many(
         values["offset"] = (page - 1) * page_size
 
     login_attempt = await clients.database.fetch_all(query, values)
-    return [cast(Login_Attempt, login_attempt) for attempt in login_attempt]
+    return [cast(LoginAttempt, login_attempt) for attempt in login_attempt]
