@@ -2,7 +2,7 @@ from server import clients
 
 
 def make_key() -> str:
-    return "server:match_ids"  # TODO: is this weird?
+    return "server:last_match_id"
 
 
 def serialize(match_id: int) -> str:
