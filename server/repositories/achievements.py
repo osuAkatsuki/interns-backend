@@ -13,7 +13,6 @@ READ_PARAMS = """\
 """
 
 
-
 class Achievement(TypedDict):
     achievement_id: UUID
     file_name: str
