@@ -19,3 +19,10 @@ class ServiceError(str, Enum):
     SCREENSHOTS_UPLOAD_FAILED = "screenshots.upload_failed"
     SCREENSHOTS_IMAGE_INVALID = "screenshots.image_invalid"
     SCREENSHOTS_NOT_FOUND = "screenshots.not_found"
+
+    MULTIPLAYER_MATCHES_CREATE_FAILED = "multiplayer_matches.create_failed"
+    MULTIPLAYER_MATCHES_FETCH_ALL_FAILED = "multiplayer_matches.fetch_all_failed"
+    MULTIPLAYER_MATCHES_FETCH_ONE_FAILED = "multiplayer_matches.fetch_one_failed"
+    MULTIPLAYER_MATCHES_UPDATE_FAILED = "multiplayer_matches.update_failed"
+    MULTIPLAYER_MATCHES_DELETE_FAILED = "multiplayer_matches.delete_failed"
+    MULTIPLAYER_MATCHES_NOT_FOUND = "multiplayer_matches.not_found"
