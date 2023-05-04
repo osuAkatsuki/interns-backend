@@ -71,7 +71,7 @@ async def fetch_many(
     query = f"""\
         SELECT {READ_PARAMS}
         FROM login_attempts
-        WHERE login_attempt_id = COALESCE(:successful, successful)
+        WHERE successful = COALESCE(:successful, successful)
         AND ip_address = COALESCE(:ip_address, ip_address)
         AND user_agent = COALESCE(:user_agent user_agent)
     """
