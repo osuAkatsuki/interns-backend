@@ -67,7 +67,7 @@ class _SerializablePresence(TypedDict):
 class _SerializableSession(TypedDict):
     session_id: str
     account_id: int
-    presence: _SerializablePresence | None
+    presence: _SerializablePresence
     expires_at: str
     created_at: str
     updated_at: str
@@ -135,7 +135,7 @@ def deserialize(raw_session: str) -> Session:
 async def create(
     session_id: UUID,
     account_id: int,
-    presence: Presence | None = None,
+    presence: Presence,
 ) -> Session:
     now = datetime.now()
     expires_at = now + timedelta(seconds=SESSION_EXPIRY)
@@ -211,7 +211,7 @@ async def fetch_all(osu_clients_only: bool = False) -> list[Session]:
     return sessions
 
 
-async def update_by_id(session_id: UUID, **kwargs: Any) -> Session | None:
+async def partial_update(session_id: UUID, **kwargs: Any) -> Session | None:
     session_key = make_key(session_id)
 
     raw_session = await clients.redis.get(session_key)
@@ -219,12 +219,10 @@ async def update_by_id(session_id: UUID, **kwargs: Any) -> Session | None:
     if raw_session is None:
         return None
 
-    session = json.loads(raw_session)
+    session = deserialize(raw_session)
 
     if not kwargs:
         return session
-
-    session = dict(session)
 
     expires_at = kwargs.get("expires_at")
     if expires_at is not None:

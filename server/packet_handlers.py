@@ -58,7 +58,7 @@ async def change_action_handler(session: "Session", packet_data: bytes):
 
     beatmap_id = data.read_i32()
 
-    maybe_session = await sessions.update_by_id(
+    maybe_session = await sessions.partial_update(
         session["session_id"],
         presence={
             "action": action,
@@ -254,7 +254,7 @@ async def start_spectating_handler(session: "Session", packet_data: bytes):
         session["session_id"],
     )
 
-    await sessions.update_by_id(
+    await sessions.partial_update(
         session["session_id"],
         presence={"spectator_host_session_id": host_session["session_id"]},
     )
@@ -306,7 +306,7 @@ async def stop_spectating_handler(session: "Session", packet_data: bytes):
         session["session_id"],
     )
 
-    await sessions.update_by_id(
+    await sessions.partial_update(
         session["session_id"],
         presence={"spectator_host_session_id": None},
     )

@@ -1,6 +1,9 @@
-from aioredlock import Aioredlock, LockError, Sentinel
+from aioredlock import Aioredlock
+from aioredlock import LockError
+from aioredlock import Sentinel
 
-from server import settings, clients
+from server import clients
+from server import settings
 
 # TODO: move this to global
 lock_manager = Aioredlock(
@@ -20,22 +23,22 @@ def deserialize(match_id: str) -> int:
     return int(match_id)
 
 
-async def claim_id() -> int | None:
-    try:
-        async with await lock_manager.lock("match_ids:lock"):
-            raw_match_id = await clients.redis.get(make_key())
-            if raw_match_id is None:
-                current_match_id = 1
-            else:
-                current_match_id = deserialize(raw_match_id)
+async def claim_id() -> int:  # | None
+    # try:
+    async with await lock_manager.lock("match_ids:lock"):
+        raw_match_id = await clients.redis.get(make_key())
+        if raw_match_id is None:
+            current_match_id = 1
+        else:
+            current_match_id = deserialize(raw_match_id)
 
-            claimed_match_id = current_match_id + 1
+        claimed_match_id = current_match_id + 1
 
-            await clients.redis.set(
-                name=make_key(),
-                value=serialize(claimed_match_id),
-            )
-    except LockError:
-        return None
+        await clients.redis.set(
+            name=make_key(),
+            value=serialize(claimed_match_id),
+        )
+    # except LockError:
+    #     return None
 
     return claimed_match_id
