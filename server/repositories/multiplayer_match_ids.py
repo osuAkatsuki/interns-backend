@@ -1,14 +1,4 @@
-from aioredlock import Aioredlock
-from aioredlock import LockError
-from aioredlock import Sentinel
-
 from server import clients
-from server import settings
-
-# TODO: move this to global
-lock_manager = Aioredlock(
-    redis_connections=[(settings.REDIS_HOST, settings.REDIS_PORT)],  # type: ignore
-)
 
 
 def make_key() -> str:
@@ -25,7 +15,7 @@ def deserialize(match_id: str) -> int:
 
 async def claim_id() -> int:  # | None
     # try:
-    async with await lock_manager.lock("match_ids:lock"):
+    async with await clients.lock_manager.lock("match_ids:lock"):
         raw_match_id = await clients.redis.get(make_key())
         if raw_match_id is None:
             current_match_id = 1
