@@ -347,13 +347,8 @@ async def spectate_frames_handler(session: "Session", packet_data: bytes):
 
 
 # CANT_SPECTATE = 21
-@bancho_handler(packets.ClientPackets.CANT_SPECTATE)
-async def cant_spectate_handler(session: "Session", packet_data: bytes):
-    
 
 
-
-    ...
 # SEND_PRIVATE_MESSAGE = 25
 
 
