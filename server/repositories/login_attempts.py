@@ -59,3 +59,28 @@ async def fetch_one(login_attempt_id: int) -> Login_Attempt | None:
         },
     )
     return cast(Login_Attempt, login_attempt) if login_attempt is not None else None
+
+
+async def fetch_many(
+    login_attempt_id: int,
+    page: int | None = None,
+    page_size: int | None = None,
+) -> list[Login_Attempt] | None:
+    query = f"""\
+        SELECT {READ_PARAMS}
+        FROM login_attempts
+        WHERE login_attempt_id = COALESCE(:login_attempt_id, login_attempt_id)
+    """
+    values = {
+        "login_attempt_id": login_attempt_id,
+    }
+    if page is not None and page_size is not None:
+        query += f"""\
+            LIMIT :page_size
+            OFFSET :offset
+        """
+        values["limit"] = page_size
+        values["offset"] = (page - 1) * page_size
+
+    login_attempt = await clients.database.fetch_all(query, values)
+    return [cast(Login_Attempt, login_attempt) for attempt in login_attempt]
