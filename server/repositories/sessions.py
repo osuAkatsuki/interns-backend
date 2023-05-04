@@ -272,9 +272,9 @@ async def partial_update(session_id: UUID, **kwargs: Any) -> Session | None:
         if spectator_host_session_id is not None:
             session["presence"]["spectator_host_session_id"] = spectator_host_session_id
 
-    session["updated_at"] = datetime.now().isoformat()
+    session["updated_at"] = datetime.now()
 
-    await clients.redis.set(session_key, json.dumps(session))
+    await clients.redis.set(session_key, serialize(session))
 
     if expires_at is not None:
         await clients.redis.expireat(session_key, expires_at)
