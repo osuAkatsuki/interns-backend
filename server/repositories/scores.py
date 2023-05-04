@@ -25,7 +25,6 @@ READ_PARAMS = """\
     grade,
     submission_status,
     game_mode,
-    play_time,
     country,
     time_elapsed,
     client_anticheat_flags,
@@ -52,9 +51,8 @@ class Score(TypedDict):
     num_gekis: int
     num_katus: int
     grade: str  # enum
-    submission_status: str  # enum
+    submission_status: int  # enum
     game_mode: int  # enum
-    play_time: int
     country: str
     time_elapsed: int
     client_anticheat_flags: int
@@ -79,9 +77,8 @@ async def create(
     num_gekis: int,
     num_katus: int,
     grade: str,  # enum
-    submission_status: str,  # enum
+    submission_status: int,  # enum
     game_mode: int,  # enum
-    play_time: int,
     country: str,
     time_elapsed: int,
     client_anticheat_flags: int,
@@ -92,14 +89,14 @@ async def create(
                                 performance_points, accuracy, highest_combo,
                                 full_combo, mods, num_300s, num_100s, num_50s,
                                 num_misses, num_gekis, num_katus, grade,
-                                submission_status, game_mode, play_time, country,
+                                submission_status, game_mode, country,
                                 time_elapsed, client_anticheat_flags)
             VALUES (:account_id, :online_checksum, :beatmap_md5, :score,
-                    performance_points, :accuracy, :highest_combo,
-                    full_combo, :mods, :num_300s, :num_100s, :num_50s,
-                    num_misses, :num_gekis, :num_katus, :grade,
-                    submission_status, :game_mode, :play_time, :country,
-                    time_elapsed, :client_anticheat_flags)
+                    :performance_points, :accuracy, :highest_combo,
+                    :full_combo, :mods, :num_300s, :num_100s, :num_50s,
+                    :num_misses, :num_gekis, :num_katus, :grade,
+                    :submission_status, :game_mode, :country,
+                    :time_elapsed, :client_anticheat_flags)
             RETURNING {READ_PARAMS}
         """,
         values={
@@ -121,7 +118,6 @@ async def create(
             "grade": grade,
             "submission_status": submission_status,
             "game_mode": game_mode,
-            "play_time": play_time,
             "country": country,
             "time_elapsed": time_elapsed,
             "client_anticheat_flags": client_anticheat_flags,
