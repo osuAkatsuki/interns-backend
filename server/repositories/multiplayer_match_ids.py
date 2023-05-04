@@ -15,7 +15,7 @@ def deserialize(match_id: str) -> int:
 
 async def claim_id() -> int:  # | None
     # try:
-    async with await clients.lock_manager.lock("match_ids:lock"):
+    async with await clients.redlock.lock("match_ids:lock"):
         raw_match_id = await clients.redis.get(make_key())
         if raw_match_id is None:
             current_match_id = 1

@@ -16,7 +16,7 @@ redis: Redis
 http_client = AsyncClient()
 osu_api: aiosu.v2.Client
 s3_client: "S3Client"
-lock_manager = Aioredlock(
+redlock = Aioredlock(
     redis_connections=[  # type: ignore
         (settings.REDIS_HOST, settings.REDIS_PORT),
     ],
