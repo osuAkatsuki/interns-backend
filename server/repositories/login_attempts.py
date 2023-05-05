@@ -67,7 +67,7 @@ async def fetch_many(
     user_agent: str | None = None,
     page: int | None = None,
     page_size: int | None = None,
-) -> list[LoginAttempt] | None:
+) -> list[LoginAttempt]:
     query = f"""\
         SELECT {READ_PARAMS}
         FROM login_attempts
