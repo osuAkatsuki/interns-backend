@@ -1,4 +1,6 @@
-from typing import Any
+from datetime import datetime
+from typing import cast
+from typing import TypedDict
 
 from server import clients
 
@@ -14,13 +16,24 @@ READ_PARAMS = """
 """
 
 
+class Channel(TypedDict):
+    channel_id: int
+    name: str
+    topic: str
+    read_privileges: int
+    write_privileges: int
+    auto_join: bool
+    created_at: datetime
+    updated_at: datetime
+
+
 async def create(
     name: str,
     topic: str,
     read_privileges: str,
     write_privileges: int,
     auto_join: bool,
-) -> dict[str, Any]:
+) -> Channel:
     channel = await clients.database.fetch_one(
         query=f"""\
             INSERT INTO channels (name, topic, read_privileges, write_privileges, auto_join, created_at, updated_at)
@@ -37,10 +50,10 @@ async def create(
     )
 
     assert channel is not None
-    return channel
+    return cast(Channel, channel)
 
 
-async def fetch_all() -> list[dict[str, Any]]:
+async def fetch_all() -> list[Channel]:
     channels = await clients.database.fetch_all(
         query=f"""
             SELECT {READ_PARAMS}
@@ -48,10 +61,10 @@ async def fetch_all() -> list[dict[str, Any]]:
         """
     )
 
-    return [channel for channel in channels]
+    return [cast(Channel, channel) for channel in channels]
 
 
-async def fetch_one(channel_id: int) -> dict[str, Any] | None:
+async def fetch_one(channel_id: int) -> Channel | None:
     channel = await clients.database.fetch_one(
         query=f"""
             SELECT {READ_PARAMS}
@@ -63,10 +76,10 @@ async def fetch_one(channel_id: int) -> dict[str, Any] | None:
         },
     )
 
-    return channel if channel is not None else None
+    return cast(Channel, channel) if channel is not None else None
 
 
-async def fetch_one_by_name(name: str) -> dict[str, Any] | None:
+async def fetch_one_by_name(name: str) -> Channel | None:
     channel = await clients.database.fetch_one(
         query=f"""
             SELECT {READ_PARAMS}
@@ -78,4 +91,4 @@ async def fetch_one_by_name(name: str) -> dict[str, Any] | None:
         },
     )
 
-    return channel if channel is not None else None
+    return cast(Channel, channel) if channel is not None else None

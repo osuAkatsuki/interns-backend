@@ -453,7 +453,7 @@ async def handle_login(request: Request) -> Response:
             others_stats["performance_points"],
         )
 
-        if own_presence["privileges"] & ServerPrivileges.UNRESTRICTED:
+        if account["privileges"] & ServerPrivileges.UNRESTRICTED:
             # send our presence & stats to other user
             await packet_bundles.enqueue(
                 other_session["session_id"],
@@ -468,7 +468,7 @@ async def handle_login(request: Request) -> Response:
     # TODO: silence end
 
     # whether they're restricted
-    if not (own_presence["privileges"] & ServerPrivileges.UNRESTRICTED):
+    if not (account["privileges"] & ServerPrivileges.UNRESTRICTED):
         response_data += packets.write_account_restricted_packet()
 
     # TODO: friends list
