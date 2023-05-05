@@ -62,9 +62,9 @@ async def fetch_one(login_attempt_id: int) -> LoginAttempt | None:
 
 
 async def fetch_many(
-    successful: bool | None,
-    ip_address: str | None,
-    user_agent: str | None,
+    successful: bool | None = None,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
     page: int | None = None,
     page_size: int | None = None,
 ) -> list[LoginAttempt] | None:
