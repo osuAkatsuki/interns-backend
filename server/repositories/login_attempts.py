@@ -88,5 +88,5 @@ async def fetch_many(
         values["limit"] = page_size
         values["offset"] = (page - 1) * page_size
 
-    login_attempt = await clients.database.fetch_all(query, values)
-    return [cast(LoginAttempt, attempt) for attempt in login_attempt]
+    login_attempts = await clients.database.fetch_all(query, values)
+    return [cast(LoginAttempt, attempt) for attempt in login_attempts]
