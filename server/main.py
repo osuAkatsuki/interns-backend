@@ -42,12 +42,14 @@ from server.repositories import beatmaps
 from server.repositories import channel_members
 from server.repositories import channels
 from server.repositories import packet_bundles
+from server.repositories import relationships
 from server.repositories import scores
 from server.repositories import sessions
 from server.repositories import stats
 from server.repositories.accounts import Account
 from server.repositories.beatmaps import Beatmap
 from server.repositories.scores import Score
+
 
 app = FastAPI()
 
@@ -981,7 +983,8 @@ async def difficulty_rating_handler(request: Request):
 
 @osu_web_handler.get("/web/osu-getfriends")
 async def friends_handler(request: Request):
-    return RedirectResponse(
-        url=f"https://osu.ppy.sh{request['path']}",
-        status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+    friends = await relationships.fetch_all(
+        request["account_id"], relationship="friend"
     )
+
+    return friends
