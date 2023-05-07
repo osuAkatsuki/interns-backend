@@ -977,3 +977,11 @@ async def difficulty_rating_handler(request: Request):
         url=f"https://osu.ppy.sh{request['path']}",
         status_code=status.HTTP_307_TEMPORARY_REDIRECT,
     )
+
+
+@osu_web_handler.get("/web/osu-getfriends")
+async def friends_handler(request: Request):
+    return RedirectResponse(
+        url=f"https://osu.ppy.sh{request['path']}",
+        status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+    )
