@@ -72,7 +72,7 @@ async def fetch_many(
             "offset": (page - 1) * page_size,
         },
     )
-    return [cast(Account, account) for account in accounts]
+    return cast(list[Account], accounts)
 
 
 async def fetch_by_account_id(account_id: int) -> Account | None:

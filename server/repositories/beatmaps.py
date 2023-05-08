@@ -141,7 +141,7 @@ async def fetch_many(
         values["offset"] = (page - 1) * page_size
 
     beatmaps = await clients.database.fetch_all(query, values)
-    return [cast(Beatmap, beatmap) for beatmap in beatmaps]
+    return cast(list[Beatmap], beatmaps)
 
 
 async def fetch_one_by_id(beatmap_id: int) -> Beatmap | None:

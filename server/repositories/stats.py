@@ -75,7 +75,7 @@ async def fetch_all(
             "game_mode": game_mode,
         },
     )
-    return [cast(Stats, stats) for stats in all_stats]
+    return cast(list[Stats], all_stats)
 
 
 async def fetch_many(
@@ -100,7 +100,7 @@ async def fetch_many(
             "offset": (page - 1) * page_size,
         },
     )
-    return [cast(Stats, stats) for stats in all_stats]
+    return cast(list[Stats], all_stats)
 
 
 async def fetch_one(account_id: int, game_mode: int) -> Stats | None:

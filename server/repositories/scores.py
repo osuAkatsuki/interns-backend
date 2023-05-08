@@ -187,7 +187,7 @@ async def fetch_many(
         values["page_size"] = page_size
         values["offset"] = page * page_size
     scores = await clients.database.fetch_all(query, values)
-    return [cast(Score, score) for score in scores]
+    return cast(list[Score], scores)
 
 
 async def fetch_one_by_id(score_id: int) -> Score | None:

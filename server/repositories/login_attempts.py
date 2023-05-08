@@ -89,4 +89,4 @@ async def fetch_many(
         values["offset"] = (page - 1) * page_size
 
     login_attempts = await clients.database.fetch_all(query, values)
-    return [cast(LoginAttempt, attempt) for attempt in login_attempts]
+    return cast(list[LoginAttempt], login_attempts)

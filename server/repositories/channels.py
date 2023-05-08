@@ -61,7 +61,7 @@ async def fetch_all() -> list[Channel]:
         """
     )
 
-    return [cast(Channel, channel) for channel in channels]
+    return cast(list[Channel], channels)
 
 
 async def fetch_one(channel_id: int) -> Channel | None:
