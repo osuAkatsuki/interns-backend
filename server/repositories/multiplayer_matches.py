@@ -7,6 +7,8 @@ from typing import TypedDict
 from server import clients
 
 
+# TODO: a subset of the data here needs to be persisted to the database
+# this will be useful for the match history page
 class MultiplayerMatch(TypedDict):
     match_id: int
     match_name: str
@@ -19,14 +21,20 @@ class MultiplayerMatch(TypedDict):
     mods: int  # flags
     win_condition: int  # enum
     team_type: int  # enum
-    freemods_allowed: bool
+    freemods_enabled: bool
     random_seed: int
+    status: int  # enum
     created_at: datetime
     updated_at: datetime
 
 
+class MatchStatus:
+    WAITING = 0
+    PLAYING = 1
+
+
 def make_key(match_id: int | Literal["*"]) -> str:
-    return f"server:match:{match_id}"
+    return f"server:matches:{match_id}"
 
 
 def serialize(match: MultiplayerMatch) -> str:
@@ -43,8 +51,9 @@ def serialize(match: MultiplayerMatch) -> str:
             "mods": match["mods"],
             "win_condition": match["win_condition"],
             "team_type": match["team_type"],
-            "freemods_allowed": match["freemods_allowed"],
+            "freemods_enabled": match["freemods_enabled"],
             "random_seed": match["random_seed"],
+            "status": match["status"],
         }
     )
 
@@ -69,7 +78,7 @@ async def create(
     mods: int,  # flags
     win_condition: int,  # enum
     team_type: int,  # enum
-    freemods_allowed: bool,
+    freemods_enabled: bool,
     random_seed: int,
 ) -> MultiplayerMatch:
     now = datetime.now()
@@ -85,8 +94,9 @@ async def create(
         "mods": mods,
         "win_condition": win_condition,
         "team_type": team_type,
-        "freemods_allowed": freemods_allowed,
+        "freemods_enabled": freemods_enabled,
         "random_seed": random_seed,
+        "status": MatchStatus.WAITING,
         "created_at": now,
         "updated_at": now,
     }
@@ -144,8 +154,9 @@ async def partial_update(
     mods: int | None,  # flags
     win_condition: int | None,  # enum
     team_type: int | None,  # enum
-    freemods_allowed: bool | None,
+    freemods_enabled: bool | None,
     random_seed: int | None,
+    status: int | None,  # enum
 ) -> MultiplayerMatch | None:
     match_key = make_key(match_id)
 
@@ -186,11 +197,14 @@ async def partial_update(
     if team_type is not None:
         match["team_type"] = team_type
 
-    if freemods_allowed is not None:
-        match["freemods_allowed"] = freemods_allowed
+    if freemods_enabled is not None:
+        match["freemods_enabled"] = freemods_enabled
 
     if random_seed is not None:
         match["random_seed"] = random_seed
+
+    if status is not None:
+        match["status"] = status
 
     match["updated_at"] = datetime.now()
 

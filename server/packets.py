@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from enum import Enum
 from enum import IntEnum
 from typing import Any
+from typing import TypedDict
 
 # packets are comprised of 3 parts:
 # - a unique identifier (the packet id), representing the type of request
@@ -149,6 +150,40 @@ class Packet:
     packet_data: Any
 
 
+class OsuMessage(TypedDict):
+    sender_name: str
+    message_content: str
+    recipient_name: str
+    sender_id: int
+
+
+class OsuChannel(TypedDict):
+    channel_name: str
+    channel_topic: str
+    channel_user_count: int
+
+
+class OsuMatch(TypedDict):
+    match_id: int
+    match_in_progress: bool
+    mods: int
+    match_name: str
+    match_password: str
+    beatmap_name: str
+    beatmap_id: int
+    beatmap_md5: str
+    slot_statuses: list[int]
+    slot_teams: list[int]
+    per_slot_account_ids: list[int]
+    host_account_id: int
+    game_mode: int
+    win_condition: int
+    team_type: int
+    freemods_enabled: bool
+    per_slot_mods: list[int]
+    random_seed: int
+
+
 class PacketReader:
     def __init__(self, data: bytes) -> None:
         self.data_view = memoryview(data)
@@ -157,6 +192,8 @@ class PacketReader:
         data = self.data_view[:num_bytes]
         self.data_view = self.data_view[num_bytes:]
         return data.tobytes()  # copy on exit
+
+    # primitive data types
 
     def read_i8(self) -> int:
         return struct.unpack("<b", self.read(1))[0]
@@ -188,7 +225,7 @@ class PacketReader:
     def read_f64(self) -> float:
         return struct.unpack("<d", self.read(8))[0]
 
-    # read bool?
+    # more complex data types
 
     def read_uleb128(self) -> int:
         value = 0
@@ -212,6 +249,76 @@ class PacketReader:
 
     def read_i32_list_i32_length(self) -> list[int]:
         return [self.read_i32() for _ in range(self.read_i32())]
+
+    # osu! specific data types
+
+    def read_osu_message(self) -> OsuMessage:
+        return {
+            "sender_name": self.read_string(),  # always ""
+            "message_content": self.read_string(),
+            "recipient_name": self.read_string(),
+            "sender_id": self.read_i32(),  # always 0
+        }
+
+    def read_osu_channel(self) -> OsuChannel:
+        return {
+            "channel_name": self.read_string(),
+            "channel_topic": self.read_string(),
+            "channel_user_count": self.read_i16(),
+        }
+
+    def read_osu_match(self) -> OsuMatch:
+        match_id = self.read_i16()  # match id
+        match_in_progress = self.read_i8() == 1  # in_progress
+        _ = self.read_i8()  # powerplay
+        mods = self.read_i32()  # mods
+        match_name = self.read_string()
+        match_password = self.read_string()
+        beatmap_name = self.read_string()
+        beatmap_id = self.read_i32()
+        beatmap_md5 = self.read_string()
+        slot_statuses = [self.read_i8() for _ in range(16)]
+        slot_teams = [self.read_i8() for _ in range(16)]
+        # ^^ up to slot_ids, as it relies on slot_statuses ^^
+
+        per_slot_account_ids = []
+        for status in slot_statuses:
+            if status & 124 != 0:  # slot has a player
+                per_slot_account_ids.append(self.read_i32())
+
+        host_account_id = self.read_i32()
+        game_mode = self.read_i8()
+        win_condition = self.read_i8()
+        team_type = self.read_i8()
+        freemods_enabled = self.read_i8() == 1
+
+        if freemods_enabled:
+            per_slot_mods = [self.read_i32() for _ in range(16)]
+        else:
+            per_slot_mods = []
+
+        random_seed = self.read_i32()  # used for mania random mod
+
+        return {
+            "match_id": match_id,
+            "match_in_progress": match_in_progress,
+            "mods": mods,
+            "match_name": match_name,
+            "match_password": match_password,
+            "beatmap_name": beatmap_name,
+            "beatmap_id": beatmap_id,
+            "beatmap_md5": beatmap_md5,
+            "slot_statuses": slot_statuses,
+            "slot_teams": slot_teams,
+            "per_slot_account_ids": per_slot_account_ids,
+            "host_account_id": host_account_id,
+            "game_mode": game_mode,
+            "win_condition": win_condition,
+            "team_type": team_type,
+            "freemods_enabled": freemods_enabled,
+            "per_slot_mods": per_slot_mods,
+            "random_seed": random_seed,
+        }
 
 
 def read_packets(request_data: bytes) -> list[Packet]:
@@ -471,6 +578,62 @@ def write_notification_packet(
             (DataType.STRING, message),
         ],
     )
+
+
+# UPDATE_MATCH = 26
+
+
+def write_update_match_packet(
+    match_id: int,
+    match_in_progress: bool,
+    mods: int,
+    match_name: str,
+    match_password: str,
+    beatmap_name: str,
+    beatmap_id: int,
+    beatmap_md5: str,
+    slot_statuses: list[int],
+    slot_teams: list[int],
+    per_slot_account_ids: list[int],
+    host_account_id: int,
+    game_mode: int,
+    win_condition: int,
+    team_type: int,
+    freemods_enabled: bool,
+    per_slot_mods: list[int],
+    random_seed: int,
+    should_send_password: bool,
+) -> bytes:
+    buffer = bytearray()
+    buffer += struct.pack("<H", match_id)
+    buffer += struct.pack("<b", match_in_progress)
+    buffer += struct.pack("<b", 0)  # powerplay
+    buffer += struct.pack("<I", mods)
+    buffer += write_string(match_name)
+    if match_password:
+        if should_send_password:
+            buffer += write_string(match_password)
+        else:
+            # hidden password: "\x0b\x00"
+            buffer += b"\x0b\x00"
+    else:
+        # no password: "\x00"
+        buffer += b"\x00"
+    buffer += write_string(beatmap_name)
+    buffer += struct.pack("<i", beatmap_id)
+    buffer += write_string(beatmap_md5)
+    buffer += struct.pack("<16b", *slot_statuses)
+    buffer += struct.pack("<16b", *slot_teams)
+    buffer += struct.pack(f"<I{len(per_slot_account_ids)}i", *per_slot_account_ids)
+    buffer += struct.pack("<I", host_account_id)
+    buffer += struct.pack("<b", game_mode)
+    buffer += struct.pack("<b", win_condition)
+    buffer += struct.pack("<b", team_type)
+    buffer += struct.pack("<b", freemods_enabled)
+    if freemods_enabled:
+        buffer += struct.pack(f"<I{len(per_slot_mods)}i", *per_slot_mods)
+    buffer += struct.pack("<i", random_seed)
+    return buffer
 
 
 # NEW_MATCH = 27

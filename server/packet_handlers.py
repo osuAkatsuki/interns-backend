@@ -6,14 +6,19 @@ from server import command_handlers
 from server import logger
 from server import packets
 from server import ranking
+from server.errors import ServiceError
 from server.privileges import ServerPrivileges
 from server.repositories import channel_members
 from server.repositories import channels
+from server.repositories import multiplayer_slots
 from server.repositories import packet_bundles
 from server.repositories import relationships
 from server.repositories import sessions
 from server.repositories import spectators
 from server.repositories import stats
+from server.repositories.multiplayer_matches import MatchStatus
+from server.repositories.multiplayer_slots import SlotStatus
+from server.services import multiplayer_matches
 
 if TYPE_CHECKING:
     from server.repositories.sessions import Session
@@ -394,6 +399,109 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
 
 
 # CREATE_MATCH = 31
+
+
+@bancho_handler(packets.ClientPackets.CREATE_MATCH)
+async def create_match_handler(session: "Session", packet_data: bytes):
+    own_presence = session["presence"]
+
+    if not own_presence["privileges"] & ServerPrivileges.UNRESTRICTED:
+        return
+
+    packet_reader = packets.PacketReader(packet_data)
+
+    osu_match_data = packet_reader.read_osu_match()
+
+    match = await multiplayer_matches.create(
+        osu_match_data["match_name"],
+        osu_match_data["match_password"],
+        osu_match_data["beatmap_name"],
+        osu_match_data["beatmap_id"],
+        osu_match_data["beatmap_md5"],
+        osu_match_data["host_account_id"],
+        osu_match_data["game_mode"],
+        osu_match_data["mods"],
+        osu_match_data["win_condition"],
+        osu_match_data["team_type"],
+        osu_match_data["freemods_enabled"],
+        osu_match_data["random_seed"],
+    )
+    if isinstance(match, ServiceError):
+        logger.error(
+            "Failed to create multiplayer match",
+            error=match,
+            user_id=session["account_id"],
+        )
+        raise RuntimeError("Failed to create multiplayer match")
+
+    slots = []
+
+    slot = await multiplayer_slots.create(
+        match["match_id"],
+        1,  # slot id
+        session["account_id"],
+        status=SlotStatus.NOT_READY,
+        team=0,  # TODO
+        mods=0,
+        loaded=False,
+        skipped=False,
+    )
+    slots.append(slot)
+
+    for slot_id in range(2, 16):
+        slot = await multiplayer_slots.create(
+            match["match_id"],
+            slot_id,
+            account_id=0,
+            status=SlotStatus.OPEN,
+            team=0,  # TODO
+            mods=0,
+            loaded=False,
+            skipped=False,
+        )
+        slots.append(slot)
+
+    # create two variants of the packet, with and without the password
+    # TODO: perhaps consider making a function to (deep)copy & patch the password?
+    packet_params = (
+        match["match_id"],
+        match["status"] == MatchStatus.PLAYING,
+        match["mods"],
+        match["match_name"],
+        match["match_password"],
+        match["beatmap_name"],
+        match["beatmap_id"],
+        match["beatmap_md5"],
+        [s["status"] for s in slots],
+        [s["team"] for s in slots],
+        [s["account_id"] for s in slots if s["status"] & 0b01111100 != 0],
+        match["host_account_id"],
+        match["game_mode"],
+        match["win_condition"],
+        match["team_type"],
+        match["freemods_enabled"],
+        [s["mods"] for s in slots] if match["freemods_enabled"] else [],
+        match["random_seed"],
+    )
+
+    packet_with_password = packets.write_update_match_packet(
+        *packet_params, should_send_password=True
+    )
+    packet_without_password = packets.write_update_match_packet(
+        *packet_params, should_send_password=False
+    )
+
+    await packet_bundles.enqueue(
+        session["session_id"],
+        packet_with_password,
+    )
+
+    # TODO: send this to anyone in #lobby
+    for other_session in []:
+        await packet_bundles.enqueue(
+            other_session["session_id"],
+            packet_without_password,
+        )
 
 
 # JOIN_MATCH = 32
