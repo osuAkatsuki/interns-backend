@@ -81,7 +81,7 @@ async def change_action_handler(session: "Session", packet_data: bytes):
     assert own_stats is not None
 
     # send the stats update to all active osu sessions' packet bundles
-    for other_session in await sessions.fetch_all(osu_clients_only=True):
+    for other_session in await sessions.fetch_all():
         if other_session["session_id"] == session["session_id"]:
             continue
 
@@ -135,7 +135,7 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
     )
 
     # TODO: send response only to those in the channel
-    for other_session in await sessions.fetch_all(osu_clients_only=True):
+    for other_session in await sessions.fetch_all():
         if other_session["session_id"] == session["session_id"]:
             continue
 
@@ -152,7 +152,7 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
             bancho_bot_message = await command_handler(session, args)
             if bancho_bot_message is not None:
                 # TODO: send bancho bot message only to those in the channel
-                for other_session in await sessions.fetch_all(osu_clients_only=True):
+                for other_session in await sessions.fetch_all():
                     await packet_bundles.enqueue(
                         other_session["session_id"],
                         data=packets.write_send_message_packet(
@@ -167,8 +167,21 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
 # LOGOUT = 2
 
 
-@bancho_handler(packets.ClientPackets.LOGOUT)
+class ExitReason:
+    UPDATE = 1
+    QUIT = 2
+
+
+@bancho_handler(packets.ClientPackets.OSU_EXIT)
 async def logout_handler(session: "Session", packet_data: bytes) -> None:
+    packet_reader = packets.PacketReader(packet_data)
+    reason = packet_reader.read_i32()
+
+    if reason == ExitReason.UPDATE:
+        ...
+    elif reason == ExitReason.QUIT:
+        ...
+
     own_presence = session["presence"]
 
     await sessions.delete_by_id(session["session_id"])
@@ -406,6 +419,10 @@ async def create_match_handler(session: "Session", packet_data: bytes):
     own_presence = session["presence"]
 
     if not own_presence["privileges"] & ServerPrivileges.UNRESTRICTED:
+        await packet_bundles.enqueue(
+            session["session_id"],
+            data=packets.write_match_join_fail_packet(),
+        )
         return
 
     packet_reader = packets.PacketReader(packet_data)
@@ -484,22 +501,37 @@ async def create_match_handler(session: "Session", packet_data: bytes):
         match["random_seed"],
     )
 
-    packet_with_password = packets.write_update_match_packet(
-        *packet_params, should_send_password=True
+    match_join_success_packet = packets.write_match_join_success_packet(
+        *packet_params,
+        should_send_password=True,
     )
-    packet_without_password = packets.write_update_match_packet(
-        *packet_params, should_send_password=False
-    )
-
     await packet_bundles.enqueue(
         session["session_id"],
-        packet_with_password,
+        match_join_success_packet,
     )
 
-    # TODO: send this to anyone in #lobby
-    for other_session in []:
+    packet_without_password = packets.write_update_match_packet(
+        *packet_params,
+        should_send_password=False,
+    )
+    lobby_channel = await channels.fetch_one_by_name("#lobby")
+    if lobby_channel is None:
+        logger.error(
+            "Failed to fetch #lobby channel",
+            user_id=session["account_id"],
+        )
         await packet_bundles.enqueue(
-            other_session["session_id"],
+            session["session_id"],
+            data=packets.write_match_join_fail_packet(),
+        )
+        return
+
+    for other_session_id in await channel_members.members(lobby_channel["channel_id"]):
+        if other_session_id == session["session_id"]:
+            continue
+
+        await packet_bundles.enqueue(
+            other_session_id,
             packet_without_password,
         )
 
@@ -576,7 +608,28 @@ async def user_joins_channel_handler(session: "Session", packet_data: bytes):
 
     await channel_members.add(channel["channel_id"], session["session_id"])
 
-    # TODO: tell everyone the channel size changed
+    await packet_bundles.enqueue(
+        session["session_id"],
+        packets.write_channel_join_success_packet(channel["name"]),
+    )
+
+    for other_session in await sessions.fetch_all(
+        has_any_privilege_bit=channel["read_privileges"]
+    ):
+        await packet_bundles.enqueue(
+            other_session["session_id"],
+            packets.write_channel_info_packet(
+                channel["name"],
+                channel["topic"],
+                len(current_channel_members) + 1,
+            ),
+        )
+
+    logger.info(
+        "User joined channel",
+        user_id=session["account_id"],
+        channel_name=channel["name"],
+    )
 
 
 # BEATMAP_INFO_REQUEST = 68
@@ -626,9 +679,30 @@ async def user_leaves_channel_handler(session: "Session", packet_data: bytes):
     if channel is None:
         return
 
+    current_channel_members = await channel_members.members(channel["channel_id"])
+    if session["session_id"] not in current_channel_members:
+        logger.warning(
+            "A user attempted to leave a channel they are not in",
+            user_id=session["account_id"],
+            channel_id=channel["channel_id"],
+        )
+        return
+
     await channel_members.remove(channel["channel_id"], session["session_id"])
 
-    # TODO: tell everyone the channel size changed
+    # TODO: should we be sending channel_revoked to ourselves?
+
+    for other_session in await sessions.fetch_all(
+        has_any_privilege_bit=channel["read_privileges"]
+    ):
+        await packet_bundles.enqueue(
+            other_session["session_id"],
+            packets.write_channel_info_packet(
+                channel["name"],
+                channel["topic"],
+                len(current_channel_members) - 1,
+            ),
+        )
 
 
 # RECEIVE_UPDATES = 79

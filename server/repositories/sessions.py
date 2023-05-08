@@ -164,7 +164,7 @@ async def fetch_by_id(session_id: UUID) -> Session | None:
 
 
 async def fetch_by_account_id(account_id: int) -> Session | None:
-    all_sessions = await fetch_all(osu_clients_only=True)
+    all_sessions = await fetch_all()
     for session in all_sessions:
         if session["account_id"] == account_id:
             return session
@@ -173,7 +173,7 @@ async def fetch_by_account_id(account_id: int) -> Session | None:
 
 
 async def fetch_by_username(username: str) -> Session | None:
-    sessions = await fetch_all(osu_clients_only=True)
+    sessions = await fetch_all()
 
     for session in sessions:
         if session["presence"] is None:
@@ -185,7 +185,9 @@ async def fetch_by_username(username: str) -> Session | None:
     return None
 
 
-async def fetch_all(osu_clients_only: bool = False) -> list[Session]:
+async def fetch_all(
+    has_any_privilege_bit: int | None = None,
+) -> list[Session]:
     session_key = make_key("*")
 
     cursor = None
@@ -203,7 +205,10 @@ async def fetch_all(osu_clients_only: bool = False) -> list[Session]:
             assert raw_session is not None  # TODO: why does mget return list[T | None]?
             session = deserialize(raw_session)
 
-            if osu_clients_only and session["presence"] is None:
+            if (
+                has_any_privilege_bit is not None
+                and (session["presence"]["privileges"] & has_any_privilege_bit) == 0
+            ):
                 continue
 
             sessions.append(session)

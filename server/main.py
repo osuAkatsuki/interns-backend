@@ -346,7 +346,7 @@ async def handle_login(request: Request) -> Response:
     )
 
     # osu chat channels
-    for channel in await channels.fetch_all():
+    for channel in await channels.fetch_many():
         # TODO: privilege check - do they have access to this channel?
         current_channel_members = await channel_members.members(channel["channel_id"])
 
@@ -406,7 +406,7 @@ async def handle_login(request: Request) -> Response:
     response_data += own_presence_packet_data
     response_data += own_stats_packet_data
 
-    for other_session in await sessions.fetch_all(osu_clients_only=True):
+    for other_session in await sessions.fetch_all():
         if other_session["session_id"] == own_session["session_id"]:
             continue
 
@@ -942,7 +942,7 @@ async def submit_score_handler(
 
     # send account stats to all other osu! sessions if we're not restricted
     if account["privileges"] & ServerPrivileges.UNRESTRICTED:
-        for other_session in await sessions.fetch_all(osu_clients_only=True):
+        for other_session in await sessions.fetch_all():
             if other_session["session_id"] == session["session_id"]:
                 continue
 

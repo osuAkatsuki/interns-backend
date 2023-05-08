@@ -26,7 +26,7 @@ from typing import TypedDict
 class ClientPackets(IntEnum):
     CHANGE_ACTION = 0
     SEND_PUBLIC_MESSAGE = 1
-    LOGOUT = 2
+    OSU_EXIT = 2
     REQUEST_STATUS_UPDATE = 3
     PING = 4
     START_SPECTATING = 16
@@ -582,6 +582,8 @@ def write_notification_packet(
 
 # UPDATE_MATCH = 26
 
+# ;\x02\x00\x00\x00\x00\x00\x00\x0b\rfrosti's game\x00\x0b\x1cJin - Outer Science [Insane]\xc1\xc6\x04\x00\x0b d7908531d6f53877456ab53bb90529e4\x04\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00$j)\x00
+
 
 def write_update_match_packet(
     match_id: int,
@@ -604,36 +606,48 @@ def write_update_match_packet(
     random_seed: int,
     should_send_password: bool,
 ) -> bytes:
-    buffer = bytearray()
-    buffer += struct.pack("<H", match_id)
-    buffer += struct.pack("<b", match_in_progress)
-    buffer += struct.pack("<b", 0)  # powerplay
-    buffer += struct.pack("<I", mods)
-    buffer += write_string(match_name)
     if match_password:
         if should_send_password:
-            buffer += write_string(match_password)
+            match_password_data = write_string(match_password)
         else:
             # hidden password: "\x0b\x00"
-            buffer += b"\x0b\x00"
+            match_password_data = b"\x0b\x00"
     else:
         # no password: "\x00"
-        buffer += b"\x00"
-    buffer += write_string(beatmap_name)
-    buffer += struct.pack("<i", beatmap_id)
-    buffer += write_string(beatmap_md5)
-    buffer += struct.pack("<16b", *slot_statuses)
-    buffer += struct.pack("<16b", *slot_teams)
-    buffer += struct.pack(f"<I{len(per_slot_account_ids)}i", *per_slot_account_ids)
-    buffer += struct.pack("<I", host_account_id)
-    buffer += struct.pack("<b", game_mode)
-    buffer += struct.pack("<b", win_condition)
-    buffer += struct.pack("<b", team_type)
-    buffer += struct.pack("<b", freemods_enabled)
-    if freemods_enabled:
-        buffer += struct.pack(f"<I{len(per_slot_mods)}i", *per_slot_mods)
-    buffer += struct.pack("<i", random_seed)
-    return buffer
+        match_password_data = b"\x00"
+
+    return write_packet(
+        packet_id=ServerPackets.UPDATE_MATCH,
+        packet_data_inputs=[
+            (DataType.U16, match_id),
+            (DataType.U8, match_in_progress),
+            (DataType.U8, 0),  # powerplay
+            (DataType.U32, mods),
+            (DataType.STRING, match_name),
+            (DataType.RAW_DATA, match_password_data),
+            (DataType.STRING, beatmap_name),
+            (DataType.I32, beatmap_id),
+            (DataType.STRING, beatmap_md5),
+            (DataType.RAW_DATA, struct.pack("<16b", *slot_statuses)),
+            (DataType.RAW_DATA, struct.pack("<16b", *slot_teams)),
+            (
+                DataType.RAW_DATA,
+                struct.pack(f"<{len(per_slot_account_ids)}I", *per_slot_account_ids),
+            ),
+            (DataType.U32, host_account_id),
+            (DataType.U8, game_mode),
+            (DataType.U8, win_condition),
+            (DataType.U8, team_type),
+            (DataType.U8, freemods_enabled),
+            (
+                DataType.RAW_DATA,
+                struct.pack(f"<I{len(per_slot_mods)}i", *per_slot_mods)
+                if freemods_enabled
+                else b"",
+            ),
+            (DataType.I32, random_seed),
+        ],
+    )
 
 
 # NEW_MATCH = 27
@@ -648,7 +662,79 @@ def write_update_match_packet(
 # MATCH_JOIN_SUCCESS = 36
 
 
+def write_match_join_success_packet(
+    match_id: int,
+    match_in_progress: bool,
+    mods: int,
+    match_name: str,
+    match_password: str,
+    beatmap_name: str,
+    beatmap_id: int,
+    beatmap_md5: str,
+    slot_statuses: list[int],
+    slot_teams: list[int],
+    per_slot_account_ids: list[int],
+    host_account_id: int,
+    game_mode: int,
+    win_condition: int,
+    team_type: int,
+    freemods_enabled: bool,
+    per_slot_mods: list[int],
+    random_seed: int,
+    should_send_password: bool,
+) -> bytes:
+    if match_password:
+        if should_send_password:
+            match_password_data = write_string(match_password)
+        else:
+            # hidden password: "\x0b\x00"
+            match_password_data = b"\x0b\x00"
+    else:
+        # no password: "\x00"
+        match_password_data = b"\x00"
+
+    return write_packet(
+        packet_id=ServerPackets.UPDATE_MATCH,
+        packet_data_inputs=[
+            (DataType.U16, match_id),
+            (DataType.U8, match_in_progress),
+            (DataType.U8, 0),  # powerplay
+            (DataType.U32, mods),
+            (DataType.STRING, match_name),
+            (DataType.RAW_DATA, match_password_data),
+            (DataType.STRING, beatmap_name),
+            (DataType.I32, beatmap_id),
+            (DataType.STRING, beatmap_md5),
+            (DataType.RAW_DATA, struct.pack("<16b", *slot_statuses)),
+            (DataType.RAW_DATA, struct.pack("<16b", *slot_teams)),
+            (
+                DataType.RAW_DATA,
+                struct.pack(f"<{len(per_slot_account_ids)}I", *per_slot_account_ids),
+            ),
+            (DataType.U32, host_account_id),
+            (DataType.U8, game_mode),
+            (DataType.U8, win_condition),
+            (DataType.U8, team_type),
+            (DataType.U8, freemods_enabled),
+            (
+                DataType.RAW_DATA,
+                struct.pack(f"<I{len(per_slot_mods)}i", *per_slot_mods)
+                if freemods_enabled
+                else b"",
+            ),
+            (DataType.I32, random_seed),
+        ],
+    )
+
+
 # MATCH_JOIN_FAIL = 37
+
+
+def write_match_join_fail_packet() -> bytes:
+    return write_packet(
+        packet_id=ServerPackets.MATCH_JOIN_FAIL,
+        packet_data_inputs=[],
+    )
 
 
 # FELLOW_SPECTATOR_JOINED = 42
@@ -703,6 +789,13 @@ def write_fellow_spectator_left_packet(user_id: int) -> bytes:
 
 
 # CHANNEL_JOIN_SUCCESS = 64
+
+
+def write_channel_join_success_packet(channel_name: str) -> bytes:
+    return write_packet(
+        packet_id=ServerPackets.CHANNEL_JOIN_SUCCESS,
+        packet_data_inputs=[(DataType.STRING, channel_name)],
+    )
 
 
 # CHANNEL_INFO = 65
