@@ -350,8 +350,57 @@ async def handle_login(request: Request) -> Response:
     )
 
     # osu chat channels
+
+    # #osu channel
+    osu_channel = await channels.fetch_one_by_name("#osu")
+    assert osu_channel is not None
+    osu_channel_members = await channel_members.members(
+        osu_channel["channel_id"],
+    )
+
+    # #announce channel
+    announce_channel = await channels.fetch_one_by_name("#announce")
+    assert announce_channel is not None
+    announce_channel_members = await channel_members.members(
+        announce_channel["channel_id"],
+    )
+
+    await channel_members.add(osu_channel["channel_id"], own_session["session_id"])
+    await channel_members.add(announce_channel["channel_id"], own_session["session_id"])
+
+    for other_session in await sessions.fetch_all():
+        # #osu channel info
+        await packet_bundles.enqueue(
+            other_session["session_id"],
+            data=packets.write_channel_info_packet(
+                osu_channel["name"],
+                osu_channel["topic"],
+                len(osu_channel_members) + 1,
+            ),
+        )
+
+        # #announce channel info
+        await packet_bundles.enqueue(
+            other_session["session_id"],
+            data=packets.write_channel_info_packet(
+                announce_channel["name"],
+                announce_channel["topic"],
+                len(announce_channel_members) + 1,
+            ),
+        )
+
     for channel in await channels.fetch_many():
-        # TODO: privilege check - do they have access to this channel?
+        if not channel["auto_join"]:
+            continue  # TODO: is this right?
+
+        if (account["privileges"] & channel["read_privileges"]) == 0:
+            continue
+
+        if channel == "#lobby":
+            continue
+
+        # TODO: handle send all presence status?
+
         current_channel_members = await channel_members.members(channel["channel_id"])
 
         response_data += packets.write_channel_info_packet(
@@ -361,7 +410,7 @@ async def handle_login(request: Request) -> Response:
         )
 
     # notify the client that we're done sending channel info
-    response_data += packets.write_channel_info_end_packet()
+    response_data += packets.write_channel_listing_complete_packet()
 
     # user presence
     own_presence_packet_data = packets.write_user_presence_packet(

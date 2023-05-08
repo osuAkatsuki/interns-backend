@@ -824,6 +824,7 @@ def write_channel_info_packet(
 
 
 # CHANNEL_AUTO_JOIN = 67
+# TODO: this is used for #spectator and #multiplayer
 
 
 # BEATMAP_INFO_REPLY = 69
@@ -906,7 +907,7 @@ def write_restart_packet(millseconds_until_restart: int) -> bytes:
 # CHANNEL_INFO_END = 89
 
 
-def write_channel_info_end_packet() -> bytes:
+def write_channel_listing_complete_packet() -> bytes:
     return write_packet(
         packet_id=ServerPackets.CHANNEL_INFO_END,
         packet_data_inputs=[],
