@@ -448,7 +448,7 @@ async def create_match_handler(session: "Session", packet_data: bytes):
     )
     slots.append(slot)
 
-    for slot_id in range(2, 16):
+    for slot_id in range(2, 17):
         slot = await multiplayer_slots.create(
             match["match_id"],
             slot_id,
