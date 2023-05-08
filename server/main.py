@@ -983,7 +983,8 @@ async def difficulty_rating_handler(request: Request):
 
 @osu_web_handler.get("/web/osu-getfriends.php")
 async def friends_handler(
-    username: str = Query(..., alias="u"), password: str = Query(..., alias="h")
+    username: str = Query(..., alias="u"),
+    password: str = Query(..., alias="h"),
 ):
     account = await accounts.fetch_by_username(username)
 
@@ -994,7 +995,8 @@ async def friends_handler(
         return Response(status_code=status.HTTP_401_UNAUTHORIZED)
 
     friends = await relationships.fetch_all(
-        account["account_id"], relationship="friend"
+        account["account_id"],
+        relationship="friend",
     )
 
     return "\n".join(str(friend["target_id"]) for friend in friends)
