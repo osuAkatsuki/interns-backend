@@ -33,6 +33,26 @@ class MatchStatus:
     PLAYING = 1
 
 
+class MatchTeamTypes:
+    HEAD_TO_HEAD = 0
+    TAG_COOP = 1
+    TEAM_VS = 2
+    TAG_TEAM_VS = 3
+
+
+class MatchWinCondition:
+    SCORE = 0
+    ACCURACY = 1
+    COMBO = 2
+    SCORE_V2 = 3
+
+
+class MatchTeams:
+    NEUTRAL = 0
+    BLUE = 1
+    RED = 2
+
+
 def make_key(match_id: int | Literal["*"]) -> str:
     return f"server:matches:{match_id}"
 

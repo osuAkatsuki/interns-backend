@@ -17,6 +17,7 @@ from server.repositories import sessions
 from server.repositories import spectators
 from server.repositories import stats
 from server.repositories.multiplayer_matches import MatchStatus
+from server.repositories.multiplayer_matches import MatchTeams
 from server.repositories.multiplayer_slots import SlotStatus
 from server.services import multiplayer_matches
 
@@ -449,34 +450,50 @@ async def create_match_handler(session: "Session", packet_data: bytes):
             error=match,
             user_id=session["account_id"],
         )
+        await packet_bundles.enqueue(
+            session["session_id"],
+            data=packets.write_match_join_fail_packet(),
+        )
         raise RuntimeError("Failed to create multiplayer match")
 
     slots = []
 
-    slot = await multiplayer_slots.create(
+    our_slot = await multiplayer_slots.create(
         match["match_id"],
-        1,  # slot id
+        0,  # slot id
         session["account_id"],
         status=SlotStatus.NOT_READY,
-        team=0,  # TODO
+        team=MatchTeams.NEUTRAL,
         mods=0,
         loaded=False,
         skipped=False,
     )
-    slots.append(slot)
+    slots.append(our_slot)
 
-    for slot_id in range(2, 17):
-        slot = await multiplayer_slots.create(
+    for slot_id in range(1, 16):
+        other_slot = await multiplayer_slots.create(
             match["match_id"],
             slot_id,
             account_id=0,
             status=SlotStatus.OPEN,
-            team=0,  # TODO
+            team=MatchTeams.NEUTRAL,
             mods=0,
             loaded=False,
             skipped=False,
         )
-        slots.append(slot)
+        slots.append(other_slot)
+
+    lobby_channel = await channels.fetch_one_by_name("#lobby")
+    if lobby_channel is None:
+        logger.error(
+            "Failed to fetch #lobby channel",
+            user_id=session["account_id"],
+        )
+        await packet_bundles.enqueue(
+            session["session_id"],
+            data=packets.write_match_join_fail_packet(),
+        )
+        return
 
     # create two variants of the packet, with and without the password
     # TODO: perhaps consider making a function to (deep)copy & patch the password?
@@ -514,17 +531,6 @@ async def create_match_handler(session: "Session", packet_data: bytes):
         *packet_params,
         should_send_password=False,
     )
-    lobby_channel = await channels.fetch_one_by_name("#lobby")
-    if lobby_channel is None:
-        logger.error(
-            "Failed to fetch #lobby channel",
-            user_id=session["account_id"],
-        )
-        await packet_bundles.enqueue(
-            session["session_id"],
-            data=packets.write_match_join_fail_packet(),
-        )
-        return
 
     for other_session_id in await channel_members.members(lobby_channel["channel_id"]):
         if other_session_id == session["session_id"]:

@@ -283,7 +283,7 @@ class PacketReader:
 
         per_slot_account_ids = []
         for status in slot_statuses:
-            if status & 124 != 0:  # slot has a player
+            if status & 0b01111100 != 0:  # slot has a player
                 per_slot_account_ids.append(self.read_i32())
 
         host_account_id = self.read_i32()
@@ -694,7 +694,7 @@ def write_match_join_success_packet(
         match_password_data = b"\x00"
 
     return write_packet(
-        packet_id=ServerPackets.UPDATE_MATCH,
+        packet_id=ServerPackets.MATCH_JOIN_SUCCESS,
         packet_data_inputs=[
             (DataType.U16, match_id),
             (DataType.U8, match_in_progress),
