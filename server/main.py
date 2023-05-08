@@ -511,7 +511,7 @@ async def handle_bancho_request(request: Request) -> Response:
             continue
 
         await packet_handler(session, packet.packet_data)
-        logger.info("Handled packet", packet_id=packet.packet_id)
+        logger.debug("Handled packet", packet_id=packet.packet_id)
 
     # dequeue all packets to send back to the client
     response_content = bytearray()
