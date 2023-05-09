@@ -53,14 +53,30 @@ async def create(
     return cast(Channel, channel)
 
 
-async def fetch_all() -> list[Channel]:
-    channels = await clients.database.fetch_all(
-        query=f"""
-            SELECT {READ_PARAMS}
-            FROM channels
+async def fetch_many(
+    read_privileges: int | None = None,
+    write_privileges: int | None = None,
+    page: int | None = None,
+    page_size: int | None = None,
+) -> list[Channel]:
+    query = f"""\
+        SELECT {READ_PARAMS}
+        FROM channels
+        WHERE write_privileges = COALESCE(:write_privileges, write_privileges)
+        AND read_privileges = COALESCE(:read_privileges, read_privileges)
+    """
+    values = {
+        "write_privileges": write_privileges,
+        "read_privileges": read_privileges,
+    }
+    if page is not None and page_size is not None:
+        query += """\
+            LIMIT :page_size
+            OFFSET :offset
         """
-    )
-
+        values["page_size"] = page_size
+        values["offset"] = (page - 1) * page_size
+    channels = await clients.database.fetch_all(query, values)
     return cast(list[Channel], channels)
 
 
