@@ -16,7 +16,7 @@ async def create(
     mods: int,
     win_condition: int,
     team_type: int,
-    freemods_allowed: bool,
+    freemods_enabled: bool,
     random_seed: int,
 ) -> MultiplayerMatch | ServiceError:
     try:
@@ -34,7 +34,7 @@ async def create(
             mods,
             win_condition,
             team_type,
-            freemods_allowed,
+            freemods_enabled,
             random_seed,
         )
     except Exception as exc:  # pragma: no cover
@@ -79,8 +79,9 @@ async def partial_update(
     mods: int | None,  # flags
     win_condition: int | None,  # enum
     team_type: int | None,  # enum
-    freemods_allowed: bool | None,
+    freemods_enabled: bool | None,
     random_seed: int | None,
+    status: int | None,  # enum
 ) -> MultiplayerMatch | ServiceError:
     try:
         match = await multiplayer_matches.partial_update(
@@ -95,8 +96,9 @@ async def partial_update(
             mods,
             win_condition,
             team_type,
-            freemods_allowed,
+            freemods_enabled,
             random_seed,
+            status,
         )
     except Exception as exc:  # pragma: no cover
         logger.error("Failed to update multiplayer match", exc_info=exc)

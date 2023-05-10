@@ -43,11 +43,12 @@ async def enqueue(
         "created_at": now,
     }
 
-    # XXX: warn developers if a queue's size becomes very large
     queue_size = await clients.redis.rpush(
         make_key(session_id),
         serialize(bundle),
     )
+
+    # XXX: warn developers if a queue's size becomes very large
     if queue_size > 50:
         logger.warning(
             "Packet bundle size exceeded 20 items",

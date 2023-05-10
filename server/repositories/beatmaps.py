@@ -40,7 +40,6 @@ class Beatmap(TypedDict):
     version: str
     creator: str
     filename: str
-    last_update: datetime
     total_length: int
     max_combo: int
     ranked_status_manually_changed: bool
@@ -53,6 +52,7 @@ class Beatmap(TypedDict):
     od: float
     hp: float
     star_rating: float
+    updated_at: datetime
 
 
 async def create(
@@ -141,7 +141,7 @@ async def fetch_many(
         values["offset"] = (page - 1) * page_size
 
     beatmaps = await clients.database.fetch_all(query, values)
-    return [cast(Beatmap, beatmap) for beatmap in beatmaps]
+    return cast(list[Beatmap], beatmaps)
 
 
 async def fetch_one_by_id(beatmap_id: int) -> Beatmap | None:
@@ -167,7 +167,6 @@ async def partial_update(
     version: str | None = None,
     creator: str | None = None,
     filename: str | None = None,
-    last_update: datetime | None = None,
     total_length: int | None = None,
     max_combo: int | None = None,
     ranked_status_manually_changed: bool | None = None,
@@ -180,6 +179,7 @@ async def partial_update(
     od: float | None = None,
     hp: float | None = None,
     star_rating: float | None = None,
+    updated_at: datetime | None = None,
 ) -> Beatmap | None:
     beatmap = await clients.database.fetch_one(
         query=f"""\
@@ -191,7 +191,6 @@ async def partial_update(
                 version = COALESCE(:version, version),
                 creator = COALESCE(:creator, creator),
                 filename = COALESCE(:filename, filename),
-                last_update = COALESCE(:last_update, last_update),
                 total_length = COALESCE(:total_length, total_length),
                 max_combo = COALESCE(:max_combo, max_combo),
                 ranked_status_manually_changed = COALESCE(:ranked_status_manually_changed, ranked_status_manually_changed),
@@ -203,7 +202,8 @@ async def partial_update(
                 ar = COALESCE(:ar, ar),
                 od = COALESCE(:od, od),
                 hp = COALESCE(:hp, hp),
-                star_rating = COALESCE(:star_rating, star_rating)
+                star_rating = COALESCE(:star_rating, star_rating),
+                updated_at = COALESCE(:updated_at, updated_at)
             WHERE beatmap_id = :beatmap_id
             RETURNING {READ_PARAMS}
         """,
@@ -216,7 +216,6 @@ async def partial_update(
             "version": version,
             "creator": creator,
             "filename": filename,
-            "last_update": last_update,
             "total_length": total_length,
             "max_combo": max_combo,
             "ranked_status_manually_changed": ranked_status_manually_changed,
@@ -229,6 +228,7 @@ async def partial_update(
             "od": od,
             "hp": hp,
             "star_rating": star_rating,
+            "updated_at": updated_at,
         },
     )
     return cast(Beatmap, beatmap) if beatmap is not None else None

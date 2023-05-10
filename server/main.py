@@ -50,6 +50,7 @@ from server.repositories.accounts import Account
 from server.repositories.beatmaps import Beatmap
 from server.repositories.scores import Score
 
+
 app = FastAPI()
 
 osu_web_handler = APIRouter(default_response_class=Response)
@@ -345,7 +346,7 @@ async def handle_login(request: Request) -> Response:
     )
 
     # osu chat channels
-    for channel in await channels.fetch_all():
+    for channel in await channels.fetch_many():
         # TODO: privilege check - do they have access to this channel?
         current_channel_members = await channel_members.members(channel["channel_id"])
 
@@ -405,7 +406,7 @@ async def handle_login(request: Request) -> Response:
     response_data += own_presence_packet_data
     response_data += own_stats_packet_data
 
-    for other_session in await sessions.fetch_all(osu_clients_only=True):
+    for other_session in await sessions.fetch_all():
         if other_session["session_id"] == own_session["session_id"]:
             continue
 
@@ -971,7 +972,7 @@ async def submit_score_handler(
 
     # send account stats to all other osu! sessions if we're not restricted
     if account["privileges"] & ServerPrivileges.UNRESTRICTED:
-        for other_session in await sessions.fetch_all(osu_clients_only=True):
+        for other_session in await sessions.fetch_all():
             if other_session["session_id"] == session["session_id"]:
                 continue
 
@@ -1008,3 +1009,27 @@ async def difficulty_rating_handler(request: Request):
         url=f"https://osu.ppy.sh{request['path']}",
         status_code=status.HTTP_307_TEMPORARY_REDIRECT,
     )
+
+
+@osu_web_handler.get("/web/osu-getfriends.php")
+async def friends_handler(
+    username: str = Query(..., alias="u"),
+    password: str = Query(..., alias="h"),
+):
+    account = await accounts.fetch_by_username(username)
+
+    if account is None:
+        return Response(status_code=status.HTTP_400_BAD_REQUEST)
+
+    if not security.check_password(
+        password=password,
+        hashword=account["password"].encode(),
+    ):
+        return Response(status_code=status.HTTP_401_UNAUTHORIZED)
+
+    friends = await relationships.fetch_all(
+        account["account_id"],
+        relationship="friend",
+    )
+
+    return "\n".join(str(friend["target_id"]) for friend in friends)
