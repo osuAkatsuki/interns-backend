@@ -26,3 +26,6 @@ class ServiceError(str, Enum):
     MULTIPLAYER_MATCHES_UPDATE_FAILED = "multiplayer_matches.update_failed"
     MULTIPLAYER_MATCHES_DELETE_FAILED = "multiplayer_matches.delete_failed"
     MULTIPLAYER_MATCHES_NOT_FOUND = "multiplayer_matches.not_found"
+
+    BEATMAPS_CREATE_FAILED = "beatmaps.create_failed"
+    BEATMAPS_NOT_FOUND = "beatmaps.not_found"

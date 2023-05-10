@@ -41,7 +41,6 @@ from server.adapters.database import Database
 from server.errors import ServiceError
 from server.privileges import ServerPrivileges
 from server.repositories import accounts
-from server.repositories import beatmaps
 from server.repositories import channel_members
 from server.repositories import channels
 from server.repositories import packet_bundles
@@ -53,6 +52,7 @@ from server.repositories.accounts import Account
 from server.repositories.beatmaps import Beatmap
 from server.repositories.scores import Score
 from server.services import screenshots
+from server.services import beatmaps
 
 
 app = FastAPI()
@@ -541,7 +541,7 @@ async def handle_bancho_http_request(request: Request):
     return response
 
 
-def create_beatmap_filename(
+def _create_beatmap_filename(
     artist: str,
     title: str,
     version: str,
@@ -683,46 +683,9 @@ async def get_scores_handler(
         return
 
     beatmap = await beatmaps.fetch_one(beatmap_md5=beatmap_md5)
-    if beatmap is None:
-        # attempt to fetch the beatmap from the osu! api JIT
-        api_v2_beatmap = await osu_api_v2.lookup_beatmap(beatmap_md5=beatmap_md5)
-        if api_v2_beatmap is None:
-            logger.error("Beatmap not found", beatmap_md5=beatmap_md5)
-            return
-
-        assert api_v2_beatmap.beatmap_md5 is not None
-        assert api_v2_beatmap.beatmapset is not None
-        assert api_v2_beatmap.last_updated is not None
-
-        beatmap = await beatmaps.create(
-            api_v2_beatmap.beatmap_id,
-            api_v2_beatmap.beatmap_set_id,
-            api_v2_beatmap.ranked_status,
-            api_v2_beatmap.beatmap_md5,
-            api_v2_beatmap.beatmapset.artist,
-            api_v2_beatmap.beatmapset.title,
-            api_v2_beatmap.version,
-            api_v2_beatmap.beatmapset.creator_name,
-            create_beatmap_filename(
-                artist=api_v2_beatmap.beatmapset.artist,
-                title=api_v2_beatmap.beatmapset.title,
-                version=api_v2_beatmap.version,
-                creator=api_v2_beatmap.beatmapset.creator_name,
-            ),
-            api_v2_beatmap.total_length,
-            api_v2_beatmap.max_combo or 0,
-            False,  # manually ranked
-            0,  # plays
-            0,  # passes
-            api_v2_beatmap.game_mode,
-            api_v2_beatmap.bpm or 0,
-            api_v2_beatmap.cs or 0,
-            api_v2_beatmap.ar or 0,
-            api_v2_beatmap.od or 0,
-            api_v2_beatmap.hp or 0,
-            api_v2_beatmap.star_rating,
-            api_v2_beatmap.last_updated,
-        )
+    if beatmap is ServiceError.BEATMAPS_NOT_FOUND:
+        logger.warning("Beatmap not found", beatmap_md5=beatmap_md5)
+        return
 
     # TODO: leaderboard type handling
 
@@ -848,8 +811,7 @@ async def submit_score_handler(
 
     beatmap = await beatmaps.fetch_one(beatmap_md5=beatmap_md5)
     if beatmap is None:
-        logger.warning(f"Beatmap {beatmap_md5} not found")
-        # TODO: JIT beatmaps?
+        logger.warning("Beatmap not found", beatmap_md5=beatmap_md5)
         return
 
     # TODO: handle differently depending on beatmap ranked status
