@@ -1017,6 +1017,8 @@ async def submit_score_handler(
 
     # TODO: construct score submission charts
 
+    return b"error: no"
+
 
 @osu_web_handler.post("/difficulty-rating")
 async def difficulty_rating_handler(request: Request):
