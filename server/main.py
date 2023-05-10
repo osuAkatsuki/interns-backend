@@ -1018,29 +1018,30 @@ async def submit_score_handler(
 
     # send account stats to all other osu! sessions if we're not restricted
     if account["privileges"] & ServerPrivileges.UNRESTRICTED:
-        for other_session in await sessions.fetch_all():
-            if other_session["session_id"] == session["session_id"]:
-                continue
+        sessions_to_notify = await sessions.fetch_all()
+    else:
+        sessions_to_notify = [session]
 
-            packet_data = packets.write_user_stats_packet(
-                gamemode_stats["account_id"],
-                session["presence"]["action"],
-                session["presence"]["info_text"],
-                session["presence"]["beatmap_md5"],
-                session["presence"]["mods"],
-                session["presence"]["mode"],
-                session["presence"]["beatmap_id"],
-                gamemode_stats["ranked_score"],
-                gamemode_stats["accuracy"],
-                gamemode_stats["play_count"],
-                gamemode_stats["total_score"],
-                ranking.get_global_rank(gamemode_stats["account_id"]),
-                gamemode_stats["performance_points"],
-            )
-            await packet_bundles.enqueue(
-                other_session["session_id"],
-                packet_data,
-            )
+    for other_session in sessions_to_notify:
+        packet_data = packets.write_user_stats_packet(
+            gamemode_stats["account_id"],
+            session["presence"]["action"],
+            session["presence"]["info_text"],
+            session["presence"]["beatmap_md5"],
+            session["presence"]["mods"],
+            session["presence"]["mode"],
+            session["presence"]["beatmap_id"],
+            gamemode_stats["ranked_score"],
+            gamemode_stats["accuracy"],
+            gamemode_stats["play_count"],
+            gamemode_stats["total_score"],
+            ranking.get_global_rank(gamemode_stats["account_id"]),
+            gamemode_stats["performance_points"],
+        )
+        await packet_bundles.enqueue(
+            other_session["session_id"],
+            packet_data,
+        )
 
     # TODO: send to #announcements if the score is #1
 
