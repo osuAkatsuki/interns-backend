@@ -63,4 +63,24 @@ async def remove(
             "target_id": target_id,
         },
     )
-    return _relationship
+    return dict(_relationship._mapping) if _relationship is not None else None
+
+
+async def fetch_one(
+    target_id: int,
+    account_id: int,
+) -> dict[str, Any] | None:
+    channel = await clients.database.fetch_one(
+        query=f"""
+            SELECT {READ_PARAMS}
+            FROM relationships
+            WHERE account_id = :account_id
+            AND target_id = :target_id
+        """,
+        values={
+            "account_id": account_id,
+            "target_id": target_id
+        },
+    )
+    return dict(channel._mapping) if channel is not None else None
+
