@@ -6,6 +6,7 @@ READ_PARAMS = "clan_id, name, tag, description, created_at, updated_at"
 
 
 class Clan(TypedDict):
+    clan_id: int
     name: str
     tag: str
     description: str
