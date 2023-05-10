@@ -1012,7 +1012,20 @@ async def friends_handler(
 async def handle_screenshot_upload(
     endpoint_version: int = Form(..., alias="v"),
     screenshot_file: UploadFile = File(..., alias="ss"),
+    username: str = Query(..., alias="u"),
+    password: str = Query(..., alias="p"),
 ):
+    account = await accounts.fetch_by_username(username)
+
+    if account is None:
+        return Response(status_code=status.HTTP_400_BAD_REQUEST)
+
+    if not security.check_password(
+        password=password,
+        hashword=account["password"].encode(),
+    ):
+        return Response(status_code=status.HTTP_401_UNAUTHORIZED)
+
     file_data = await screenshot_file.read()
     screenshot = await screenshots.create(file_data)
 
