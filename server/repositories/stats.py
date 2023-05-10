@@ -42,6 +42,48 @@ class Stats(TypedDict):
     a_count: int
 
 
+def serialize(stats: Stats) -> dict:
+    return {
+        "account_id": stats["account_id"],
+        "game_mode": stats["game_mode"],
+        "total_score": stats["total_score"],
+        "ranked_score": stats["ranked_score"],
+        "performance_points": stats["performance_points"],
+        "play_count": stats["play_count"],
+        "play_time": stats["play_time"],
+        "accuracy": stats["accuracy"],  # should not need to be decimal
+        "highest_combo": stats["highest_combo"],
+        "total_hits": stats["total_hits"],
+        "replay_views": stats["replay_views"],
+        "xh_count": stats["xh_count"],
+        "x_count": stats["x_count"],
+        "sh_count": stats["sh_count"],
+        "s_count": stats["s_count"],
+        "a_count": stats["a_count"],
+    }
+
+
+def deserialize(stats: dict) -> Stats:
+    return {
+        "account_id": stats["account_id"],
+        "game_mode": stats["game_mode"],
+        "total_score": stats["total_score"],
+        "ranked_score": stats["ranked_score"],
+        "performance_points": stats["performance_points"],
+        "play_count": stats["play_count"],
+        "play_time": stats["play_time"],
+        "accuracy": float(stats["accuracy"]),
+        "highest_combo": stats["highest_combo"],
+        "total_hits": stats["total_hits"],
+        "replay_views": stats["replay_views"],
+        "xh_count": stats["xh_count"],
+        "x_count": stats["x_count"],
+        "sh_count": stats["sh_count"],
+        "s_count": stats["s_count"],
+        "a_count": stats["a_count"],
+    }
+
+
 async def create(account_id: int, game_mode: int) -> Stats:
     stats = await clients.database.fetch_one(
         query=f"""\
@@ -56,7 +98,10 @@ async def create(account_id: int, game_mode: int) -> Stats:
     )
 
     assert stats is not None
-    return cast(Stats, stats)
+    return deserialize(stats)
+
+
+# TODO: combine these
 
 
 async def fetch_all(
@@ -75,7 +120,7 @@ async def fetch_all(
             "game_mode": game_mode,
         },
     )
-    return cast(list[Stats], all_stats)
+    return [deserialize(stats) for stats in all_stats]
 
 
 async def fetch_many(
@@ -100,7 +145,7 @@ async def fetch_many(
             "offset": (page - 1) * page_size,
         },
     )
-    return cast(list[Stats], all_stats)
+    return [deserialize(stats) for stats in all_stats]
 
 
 async def fetch_one(account_id: int, game_mode: int) -> Stats | None:
@@ -113,7 +158,7 @@ async def fetch_one(account_id: int, game_mode: int) -> Stats | None:
         """,
         values={"account_id": account_id, "game_mode": game_mode},
     )
-    return cast(Stats, stats) if stats is not None else None
+    return deserialize(stats) if stats is not None else None
 
 
 async def partial_update(
@@ -174,4 +219,4 @@ async def partial_update(
             "a_count": a_count,
         },
     )
-    return cast(Stats, stats) if stats is not None else None
+    return deserialize(stats) if stats is not None else None
