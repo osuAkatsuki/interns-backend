@@ -1,0 +1,10 @@
+CREATE TABLE clans (
+    clan_id SERIAL NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    tag TEXT NOT NULL,
+    description TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX ON clans (name);
+CREATE UNIQUE INDEX ON clans (tag);
