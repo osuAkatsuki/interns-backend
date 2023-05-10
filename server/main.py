@@ -1033,5 +1033,4 @@ async def handle_screenshot_upload(
         logger.error("Screenshot upload failed!", error=screenshot)
         return
 
-    # Shift + F12: takes a screenshot and opens the response data in a browser
     return screenshot["download_url"]

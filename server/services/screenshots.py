@@ -23,7 +23,6 @@ async def create(
             logger.error("Failed to parse screenshot file", exc_info=exc)
             return ServiceError.SCREENSHOTS_IMAGE_INVALID
 
-    # TODO: extension name? (e.g. png, jpg)
     file_name = secrets.token_urlsafe(16)
     file_type = screenshot.format
     assert file_type in ("PNG", "JPEG")
