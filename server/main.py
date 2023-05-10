@@ -5,7 +5,6 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 from uuid import uuid4
-from server.services import screenshots
 
 import aiosu
 import redis.asyncio
@@ -19,10 +18,11 @@ from fastapi import Query
 from fastapi import Request
 from fastapi import Response
 from fastapi import status
+from fastapi import UploadFile
 from fastapi.responses import RedirectResponse
 from py3rijndael import Pkcs7Padding
 from py3rijndael import RijndaelCbc
-from starlette.datastructures import UploadFile
+from starlette.datastructures import UploadFile as _StarletteUploadFile
 
 from server import clients
 from server import geolocation
@@ -51,6 +51,7 @@ from server.repositories import stats
 from server.repositories.accounts import Account
 from server.repositories.beatmaps import Beatmap
 from server.repositories.scores import Score
+from server.services import screenshots
 
 
 app = FastAPI()
@@ -792,7 +793,7 @@ async def submit_score_handler(
     score_data_aes_b64, replay_file = (await request.form()).getlist("score")
 
     assert isinstance(score_data_aes_b64, str)
-    assert isinstance(replay_file, UploadFile)
+    assert isinstance(replay_file, _StarletteUploadFile)
 
     score_data_aes = base64.b64decode(score_data_aes_b64)
     client_hash_aes = base64.b64decode(client_hash_aes_b64)
@@ -1016,7 +1017,7 @@ async def handle_screenshot_upload(
     screenshot = await screenshots.create(file_data)
 
     if isinstance(screenshot, ServiceError):
-        logger.error("Screenshot upload failed!", screenshot)
+        logger.error("Screenshot upload failed!", error=screenshot)
         return
 
     # Shift + F12: takes a screenshot and opens the response data in a browser
