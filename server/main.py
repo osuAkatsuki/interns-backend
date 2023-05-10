@@ -963,16 +963,47 @@ async def submit_score_handler(
     gamemode_stats = await stats.fetch_one(account["account_id"], game_mode)
     assert gamemode_stats is not None
 
+    # TODO: these should be fetching pp-awarding scores only
+
+    top_100_scores = await scores.fetch_many(
+        account_id=account["account_id"],
+        game_mode=game_mode,
+        sort_by="performance_points",
+        submission_status=2,
+        page_size=100,
+    )
+
+    total_score_count = await scores.fetch_count(
+        account_id=account["account_id"],
+        submission_status=2,
+        game_mode=game_mode,
+    )
+
+    # calculate new overall accuracy
+    weighted_accuracy = sum(
+        score["accuracy"] * 0.95**i for i, score in enumerate(top_100_scores)
+    )
+    bonus_accuracy = 100.0 / (20 * (1 - 0.95**total_score_count))
+    total_accuracy = round((weighted_accuracy * bonus_accuracy) / 100.0, 3)
+
+    # calculate new overall pp
+    weighted_pp = sum(
+        score["performance_points"] * 0.95**i
+        for i, score in enumerate(top_100_scores)
+    )
+    bonus_pp = 416.6667 * (1 - 0.9994**total_score_count)
+    total_pp = round(weighted_pp + bonus_pp)
+
     gamemode_stats = await stats.partial_update(
         account["account_id"],
         game_mode=game_mode,
         total_score=gamemode_stats["total_score"] + score_points,
         # TODO: only if best & on ranked map
         ranked_score=gamemode_stats["ranked_score"] + score_points,
-        performance_points=int(0.0),  # TODO: weighted pp based on top 100 scores
+        performance_points=total_pp,
         play_count=gamemode_stats["play_count"] + 1,
         play_time=gamemode_stats["play_time"] + time_elapsed,
-        accuracy=0.0,  # TODO: weighted acc based on top 100 scores
+        accuracy=total_accuracy,
         highest_combo=max(gamemode_stats["highest_combo"], highest_combo),
         total_hits=(
             gamemode_stats["total_hits"] + num_300s + num_100s + num_50s + num_misses
