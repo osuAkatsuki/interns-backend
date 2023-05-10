@@ -30,6 +30,16 @@ READ_PARAMS = """\
 """
 
 
+class BeatmapRankedStatus:
+    GRAVEYARD = -2
+    WIP = -1
+    PENDING = 0
+    RANKED = 1
+    APPROVED = 2
+    QUALIFIED = 3
+    LOVED = 4
+
+
 class Beatmap(TypedDict):
     beatmap_id: int
     beatmap_set_id: int
@@ -144,14 +154,24 @@ async def fetch_many(
     return cast(list[Beatmap], beatmaps)
 
 
-async def fetch_one_by_id(beatmap_id: int) -> Beatmap | None:
+async def fetch_one(
+    beatmap_md5: str | None = None,
+    file_name: str | None = None,
+    beatmap_id: int | None = None,
+) -> Beatmap | None:
+    assert (beatmap_md5, file_name, beatmap_id).count(None) == 2
+
     beatmap = await clients.database.fetch_one(
         query=f"""\
             SELECT {READ_PARAMS}
             FROM beatmaps
-            WHERE beatmap_id = :beatmap_id
+            WHERE beatmap_md5 = COALESCE(:beatmap_md5, beatmap_md5)
+            AND filename = COALESCE(:filename, filename)
+            AND beatmap_id = COALESCE(:beatmap_id, beatmap_id)
         """,
         values={
+            "beatmap_md5": beatmap_md5,
+            "filename": file_name,
             "beatmap_id": beatmap_id,
         },
     )
@@ -229,20 +249,6 @@ async def partial_update(
             "hp": hp,
             "star_rating": star_rating,
             "updated_at": updated_at,
-        },
-    )
-    return cast(Beatmap, beatmap) if beatmap is not None else None
-
-
-async def fetch_one_by_md5(beatmap_md5: str) -> Beatmap | None:
-    beatmap = await clients.database.fetch_one(
-        query=f"""\
-            SELECT {READ_PARAMS}
-            FROM beatmaps
-            WHERE beatmap_md5 = :beatmap_md5
-        """,
-        values={
-            "beatmap_md5": beatmap_md5,
         },
     )
     return cast(Beatmap, beatmap) if beatmap is not None else None

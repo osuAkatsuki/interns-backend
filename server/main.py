@@ -682,7 +682,7 @@ async def get_scores_handler(
     ):
         return
 
-    beatmap = await beatmaps.fetch_one_by_md5(beatmap_md5)
+    beatmap = await beatmaps.fetch_one(beatmap_md5=beatmap_md5)
     if beatmap is None:
         # attempt to fetch the beatmap from the osu! api JIT
         api_v2_beatmap = await osu_api_v2.lookup_beatmap(beatmap_md5=beatmap_md5)
@@ -846,7 +846,7 @@ async def submit_score_handler(
         logger.warning(f"Invalid password for {username}")
         return
 
-    beatmap = await beatmaps.fetch_one_by_md5(beatmap_md5)
+    beatmap = await beatmaps.fetch_one(beatmap_md5=beatmap_md5)
     if beatmap is None:
         logger.warning(f"Beatmap {beatmap_md5} not found")
         # TODO: JIT beatmaps?
