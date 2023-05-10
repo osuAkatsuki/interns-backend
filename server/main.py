@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 from uuid import uuid4
+from server.services import screenshots
 
 import aiosu
 import redis.asyncio
@@ -36,6 +37,7 @@ from server.adapters import ip_api
 from server.adapters import osu_api_v2
 from server.adapters import s3
 from server.adapters.database import Database
+from server.errors import ServiceError
 from server.privileges import ServerPrivileges
 from server.repositories import accounts
 from server.repositories import beatmaps
@@ -1003,3 +1005,19 @@ async def friends_handler(
     )
 
     return "\n".join(str(friend["target_id"]) for friend in friends)
+
+
+@osu_web_handler.post("/web/osu-screenshot.php")
+async def handle_screenshot_upload(
+    endpoint_version: int = Form(..., alias="v"),
+    screenshot_file: UploadFile = File(..., alias="ss"),
+):
+    file_data = await screenshot_file.read()
+    screenshot = await screenshots.create(file_data)
+
+    if isinstance(screenshot, ServiceError):
+        logger.error("Screenshot upload failed!", screenshot)
+        return
+
+    # Shift + F12: takes a screenshot and opens the response data in a browser
+    return screenshot["download_url"]
