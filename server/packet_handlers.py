@@ -371,32 +371,31 @@ async def spectate_frames_handler(session: "Session", packet_data: bytes):
 @bancho_handler(packets.ClientPackets.CANT_SPECTATE)
 async def cant_spectate_handler(session: "Session", packet_data: bytes):
     assert session["presence"] is not None
-    
-    packet_reader = packets.PacketReader(packet_data)
-    host_account_id = packet_reader.read_i32()
 
-    host_session = await sessions.fetch_by_account_id(host_account_id)
-
-    if host_session is None:
+    if session["presence"]["spectator_host_session_id"] is None:
         logger.warning(
-            "A user attempted to spectate an offline user",
+            "A user told us they can't spectate while not spectating anyone",
             spectator_id=session["account_id"],
         )
         return
 
-    await packet_bundles.enqueue(
-        host_session["session_id"],
-        packets.write_spectator_cant_spectate_packet(session["account_id"])
-    )
+    host_session_id = session["presence"]["spectator_host_session_id"]
+
+    host_session = await sessions.fetch_by_id(host_session_id)
+    if host_session is None:
+        logger.warning(
+            "A user told us they can't spectate another user who is offline",
+            spectator_id=session["account_id"],
+            host_id=host_session_id,
+        )
+        return
+
+    packet_data = packets.write_spectator_cant_spectate_packet(session["account_id"])
+
+    await packet_bundles.enqueue(host_session["session_id"], packet_data)
 
     for spectator_session_id in await spectators.members(host_session["session_id"]):
-        if spectator_session_id == session["session_id"]:
-            continue
-        
-        await packet_bundles.enqueue(
-            spectator_session_id,
-            packets.write_spectator_cant_spectate_packet(session["account_id"]),
-        )
+        await packet_bundles.enqueue(spectator_session_id, packet_data)
 
 
 # SEND_PRIVATE_MESSAGE = 25
@@ -411,9 +410,10 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
 
     packet_reader = packets.PacketReader(packet_data)
 
-    packet_reader.read_string()  # always ""
+    sender_name = packet_reader.read_string()  # always ""
     message_content = packet_reader.read_string()
     recipient_name = packet_reader.read_string()
+    sender_id = packet_reader.read_i32()  # always 0
 
     if len(message_content) > 2000:
         message_content = message_content[:2000] + "..."
@@ -424,7 +424,9 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
         logger.warning("Recipient is currently offline")
         return
 
-    relationship_info = await relationships.fetch_one(session["account_id"], recipient_session["account_id"])
+    relationship_info = await relationships.fetch_one(
+        session["account_id"], recipient_session["account_id"]
+    )
 
     if relationship_info is not None and relationship_info["relationship"] == "blocked":
         return

@@ -18,10 +18,11 @@ from fastapi import Query
 from fastapi import Request
 from fastapi import Response
 from fastapi import status
+from fastapi import UploadFile
 from fastapi.responses import RedirectResponse
 from py3rijndael import Pkcs7Padding
 from py3rijndael import RijndaelCbc
-from starlette.datastructures import UploadFile
+from starlette.datastructures import UploadFile as _StarletteUploadFile
 
 from server import clients
 from server import geolocation
@@ -36,6 +37,7 @@ from server.adapters import ip_api
 from server.adapters import osu_api_v2
 from server.adapters import s3
 from server.adapters.database import Database
+from server.errors import ServiceError
 from server.privileges import ServerPrivileges
 from server.repositories import accounts
 from server.repositories import beatmaps
@@ -49,6 +51,7 @@ from server.repositories import stats
 from server.repositories.accounts import Account
 from server.repositories.beatmaps import Beatmap
 from server.repositories.scores import Score
+from server.services import screenshots
 
 
 app = FastAPI()
@@ -820,7 +823,7 @@ async def submit_score_handler(
     score_data_aes_b64, replay_file = (await request.form()).getlist("score")
 
     assert isinstance(score_data_aes_b64, str)
-    assert isinstance(replay_file, UploadFile)
+    assert isinstance(replay_file, _StarletteUploadFile)
 
     score_data_aes = base64.b64decode(score_data_aes_b64)
     client_hash_aes = base64.b64decode(client_hash_aes_b64)
@@ -1033,3 +1036,31 @@ async def friends_handler(
     )
 
     return "\n".join(str(friend["target_id"]) for friend in friends)
+
+
+@osu_web_handler.post("/web/osu-screenshot.php")
+async def handle_screenshot_upload(
+    endpoint_version: int = Form(..., alias="v"),
+    screenshot_file: UploadFile = File(..., alias="ss"),
+    username: str = Query(..., alias="u"),
+    password: str = Query(..., alias="p"),
+):
+    account = await accounts.fetch_by_username(username)
+
+    if account is None:
+        return Response(status_code=status.HTTP_400_BAD_REQUEST)
+
+    if not security.check_password(
+        password=password,
+        hashword=account["password"].encode(),
+    ):
+        return Response(status_code=status.HTTP_401_UNAUTHORIZED)
+
+    file_data = await screenshot_file.read()
+
+    screenshot = await screenshots.create(file_data)
+    if isinstance(screenshot, ServiceError):
+        logger.error("Screenshot upload failed!", error=screenshot)
+        return
+
+    return screenshot["download_url"]

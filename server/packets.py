@@ -428,7 +428,6 @@ def write_packet(
     return packet_header + packet_body
 
 
-
 # USER_ID = 5
 
 
@@ -564,10 +563,9 @@ def write_spectate_frames_packet(data: bytes) -> bytes:
 def write_spectator_cant_spectate_packet(user_id: int) -> bytes:
     return write_packet(
         packet_id=ServerPackets.SPECTATOR_CANT_SPECTATE,
-        packet_data_inputs=[
-            (DataType.I32, user_id)
-        ],
+        packet_data_inputs=[(DataType.I32, user_id)],
     )
+
 
 # GET_ATTENTION = 23
 
