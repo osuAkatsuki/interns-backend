@@ -50,6 +50,7 @@ from server.repositories import sessions
 from server.repositories import stats
 from server.repositories.accounts import Account
 from server.repositories.beatmaps import Beatmap
+from server.repositories.scores import Mods
 from server.repositories.scores import Score
 from server.services import screenshots
 
@@ -661,6 +662,21 @@ class LeaderBoardType:
     Country = 4
 
 
+class GameMode:
+    VN_OSU = 0
+    VN_TAIKO = 1
+    VN_CATCH = 2
+    VN_MANIA = 3
+    RX_OSU = 4
+    RX_TAIKO = 5
+    RX_CATCH = 6
+    RX_MANIA = 7  # doesn't exist
+    AP_OSU = 8
+    AP_TAIKO = 9  # doesn't exist
+    AP_CATCH = 10  # doesn't exist
+    AP_MANIA = 11  # doesn't exist
+
+
 @osu_web_handler.get("/web/osu-osz2-getscores.php")
 async def get_scores_handler(
     username: str = Query(..., alias="us"),
@@ -745,6 +761,11 @@ async def get_scores_handler(
         "sort_by": "performance_points",
         "page_size": 50,
     }
+
+    if mods & Mods.RELAX:
+        game_mode |= 4
+    elif mods & Mods.AUTOPILOT:
+        game_mode |= 8
 
     if leaderboard_type == LeaderBoardType.Local:
         leaderboard_params["account_id"] = account["account_id"]
