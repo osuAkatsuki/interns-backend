@@ -2,7 +2,14 @@ from datetime import datetime
 from typing import Any, TypedDict, cast
 from server import clients
 
-READ_PARAMS = "clan_id, name, tag, description, created_at, updated_at"
+READ_PARAMS = """\
+    clan_id,
+    name,
+    tag,
+    description,
+    created_at,
+    updated_at
+"""
 
 
 class Clan(TypedDict):
