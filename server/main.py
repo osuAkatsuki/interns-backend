@@ -1027,8 +1027,8 @@ async def handle_screenshot_upload(
         return Response(status_code=status.HTTP_401_UNAUTHORIZED)
 
     file_data = await screenshot_file.read()
-    screenshot = await screenshots.create(file_data)
 
+    screenshot = await screenshots.create(file_data)
     if isinstance(screenshot, ServiceError):
         logger.error("Screenshot upload failed!", error=screenshot)
         return
