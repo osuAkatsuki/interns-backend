@@ -42,6 +42,7 @@ from server.repositories import beatmaps
 from server.repositories import channel_members
 from server.repositories import channels
 from server.repositories import packet_bundles
+from server.repositories import relationships
 from server.repositories import scores
 from server.repositories import sessions
 from server.repositories import stats
@@ -646,6 +647,16 @@ async def format_leaderboard_response(
 # &a=0
 # &us=cmyui
 # &ha=0cc175b9c0f1b6a831c399e269772661
+
+
+class LeaderBoardType:
+    Local = 0
+    Top = 1
+    Mods = 2
+    Friends = 3
+    Country = 4
+
+
 @osu_web_handler.get("/web/osu-osz2-getscores.php")
 async def get_scores_handler(
     username: str = Query(..., alias="us"),
@@ -720,21 +731,41 @@ async def get_scores_handler(
 
     # TODO: leaderboard type handling
 
-    leaderboard_scores = await scores.fetch_many(
-        beatmap_md5=beatmap_md5,
-        submission_status=2,  # TODO?
-        game_mode=game_mode,
-        sort_by="performance_points",  # TODO: score for certain gamemodes?
-        page_size=50,
-    )
+    leaderboard_params = {
+        "beatmap_md5": beatmap_md5,
+        "account_id": None,
+        "country": None,
+        "submission_status": 2,
+        "game_mode": game_mode,
+        "mod_leaderboard": None,
+        "sort_by": "performance_points",
+        "page_size": 50,
+    }
+
+    if leaderboard_type == LeaderBoardType.Local:
+        leaderboard_params["account_id"] = account["account_id"]
+
+    # elif leaderboard_type == LeaderBoardType.Top:
+    elif leaderboard_type == LeaderBoardType.Mods:
+        leaderboard_params["mod_leaderboard"] = mods
+
+    elif leaderboard_type == LeaderBoardType.Country:
+        leaderboard_params["country"] = account["country"]
+
+    # elif leaderboard_type == LeaderBoardType.Friends:
+    # friends = await relationships.fetch_all(account_id=account["account_id"], relationship="friend")
+
+    # friend_accounts = [friend["account_id"] for friend in friends]
+
+    leaderboard_scores = await scores.fetch_many(**leaderboard_params)
+    # TODO: score for certain gamemodes?
+
+    leaderboard_params["country"] = None
+    leaderboard_params["page_size"] = 1
+    # leaderboard_params["account_id"] = account["account_id"]
 
     personal_best_scores = await scores.fetch_many(
-        account_id=account["account_id"],
-        beatmap_md5=beatmap_md5,
-        submission_status=2,  # TODO?
-        game_mode=game_mode,
-        sort_by="performance_points",  # TODO: score for certain gamemodes?
-        page_size=1,
+        **leaderboard_params,
     )
     if personal_best_scores:
         personal_best_score = personal_best_scores[0]
