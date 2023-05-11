@@ -1,6 +1,7 @@
 aiobotocore
 aioredlock
 aiosu
+akatsuki-pp-py
 asyncpg
 bcrypt
 databases

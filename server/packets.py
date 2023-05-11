@@ -496,7 +496,7 @@ def write_user_stats_packet(
             (DataType.U8, game_mode),
             (DataType.I32, beatmap_id),
             (DataType.I64, ranked_score),
-            (DataType.F32, accuracy),
+            (DataType.F32, accuracy / 100.0),
             (DataType.I32, play_count),
             (DataType.I64, total_score),
             (DataType.I32, global_rank),

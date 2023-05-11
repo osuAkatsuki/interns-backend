@@ -95,6 +95,64 @@ class Score(TypedDict):
     updated_at: datetime
 
 
+def deserialize(score: dict) -> Score:
+    return {
+        "score_id": score["score_id"],
+        "account_id": score["account_id"],
+        "online_checksum": score["online_checksum"],
+        "beatmap_md5": score["beatmap_md5"],
+        "score": score["score"],
+        "performance_points": float(score["performance_points"]),
+        "accuracy": float(score["accuracy"]),
+        "highest_combo": score["highest_combo"],
+        "full_combo": score["full_combo"],
+        "mods": score["mods"],
+        "num_300s": score["num_300s"],
+        "num_100s": score["num_100s"],
+        "num_50s": score["num_50s"],
+        "num_misses": score["num_misses"],
+        "num_gekis": score["num_gekis"],
+        "num_katus": score["num_katus"],
+        "grade": score["grade"],
+        "submission_status": score["submission_status"],
+        "game_mode": score["game_mode"],
+        "country": score["country"],
+        "time_elapsed": score["time_elapsed"],
+        "client_anticheat_flags": score["client_anticheat_flags"],
+        "created_at": score["created_at"],
+        "updated_at": score["updated_at"],
+    }
+
+
+def serialize(score: Score) -> dict:
+    return {
+        "score_id": score["score_id"],
+        "account_id": score["account_id"],
+        "online_checksum": score["online_checksum"],
+        "beatmap_md5": score["beatmap_md5"],
+        "score": score["score"],
+        "performance_points": score["performance_points"],  # should not need to decimal
+        "accuracy": score["accuracy"],  # should not need to decimal
+        "highest_combo": score["highest_combo"],
+        "full_combo": score["full_combo"],
+        "mods": score["mods"],
+        "num_300s": score["num_300s"],
+        "num_100s": score["num_100s"],
+        "num_50s": score["num_50s"],
+        "num_misses": score["num_misses"],
+        "num_gekis": score["num_gekis"],
+        "num_katus": score["num_katus"],
+        "grade": score["grade"],
+        "submission_status": score["submission_status"],
+        "game_mode": score["game_mode"],
+        "country": score["country"],
+        "time_elapsed": score["time_elapsed"],
+        "client_anticheat_flags": score["client_anticheat_flags"],
+        "created_at": score["created_at"],
+        "updated_at": score["updated_at"],
+    }
+
+
 async def create(
     account_id: int,
     online_checksum: str,
@@ -159,7 +217,7 @@ async def create(
         },
     )
     assert _score is not None
-    return cast(Score, _score)
+    return deserialize(_score)
 
 
 async def fetch_many(
@@ -222,7 +280,53 @@ async def fetch_many(
         values["page_size"] = page_size
         values["offset"] = page * page_size
     scores = await clients.database.fetch_all(query, values)
-    return cast(list[Score], scores)
+    return [deserialize(score) for score in scores]
+
+
+async def fetch_count(
+    beatmap_md5: str | None = None,
+    account_id: int | None = None,
+    country: str | None = None,
+    full_combo: bool | None = None,
+    grade: str | None = None,
+    submission_status: int | None = None,
+    game_mode: int | None = None,
+    mods: int | None = None,
+    page: int | None = None,
+    page_size: int | None = None,
+) -> int:
+    query = f"""\
+        SELECT COUNT(*) AS count
+        FROM scores
+        WHERE beatmap_md5 = COALESCE(:beatmap_md5, beatmap_md5)
+        AND account_id = COALESCE(:account_id, account_id)
+        AND country = COALESCE(:country, country)
+        AND full_combo = COALESCE(:full_combo, full_combo)
+        AND grade = COALESCE(:grade, grade)
+        AND submission_status = COALESCE(:submission_status, submission_status)
+        AND game_mode = COALESCE(:game_mode, game_mode)
+        AND mods = COALESCE(:mods, mods)
+    """
+    values = {
+        "beatmap_md5": beatmap_md5,
+        "account_id": account_id,
+        "country": country,
+        "full_combo": full_combo,
+        "grade": grade,
+        "submission_status": submission_status,
+        "game_mode": game_mode,
+        "mods": mods,
+    }
+    if page is not None and page_size is not None:
+        query += f"""\
+            LIMIT :page_size
+            OFFSET :offset
+        """
+        values["page_size"] = page_size
+        values["offset"] = page * page_size
+    rec = await clients.database.fetch_one(query, values)
+    assert rec is not None
+    return rec["count"]
 
 
 async def fetch_one_by_id(score_id: int) -> Score | None:
@@ -236,4 +340,4 @@ async def fetch_one_by_id(score_id: int) -> Score | None:
             "score_id": score_id,
         },
     )
-    return cast(Score, score) if score is not None else None
+    return deserialize(score) if score is not None else None

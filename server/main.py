@@ -29,6 +29,7 @@ from server import geolocation
 from server import logger
 from server import packet_handlers
 from server import packets
+from server import performance
 from server import privileges
 from server import ranking
 from server import security
@@ -877,14 +878,55 @@ async def submit_score_handler(
         num_misses,
     )
 
-    performance_points = 0.0  # TODO
+    try:
+        osu_file_contents = await s3.download(
+            filename=f"{beatmap['beatmap_id']}.osu",
+            folder="osu_beatmap_files",
+        )
+        assert osu_file_contents is not None
+    except Exception as exc:
+        # TODO: JIT .osu files
+        osu_file_contents = await osu_api_v2.fetch_osu_file_contents(
+            beatmap["beatmap_id"]
+        )
+        if osu_file_contents is None:
+            logger.error("Failed to download file from the osu! api")
+            return
+
+        try:
+            await s3.upload(
+                body=osu_file_contents,
+                filename=f"{beatmap['beatmap_id']}.osu",
+                folder="osu_beatmap_files",
+            )
+        except Exception as exc:
+            logger.error("Failed to upload file to S3", exc_info=exc)
+            return
+
+    if osu_file_contents is None:
+        logger.warning("Beatmap file for not found", beatmap_md5=beatmap_md5)
+        return
+
+    performance_attrs = performance.calculate_performance(
+        osu_file_contents,
+        game_mode,
+        mods,
+        accuracy,
+        num_300s,
+        num_100s,
+        num_50s,
+        num_misses,
+        num_gekis,
+        num_katus,
+        highest_combo,
+    )
 
     score = await scores.create(
         account["account_id"],
         online_checksum,
         beatmap_md5,
         score_points,
-        performance_points,
+        performance_attrs["performance_points"],
         accuracy,
         highest_combo,
         full_combo,
@@ -921,16 +963,47 @@ async def submit_score_handler(
     gamemode_stats = await stats.fetch_one(account["account_id"], game_mode)
     assert gamemode_stats is not None
 
+    # TODO: these should be fetching pp-awarding scores only
+
+    top_100_scores = await scores.fetch_many(
+        account_id=account["account_id"],
+        game_mode=game_mode,
+        sort_by="performance_points",
+        submission_status=2,
+        page_size=100,
+    )
+
+    total_score_count = await scores.fetch_count(
+        account_id=account["account_id"],
+        submission_status=2,
+        game_mode=game_mode,
+    )
+
+    # calculate new overall accuracy
+    weighted_accuracy = sum(
+        score["accuracy"] * 0.95**i for i, score in enumerate(top_100_scores)
+    )
+    bonus_accuracy = 100.0 / (20 * (1 - 0.95**total_score_count))
+    total_accuracy = round((weighted_accuracy * bonus_accuracy) / 100.0, 3)
+
+    # calculate new overall pp
+    weighted_pp = sum(
+        score["performance_points"] * 0.95**i
+        for i, score in enumerate(top_100_scores)
+    )
+    bonus_pp = 416.6667 * (1 - 0.9994**total_score_count)
+    total_pp = round(weighted_pp + bonus_pp)
+
     gamemode_stats = await stats.partial_update(
         account["account_id"],
         game_mode=game_mode,
         total_score=gamemode_stats["total_score"] + score_points,
         # TODO: only if best & on ranked map
         ranked_score=gamemode_stats["ranked_score"] + score_points,
-        performance_points=int(0.0),  # TODO: weighted pp based on top 100 scores
+        performance_points=total_pp,
         play_count=gamemode_stats["play_count"] + 1,
         play_time=gamemode_stats["play_time"] + time_elapsed,
-        accuracy=0.0,  # TODO: weighted acc based on top 100 scores
+        accuracy=total_accuracy,
         highest_combo=max(gamemode_stats["highest_combo"], highest_combo),
         total_hits=(
             gamemode_stats["total_hits"] + num_300s + num_100s + num_50s + num_misses
@@ -945,35 +1018,38 @@ async def submit_score_handler(
 
     # send account stats to all other osu! sessions if we're not restricted
     if account["privileges"] & ServerPrivileges.UNRESTRICTED:
-        for other_session in await sessions.fetch_all():
-            if other_session["session_id"] == session["session_id"]:
-                continue
+        sessions_to_notify = await sessions.fetch_all()
+    else:
+        sessions_to_notify = [session]
 
-            packet_data = packets.write_user_stats_packet(
-                gamemode_stats["account_id"],
-                session["presence"]["action"],
-                session["presence"]["info_text"],
-                session["presence"]["beatmap_md5"],
-                session["presence"]["mods"],
-                session["presence"]["mode"],
-                session["presence"]["beatmap_id"],
-                gamemode_stats["ranked_score"],
-                gamemode_stats["accuracy"],
-                gamemode_stats["play_count"],
-                gamemode_stats["total_score"],
-                ranking.get_global_rank(gamemode_stats["account_id"]),
-                gamemode_stats["performance_points"],
-            )
-            await packet_bundles.enqueue(
-                other_session["session_id"],
-                packet_data,
-            )
+    for other_session in sessions_to_notify:
+        packet_data = packets.write_user_stats_packet(
+            gamemode_stats["account_id"],
+            session["presence"]["action"],
+            session["presence"]["info_text"],
+            session["presence"]["beatmap_md5"],
+            session["presence"]["mods"],
+            session["presence"]["mode"],
+            session["presence"]["beatmap_id"],
+            gamemode_stats["ranked_score"],
+            gamemode_stats["accuracy"],
+            gamemode_stats["play_count"],
+            gamemode_stats["total_score"],
+            ranking.get_global_rank(gamemode_stats["account_id"]),
+            gamemode_stats["performance_points"],
+        )
+        await packet_bundles.enqueue(
+            other_session["session_id"],
+            packet_data,
+        )
 
     # TODO: send to #announcements if the score is #1
 
     # TODO: unlock achievements
 
     # TODO: construct score submission charts
+
+    return b"error: no"
 
 
 @osu_web_handler.post("/difficulty-rating")
