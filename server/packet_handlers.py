@@ -2,7 +2,7 @@ from collections.abc import Awaitable
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from server import command_handlers
+from server import commands
 from server import logger
 from server import packets
 from server import ranking
@@ -148,9 +148,14 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
     # handle commands
     if message_content.startswith("!"):
         trigger, *args = message_content.split(" ")
-        command_handler = command_handlers.get_command_handler(trigger)
-        if command_handler is not None:
-            bancho_bot_message = await command_handler(session, args)
+        command = commands.get_command(trigger)
+        if command is not None:
+            if command.privileges is not None:
+                if not own_presence["privileges"] & command.privileges:
+                    return
+
+            bancho_bot_message = await command.callback(session, args)
+
             if bancho_bot_message is not None:
                 # TODO: send bancho bot message only to those in the channel
                 for other_session in await sessions.fetch_all():
@@ -421,7 +426,11 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
     recipient_session = await sessions.fetch_by_username(recipient_name)
 
     if recipient_session is None:
-        logger.warning("Recipient is currently offline")
+        logger.warning(
+            "Recipient session could not be found by username.",
+            sender_name=sender_name,
+            recipient_name=recipient_name,
+        )
         return
 
     relationship_info = await relationships.fetch_one(
@@ -437,12 +446,6 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
         recipient_name,
         own_presence["account_id"],
     )
-
-    recipient_session = await sessions.fetch_by_username(recipient_name)
-
-    # Todo add notification
-    if recipient_session is None:
-        return
 
     await packet_bundles.enqueue(
         recipient_session["session_id"], send_message_packet_data

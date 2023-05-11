@@ -1,7 +1,4 @@
-from enum import IntFlag
-
-
-class ClientPrivileges(IntFlag):
+class ClientPrivileges:
     """Client side user privileges."""
 
     PLAYER = 1 << 0
@@ -12,7 +9,7 @@ class ClientPrivileges(IntFlag):
     TOURNAMENT = 1 << 5  # NOTE: not used in communications with osu! client
 
 
-class ServerPrivileges(IntFlag):
+class ServerPrivileges:
     """Server side user privileges."""
 
     UNRESTRICTED = 1 << 0
@@ -24,7 +21,7 @@ class ServerPrivileges(IntFlag):
     SUPER_ADMIN = 1 << 30
 
 
-def server_to_client_privileges(value: int) -> ClientPrivileges:
+def server_to_client_privileges(value: int) -> int:
     # TODO: an actual function implementing this
     return (
         ClientPrivileges.PLAYER
