@@ -352,9 +352,6 @@ async def handle_login(request: Request) -> Response:
     # osu chat channels
 
     for channel in await channels.fetch_many():
-        if not channel["auto_join"]:
-            continue  # TODO: is this right?
-
         if (account["privileges"] & channel["read_privileges"]) == 0:
             continue
 
