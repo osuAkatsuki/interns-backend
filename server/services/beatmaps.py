@@ -54,17 +54,7 @@ def _transform_to_internal_model(osu_api_beatmap: osu_api_v2.Beatmap) -> Beatmap
 
 
 def _should_get_updates(beatmap: Beatmap) -> bool:
-    if beatmap["ranked_status"] in (
-        BeatmapRankedStatus.RANKED,
-        BeatmapRankedStatus.APPROVED,
-    ):
-        # it is not possible to update a ranked or approved beatmapset
-        return False
-
     match beatmap["ranked_status"]:
-        case BeatmapRankedStatus.LOVED:
-            # loved maps can *technically* be updated
-            update_interval = timedelta(days=1)
         case BeatmapRankedStatus.GRAVEYARD:
             # TODO: scale this with time since last beatmap update
             update_interval = timedelta(days=1)
@@ -74,6 +64,13 @@ def _should_get_updates(beatmap: Beatmap) -> bool:
             update_interval = timedelta(minutes=10)
         case BeatmapRankedStatus.WIP:
             update_interval = timedelta(minutes=5)
+        case BeatmapRankedStatus.LOVED:
+            # loved maps can *technically* be updated
+            update_interval = timedelta(days=1)
+        case BeatmapRankedStatus.RANKED | BeatmapRankedStatus.APPROVED:
+            # in very rare cases, the osu! team has updated ranked/appvoed maps
+            # this is usually done to remove things like inappropriate content
+            update_interval = timedelta(days=1)
         case _:
             raise NotImplementedError(
                 f"Unknown ranked status: {beatmap['ranked_status']}"
