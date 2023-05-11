@@ -351,44 +351,6 @@ async def handle_login(request: Request) -> Response:
 
     # osu chat channels
 
-    # #osu channel
-    osu_channel = await channels.fetch_one_by_name("#osu")
-    assert osu_channel is not None
-    osu_channel_members = await channel_members.members(
-        osu_channel["channel_id"],
-    )
-
-    # #announce channel
-    announce_channel = await channels.fetch_one_by_name("#announce")
-    assert announce_channel is not None
-    announce_channel_members = await channel_members.members(
-        announce_channel["channel_id"],
-    )
-
-    await channel_members.add(osu_channel["channel_id"], own_session["session_id"])
-    await channel_members.add(announce_channel["channel_id"], own_session["session_id"])
-
-    for other_session in await sessions.fetch_all():
-        # #osu channel info
-        await packet_bundles.enqueue(
-            other_session["session_id"],
-            data=packets.write_channel_info_packet(
-                osu_channel["name"],
-                osu_channel["topic"],
-                len(osu_channel_members) + 1,
-            ),
-        )
-
-        # #announce channel info
-        await packet_bundles.enqueue(
-            other_session["session_id"],
-            data=packets.write_channel_info_packet(
-                announce_channel["name"],
-                announce_channel["topic"],
-                len(announce_channel_members) + 1,
-            ),
-        )
-
     for channel in await channels.fetch_many():
         if not channel["auto_join"]:
             continue  # TODO: is this right?
