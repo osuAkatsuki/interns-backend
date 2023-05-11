@@ -8,6 +8,8 @@ if TYPE_CHECKING:
     from server.repositories.beatmaps import Beatmap
     from server.repositories.scores import Score
 
+# TODO: we can improve the typing here to avoid the optionals
+# https://github.com/cmyui/osu-server-professing/pull/33/files#r1181634986
 
 class DifficultyAttributes(TypedDict):
     star_rating: float
