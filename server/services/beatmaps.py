@@ -1,5 +1,6 @@
 from datetime import datetime
 from datetime import timedelta
+from datetime import timezone
 
 from server.adapters import osu_api_v2
 from server.errors import ServiceError
@@ -40,7 +41,7 @@ def _should_get_updates(beatmap: Beatmap) -> bool:
                 f"Unknown ranked status: {beatmap['ranked_status']}"
             )
 
-    return beatmap["updated_at"] <= (datetime.now() - update_interval)
+    return beatmap["updated_at"] <= (datetime.now(tz=timezone.utc) - update_interval)
 
 
 async def create(
