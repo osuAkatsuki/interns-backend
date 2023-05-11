@@ -26,8 +26,20 @@ READ_PARAMS = """\
     od,
     hp,
     star_rating,
-    updated_at
+    updated_at,
+    bancho_ranked_status,
+    bancho_updated_at
 """
+
+
+class BeatmapRankedStatus:
+    GRAVEYARD = -2
+    WIP = -1
+    PENDING = 0
+    RANKED = 1
+    APPROVED = 2
+    QUALIFIED = 3
+    LOVED = 4
 
 
 class Beatmap(TypedDict):
@@ -52,6 +64,9 @@ class Beatmap(TypedDict):
     od: float
     hp: float
     star_rating: float
+    bancho_ranked_status: int
+    bancho_updated_at: datetime
+    created_at: datetime
     updated_at: datetime
 
 
@@ -77,7 +92,8 @@ async def create(
     od: float,
     hp: float,
     star_rating: float,
-    updated_at: datetime,
+    bancho_ranked_status: int,
+    bancho_updated_at: datetime,
 ) -> Beatmap:
     beatmap = await clients.database.fetch_one(
         query=f"""\
@@ -85,12 +101,14 @@ async def create(
                                   beatmap_md5, artist, title, version, creator,
                                   filename, total_length, max_combo,
                                   ranked_status_manually_changed, plays, passes,
-                                  mode, bpm, cs, ar, od, hp, star_rating, updated_at)
+                                  mode, bpm, cs, ar, od, hp, star_rating,
+                                  bancho_ranked_status, bancho_updated_at)
             VALUES (:beatmap_id, :beatmap_set_id, :ranked_status,
                     :beatmap_md5, :artist, :title, :version, :creator,
                     :filename, :total_length, :max_combo,
                     :ranked_status_manually_changed, :plays, :passes,
-                    :mode, :bpm, :cs, :ar, :od, :hp, :star_rating, :updated_at)
+                    :mode, :bpm, :cs, :ar, :od, :hp, :star_rating,
+                    :bancho_ranked_status, :bancho_updated_at)
             RETURNING {READ_PARAMS}
         """,
         values={
@@ -115,7 +133,8 @@ async def create(
             "od": od,
             "hp": hp,
             "star_rating": star_rating,
-            "updated_at": updated_at,
+            "bancho_ranked_status": bancho_ranked_status,
+            "bancho_updated_at": bancho_updated_at,
         },
     )
 
@@ -144,14 +163,24 @@ async def fetch_many(
     return cast(list[Beatmap], beatmaps)
 
 
-async def fetch_one_by_id(beatmap_id: int) -> Beatmap | None:
+async def fetch_one(
+    beatmap_md5: str | None = None,
+    file_name: str | None = None,
+    beatmap_id: int | None = None,
+) -> Beatmap | None:
+    assert (beatmap_md5, file_name, beatmap_id).count(None) == 2
+
     beatmap = await clients.database.fetch_one(
         query=f"""\
             SELECT {READ_PARAMS}
             FROM beatmaps
-            WHERE beatmap_id = :beatmap_id
+            WHERE beatmap_md5 = COALESCE(:beatmap_md5, beatmap_md5)
+            AND filename = COALESCE(:filename, filename)
+            AND beatmap_id = COALESCE(:beatmap_id, beatmap_id)
         """,
         values={
+            "beatmap_md5": beatmap_md5,
+            "filename": file_name,
             "beatmap_id": beatmap_id,
         },
     )
@@ -179,7 +208,8 @@ async def partial_update(
     od: float | None = None,
     hp: float | None = None,
     star_rating: float | None = None,
-    updated_at: datetime | None = None,
+    bancho_ranked_status: int | None = None,
+    bancho_updated_at: datetime | None = None,
 ) -> Beatmap | None:
     beatmap = await clients.database.fetch_one(
         query=f"""\
@@ -203,7 +233,9 @@ async def partial_update(
                 od = COALESCE(:od, od),
                 hp = COALESCE(:hp, hp),
                 star_rating = COALESCE(:star_rating, star_rating),
-                updated_at = COALESCE(:updated_at, updated_at)
+                bancho_ranked_status = COALESCE(:bancho_ranked_status, bancho_ranked_status),
+                bancho_updated_at = COALESCE(:bancho_updated_at, bancho_updated_at),
+                updated_at = NOW()
             WHERE beatmap_id = :beatmap_id
             RETURNING {READ_PARAMS}
         """,
@@ -228,21 +260,8 @@ async def partial_update(
             "od": od,
             "hp": hp,
             "star_rating": star_rating,
-            "updated_at": updated_at,
-        },
-    )
-    return cast(Beatmap, beatmap) if beatmap is not None else None
-
-
-async def fetch_one_by_md5(beatmap_md5: str) -> Beatmap | None:
-    beatmap = await clients.database.fetch_one(
-        query=f"""\
-            SELECT {READ_PARAMS}
-            FROM beatmaps
-            WHERE beatmap_md5 = :beatmap_md5
-        """,
-        values={
-            "beatmap_md5": beatmap_md5,
+            "bancho_ranked_status": bancho_ranked_status,
+            "bancho_updated_at": bancho_updated_at,
         },
     )
     return cast(Beatmap, beatmap) if beatmap is not None else None
