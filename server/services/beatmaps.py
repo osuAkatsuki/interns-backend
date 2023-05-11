@@ -193,9 +193,7 @@ async def fetch_one(
         # persist changes
         beatmap = await beatmaps.partial_update(
             osu_api_beatmap.beatmap_id,
-            beatmap["ranked_status"]
-            if ranked_status_manually_changed
-            else osu_api_beatmap.ranked_status,  # our ranked status
+            ranked_status,
             osu_api_beatmap.beatmap_md5,
             osu_api_beatmap.beatmapset.artist,
             osu_api_beatmap.beatmapset.title,
