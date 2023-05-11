@@ -51,8 +51,8 @@ from server.repositories import stats
 from server.repositories.accounts import Account
 from server.repositories.beatmaps import Beatmap
 from server.repositories.scores import Score
-from server.services import screenshots
 from server.services import beatmaps
+from server.services import screenshots
 
 
 app = FastAPI()
@@ -683,8 +683,16 @@ async def get_scores_handler(
         return
 
     beatmap = await beatmaps.fetch_one(beatmap_md5=beatmap_md5)
-    if beatmap is ServiceError.BEATMAPS_NOT_FOUND:
-        logger.warning("Beatmap not found", beatmap_md5=beatmap_md5)
+    if isinstance(beatmap, ServiceError):
+        if beatmap is ServiceError.BEATMAPS_NOT_FOUND:
+            logger.warning("Beatmap not found", beatmap_md5=beatmap_md5)
+            return
+
+        logger.error(
+            "Failed to fetch beatmap",
+            beatmap_md5=beatmap_md5,
+            error=beatmap,
+        )
         return
 
     # TODO: leaderboard type handling
@@ -810,7 +818,7 @@ async def submit_score_handler(
         return
 
     beatmap = await beatmaps.fetch_one(beatmap_md5=beatmap_md5)
-    if beatmap is None:
+    if isinstance(beatmap, ServiceError):
         logger.warning("Beatmap not found", beatmap_md5=beatmap_md5)
         return
 

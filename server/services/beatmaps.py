@@ -17,42 +17,6 @@ def _create_beatmap_filename(
     return f"{artist} - {title} ({creator}) [{version}].osu"
 
 
-def _transform_to_internal_model(osu_api_beatmap: osu_api_v2.Beatmap) -> Beatmap:
-    assert osu_api_beatmap.beatmap_md5 is not None
-    assert osu_api_beatmap.last_updated is not None  # TODO?
-    assert osu_api_beatmap.beatmapset is not None
-
-    return {
-        "beatmap_id": osu_api_beatmap.beatmap_id,
-        "beatmap_set_id": osu_api_beatmap.beatmap_set_id,
-        "ranked_status": osu_api_beatmap.ranked_status,
-        "beatmap_md5": osu_api_beatmap.beatmap_md5,
-        "artist": osu_api_beatmap.beatmapset.artist,
-        "title": osu_api_beatmap.beatmapset.title,
-        "version": osu_api_beatmap.version,
-        "creator": osu_api_beatmap.beatmapset.creator_name,
-        "filename": _create_beatmap_filename(
-            artist=osu_api_beatmap.beatmapset.artist,
-            title=osu_api_beatmap.beatmapset.title,
-            version=osu_api_beatmap.version,
-            creator=osu_api_beatmap.beatmapset.creator_name,
-        ),
-        "total_length": osu_api_beatmap.total_length,
-        "max_combo": osu_api_beatmap.max_combo or 0,
-        "ranked_status_manually_changed": False,  # manually ranked
-        "plays": 0,  # plays
-        "passes": 0,  # passes
-        "mode": osu_api_beatmap.game_mode,
-        "bpm": osu_api_beatmap.bpm or 0,
-        "cs": osu_api_beatmap.cs or 0,
-        "ar": osu_api_beatmap.ar or 0,
-        "od": osu_api_beatmap.od or 0,
-        "hp": osu_api_beatmap.hp or 0,
-        "star_rating": osu_api_beatmap.star_rating,
-        "updated_at": osu_api_beatmap.last_updated or datetime.now(),
-    }
-
-
 def _should_get_updates(beatmap: Beatmap) -> bool:
     match beatmap["ranked_status"]:
         case BeatmapRankedStatus.GRAVEYARD:
@@ -82,7 +46,6 @@ def _should_get_updates(beatmap: Beatmap) -> bool:
 async def create(
     beatmap_id: int,
     beatmap_set_id: int,
-    ranked_status: int,
     beatmap_md5: str,
     artist: str,
     title: str,
@@ -101,12 +64,14 @@ async def create(
     od: float,
     hp: float,
     star_rating: float,
-    updated_at: datetime,
+    bancho_ranked_status: int,
+    bancho_updated_at: datetime,
 ) -> Beatmap | ServiceError:
     beatmap = await beatmaps.create(
         beatmap_id,
         beatmap_set_id,
-        ranked_status,
+        # start our ranked status as bancho's
+        bancho_ranked_status,
         beatmap_md5,
         artist,
         title,
@@ -125,7 +90,8 @@ async def create(
         od,
         hp,
         star_rating,
-        updated_at,
+        bancho_ranked_status,
+        bancho_updated_at,
     )
     if beatmap is None:
         return ServiceError.BEATMAPS_CREATE_FAILED
@@ -166,8 +132,42 @@ async def fetch_one(
         if not osu_api_beatmap:
             return ServiceError.BEATMAPS_NOT_FOUND
 
-        beatmap = _transform_to_internal_model(osu_api_beatmap)
-        await beatmaps.create(**beatmap)
+        assert osu_api_beatmap.beatmap_md5 is not None
+        assert osu_api_beatmap.last_updated is not None  # TODO?
+        assert osu_api_beatmap.beatmapset is not None
+
+        # TODO: log the cases when Nones or 0s are persisted
+
+        beatmap = await beatmaps.create(
+            osu_api_beatmap.beatmap_id,
+            osu_api_beatmap.beatmap_set_id,
+            osu_api_beatmap.ranked_status,
+            osu_api_beatmap.beatmap_md5,
+            osu_api_beatmap.beatmapset.artist,
+            osu_api_beatmap.beatmapset.title,
+            osu_api_beatmap.version,
+            osu_api_beatmap.beatmapset.creator_name,
+            _create_beatmap_filename(
+                artist=osu_api_beatmap.beatmapset.artist,
+                title=osu_api_beatmap.beatmapset.title,
+                version=osu_api_beatmap.version,
+                creator=osu_api_beatmap.beatmapset.creator_name,
+            ),
+            osu_api_beatmap.total_length,
+            osu_api_beatmap.max_combo or 0,
+            False,  # manually ranked
+            0,  # plays
+            0,  # passes
+            osu_api_beatmap.game_mode,
+            osu_api_beatmap.bpm or 0,
+            osu_api_beatmap.cs or 0,
+            osu_api_beatmap.ar or 0,
+            osu_api_beatmap.od or 0,
+            osu_api_beatmap.hp or 0,
+            osu_api_beatmap.star_rating,
+            osu_api_beatmap.ranked_status,
+            osu_api_beatmap.last_updated,
+        )
 
     # we have this map, but it might be outdated
     elif _should_get_updates(beatmap):
@@ -178,38 +178,51 @@ async def fetch_one(
         )
         assert osu_api_beatmap is not None
 
-        new_beatmap = _transform_to_internal_model(osu_api_beatmap)
-
         # keep changes that are manually set by the beatmap nomination team
         if beatmap["ranked_status_manually_changed"]:
-            new_beatmap["ranked_status"] = beatmap["ranked_status"]
-            new_beatmap["ranked_status_manually_changed"] = True
+            ranked_status = beatmap["ranked_status"]
+            ranked_status_manually_changed = True
+        else:
+            ranked_status = osu_api_beatmap.ranked_status
+            ranked_status_manually_changed = False
+
+        assert osu_api_beatmap.beatmap_md5 is not None
+        assert osu_api_beatmap.last_updated is not None  # TODO?
+        assert osu_api_beatmap.beatmapset is not None
 
         # persist changes
-        await beatmaps.partial_update(
-            new_beatmap["beatmap_id"],
-            new_beatmap["ranked_status"],
-            new_beatmap["beatmap_md5"],
-            new_beatmap["artist"],
-            new_beatmap["title"],
-            new_beatmap["version"],
-            new_beatmap["creator"],
-            new_beatmap["filename"],
-            new_beatmap["total_length"],
-            new_beatmap["max_combo"],
-            new_beatmap["ranked_status_manually_changed"],
-            new_beatmap["plays"],
-            new_beatmap["passes"],
-            new_beatmap["mode"],
-            new_beatmap["bpm"],
-            new_beatmap["cs"],
-            new_beatmap["ar"],
-            new_beatmap["od"],
-            new_beatmap["hp"],
-            new_beatmap["star_rating"],
-            new_beatmap["updated_at"],
+        beatmap = await beatmaps.partial_update(
+            osu_api_beatmap.beatmap_id,
+            beatmap["ranked_status"]
+            if ranked_status_manually_changed
+            else osu_api_beatmap.ranked_status,  # our ranked status
+            osu_api_beatmap.beatmap_md5,
+            osu_api_beatmap.beatmapset.artist,
+            osu_api_beatmap.beatmapset.title,
+            osu_api_beatmap.version,
+            osu_api_beatmap.beatmapset.creator_name,
+            _create_beatmap_filename(
+                artist=osu_api_beatmap.beatmapset.artist,
+                title=osu_api_beatmap.beatmapset.title,
+                version=osu_api_beatmap.version,
+                creator=osu_api_beatmap.beatmapset.creator_name,
+            ),
+            osu_api_beatmap.total_length,
+            osu_api_beatmap.max_combo,
+            ranked_status_manually_changed,  # manually ranked
+            None,  # plays
+            None,  # passes
+            osu_api_beatmap.game_mode,
+            osu_api_beatmap.bpm,
+            osu_api_beatmap.cs,
+            osu_api_beatmap.ar,
+            osu_api_beatmap.od,
+            osu_api_beatmap.hp,
+            osu_api_beatmap.star_rating,
+            osu_api_beatmap.ranked_status,  # bancho ranked status
+            osu_api_beatmap.last_updated,  # bancho last updated
         )
-        beatmap = new_beatmap
+        assert beatmap is not None
 
     return beatmap
 
@@ -235,7 +248,8 @@ async def partial_update(
     od: float | None = None,
     hp: float | None = None,
     star_rating: float | None = None,
-    updated_at: datetime | None = None,
+    bancho_ranked_status: int | None = None,
+    bancho_updated_at: datetime | None = None,
 ) -> Beatmap | ServiceError:
     beatmap = await beatmaps.partial_update(
         beatmap_id,
@@ -258,7 +272,8 @@ async def partial_update(
         od,
         hp,
         star_rating,
-        updated_at,
+        bancho_ranked_status,
+        bancho_updated_at,
     )
     if beatmap is None:
         return ServiceError.BEATMAPS_NOT_FOUND
