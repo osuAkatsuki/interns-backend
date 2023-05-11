@@ -38,4 +38,4 @@ async def one_star_fc(
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
-    return score["full_combo"] and beatmap["star_rating"] == 1
+    return score["full_combo"] and 1 <= beatmap["star_rating"] < 2 
