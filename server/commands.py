@@ -45,28 +45,34 @@ def command(
 
 @command("!help")
 async def help_handler(session: "Session", args: list[str]) -> str | None:
+    """Display this help message."""
     response_lines = []
-    for trigger, function in commands.items():
-        if trigger != "!help":
-            documentation = function.__doc__ or "No documentation available"
-            response_lines.append(f"{trigger} - {documentation}")
+    for trigger, command in commands.items():
+        # don't show commands without documentation
+        documentation = command.callback.__doc__
+        if not documentation:
+            continue
+
+        # don't show commands that the user can't access
+        if command.privileges is not None:
+            if (session["presence"]["privileges"] & command.privileges) == 0:
+                continue
+
+        response_lines.append(f"{trigger} - {documentation}")
 
     return "\n".join(response_lines)
 
 
-@command("!echo")
-async def echo_handler(session: "Session", args: list[str]) -> str | None:
-    return " ".join(args)
-
-
 @command("!roll")
 async def roll_handler(session: "Session", args: list[str]) -> str | None:
+    """Roll a random number between 0 and a given number."""
     random_number_max = int(args[0])
     return str(random.randrange(0, random_number_max))
 
 
 @command("!py", privileges=ServerPrivileges.SUPER_ADMIN)
 async def py_handler(session: "Session", args: list[str]) -> str | None:
+    """Execute a Python expression."""
     try:
         namespace = {}
         exec("async def f():\n " + " ".join(args), namespace)
@@ -77,6 +83,7 @@ async def py_handler(session: "Session", args: list[str]) -> str | None:
 
 @command("!block")
 async def block_handler(session: "Session", args: list[str]) -> str | None:
+    """Block communications with another user."""
     own_presence = session["presence"]
 
     account_to_be_blocked = await accounts.fetch_by_username(args[0])
