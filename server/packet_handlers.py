@@ -362,10 +362,10 @@ async def cant_spectate_handler(session: "Session", packet_data: bytes):
         )
         return
 
-    host_session = session["presence"]["spectator_host_session_id"]
-    await packet_bundles.enqueue(host_session, data)
+    host_session_id = session["presence"]["spectator_host_session_id"]
+    await packet_bundles.enqueue(host_session_id, data)
 
-    for spectator_session_id in await spectators.members(host_session):
+    for spectator_session_id in await spectators.members(host_session_id):
         await packet_bundles.enqueue(spectator_session_id, data)
 
 
