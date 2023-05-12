@@ -386,6 +386,62 @@ def write_string(value: str) -> bytes:
         return b"\x0b" + write_uleb128(len(encoded)) + encoded
 
 
+# osu! specific data types
+
+
+def write_osu_match(
+    match_id: int,
+    match_in_progress: bool,
+    mods: int,
+    match_name: str,
+    match_password: str,
+    beatmap_name: str,
+    beatmap_id: int,
+    beatmap_md5: str,
+    slot_statuses: list[int],
+    slot_teams: list[int],
+    per_slot_account_ids: list[int],
+    host_account_id: int,
+    game_mode: int,
+    win_condition: int,
+    team_type: int,
+    freemods_enabled: bool,
+    per_slot_mods: list[int],
+    random_seed: int,
+    should_send_password: bool,
+) -> bytes:
+    buffer = bytearray()
+    buffer += struct.pack("<H", match_id)
+    buffer += struct.pack("<B", match_in_progress)
+    buffer += struct.pack("<B", 0)  # powerplay
+    buffer += struct.pack("<I", mods)
+    buffer += write_string(match_name)
+    if match_password:
+        if should_send_password:
+            buffer += write_string(match_password)
+        else:
+            # hidden password: "\x0b\x00"
+            buffer += b"\x0b\x00"
+    else:
+        # no password: "\x00"
+        buffer += b"\x00"
+    buffer += write_string(beatmap_name)
+    buffer += struct.pack("<i", beatmap_id)
+    buffer += write_string(beatmap_md5)
+    buffer += struct.pack("<16b", *slot_statuses)
+    buffer += struct.pack("<16b", *slot_teams)
+    buffer += struct.pack(f"<{len(per_slot_account_ids)}I", *per_slot_account_ids)
+    buffer += struct.pack("<I", host_account_id)
+    buffer += struct.pack("<B", game_mode)
+    buffer += struct.pack("<B", win_condition)
+    buffer += struct.pack("<B", team_type)
+    buffer += struct.pack("<B", freemods_enabled)
+    if freemods_enabled:
+        buffer += struct.pack(f"<I{len(per_slot_mods)}i", *per_slot_mods)
+    buffer += struct.pack("<i", random_seed)
+    return bytes(buffer)
+
+
 def write_packet(
     packet_id: int,
     packet_data_inputs: list[tuple[DataType, Any]],
@@ -417,6 +473,8 @@ def write_packet(
             packet_body += struct.pack("<d", value)
         elif type == DataType.STRING:
             packet_body += write_string(value)
+        elif type == DataType.OSU_MATCH:
+            packet_body += write_osu_match(**value)
         elif type == DataType.RAW_DATA:
             packet_body += value
         else:
@@ -524,9 +582,7 @@ def write_logout_packet(user_id: int) -> bytes:
 def write_spectator_joined_packet(user_id: int) -> bytes:
     return write_packet(
         packet_id=ServerPackets.SPECTATOR_JOINED,
-        packet_data_inputs=[
-            (DataType.I32, user_id),
-        ],
+        packet_data_inputs=[(DataType.I32, user_id)],
     )
 
 
@@ -536,9 +592,7 @@ def write_spectator_joined_packet(user_id: int) -> bytes:
 def write_spectator_left_packet(user_id: int) -> bytes:
     return write_packet(
         packet_id=ServerPackets.SPECTATOR_LEFT,
-        packet_data_inputs=[
-            (DataType.I32, user_id),
-        ],
+        packet_data_inputs=[(DataType.I32, user_id)],
     )
 
 
@@ -548,9 +602,7 @@ def write_spectator_left_packet(user_id: int) -> bytes:
 def write_spectate_frames_packet(data: bytes) -> bytes:
     return write_packet(
         packet_id=ServerPackets.SPECTATE_FRAMES,
-        packet_data_inputs=[
-            (DataType.RAW_DATA, data),
-        ],
+        packet_data_inputs=[(DataType.RAW_DATA, data)],
     )
 
 
@@ -586,8 +638,6 @@ def write_notification_packet(
 
 # UPDATE_MATCH = 26
 
-# ;\x02\x00\x00\x00\x00\x00\x00\x0b\rfrosti's game\x00\x0b\x1cJin - Outer Science [Insane]\xc1\xc6\x04\x00\x0b d7908531d6f53877456ab53bb90529e4\x04\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00$j)\x00
-
 
 def write_update_match_packet(
     match_id: int,
@@ -610,51 +660,86 @@ def write_update_match_packet(
     random_seed: int,
     should_send_password: bool,
 ) -> bytes:
-    if match_password:
-        if should_send_password:
-            match_password_data = write_string(match_password)
-        else:
-            # hidden password: "\x0b\x00"
-            match_password_data = b"\x0b\x00"
-    else:
-        # no password: "\x00"
-        match_password_data = b"\x00"
-
+    match_data = {
+        "match_id": match_id,
+        "match_in_progress": match_in_progress,
+        "mods": mods,
+        "match_name": match_name,
+        "match_password": match_password,
+        "beatmap_name": beatmap_name,
+        "beatmap_id": beatmap_id,
+        "beatmap_md5": beatmap_md5,
+        "slot_statuses": slot_statuses,
+        "slot_teams": slot_teams,
+        "per_slot_account_ids": per_slot_account_ids,
+        "host_account_id": host_account_id,
+        "game_mode": game_mode,
+        "win_condition": win_condition,
+        "team_type": team_type,
+        "freemods_enabled": freemods_enabled,
+        "per_slot_mods": per_slot_mods,
+        "random_seed": random_seed,
+        "should_send_password": should_send_password,
+    }
     return write_packet(
         packet_id=ServerPackets.UPDATE_MATCH,
         packet_data_inputs=[
-            (DataType.U16, match_id),
-            (DataType.U8, match_in_progress),
-            (DataType.U8, 0),  # powerplay
-            (DataType.U32, mods),
-            (DataType.STRING, match_name),
-            (DataType.RAW_DATA, match_password_data),
-            (DataType.STRING, beatmap_name),
-            (DataType.I32, beatmap_id),
-            (DataType.STRING, beatmap_md5),
-            (DataType.RAW_DATA, struct.pack("<16b", *slot_statuses)),
-            (DataType.RAW_DATA, struct.pack("<16b", *slot_teams)),
-            (
-                DataType.RAW_DATA,
-                struct.pack(f"<{len(per_slot_account_ids)}I", *per_slot_account_ids),
-            ),
-            (DataType.U32, host_account_id),
-            (DataType.U8, game_mode),
-            (DataType.U8, win_condition),
-            (DataType.U8, team_type),
-            (DataType.U8, freemods_enabled),
-            (
-                DataType.RAW_DATA,
-                struct.pack(f"<I{len(per_slot_mods)}i", *per_slot_mods)
-                if freemods_enabled
-                else b"",
-            ),
-            (DataType.I32, random_seed),
+            (DataType.OSU_MATCH, match_data),
         ],
     )
 
 
 # NEW_MATCH = 27
+
+
+def write_new_match_packet(
+    match_id: int,
+    match_in_progress: bool,
+    mods: int,
+    match_name: str,
+    match_password: str,
+    beatmap_name: str,
+    beatmap_id: int,
+    beatmap_md5: str,
+    slot_statuses: list[int],
+    slot_teams: list[int],
+    per_slot_account_ids: list[int],
+    host_account_id: int,
+    game_mode: int,
+    win_condition: int,
+    team_type: int,
+    freemods_enabled: bool,
+    per_slot_mods: list[int],
+    random_seed: int,
+    should_send_password: bool,
+) -> bytes:
+    match_data = {
+        "match_id": match_id,
+        "match_in_progress": match_in_progress,
+        "mods": mods,
+        "match_name": match_name,
+        "match_password": match_password,
+        "beatmap_name": beatmap_name,
+        "beatmap_id": beatmap_id,
+        "beatmap_md5": beatmap_md5,
+        "slot_statuses": slot_statuses,
+        "slot_teams": slot_teams,
+        "per_slot_account_ids": per_slot_account_ids,
+        "host_account_id": host_account_id,
+        "game_mode": game_mode,
+        "win_condition": win_condition,
+        "team_type": team_type,
+        "freemods_enabled": freemods_enabled,
+        "per_slot_mods": per_slot_mods,
+        "random_seed": random_seed,
+        "should_send_password": should_send_password,
+    }
+    return write_packet(
+        packet_id=ServerPackets.NEW_MATCH,
+        packet_data_inputs=[
+            (DataType.OSU_MATCH, match_data),
+        ],
+    )
 
 
 # DISPOSE_MATCH = 28
@@ -687,46 +772,31 @@ def write_match_join_success_packet(
     random_seed: int,
     should_send_password: bool,
 ) -> bytes:
-    if match_password:
-        if should_send_password:
-            match_password_data = write_string(match_password)
-        else:
-            # hidden password: "\x0b\x00"
-            match_password_data = b"\x0b\x00"
-    else:
-        # no password: "\x00"
-        match_password_data = b"\x00"
-
+    match_data = {
+        "match_id": match_id,
+        "match_in_progress": match_in_progress,
+        "mods": mods,
+        "match_name": match_name,
+        "match_password": match_password,
+        "beatmap_name": beatmap_name,
+        "beatmap_id": beatmap_id,
+        "beatmap_md5": beatmap_md5,
+        "slot_statuses": slot_statuses,
+        "slot_teams": slot_teams,
+        "per_slot_account_ids": per_slot_account_ids,
+        "host_account_id": host_account_id,
+        "game_mode": game_mode,
+        "win_condition": win_condition,
+        "team_type": team_type,
+        "freemods_enabled": freemods_enabled,
+        "per_slot_mods": per_slot_mods,
+        "random_seed": random_seed,
+        "should_send_password": should_send_password,
+    }
     return write_packet(
         packet_id=ServerPackets.MATCH_JOIN_SUCCESS,
         packet_data_inputs=[
-            (DataType.U16, match_id),
-            (DataType.U8, match_in_progress),
-            (DataType.U8, 0),  # powerplay
-            (DataType.U32, mods),
-            (DataType.STRING, match_name),
-            (DataType.RAW_DATA, match_password_data),
-            (DataType.STRING, beatmap_name),
-            (DataType.I32, beatmap_id),
-            (DataType.STRING, beatmap_md5),
-            (DataType.RAW_DATA, struct.pack("<16b", *slot_statuses)),
-            (DataType.RAW_DATA, struct.pack("<16b", *slot_teams)),
-            (
-                DataType.RAW_DATA,
-                struct.pack(f"<{len(per_slot_account_ids)}I", *per_slot_account_ids),
-            ),
-            (DataType.U32, host_account_id),
-            (DataType.U8, game_mode),
-            (DataType.U8, win_condition),
-            (DataType.U8, team_type),
-            (DataType.U8, freemods_enabled),
-            (
-                DataType.RAW_DATA,
-                struct.pack(f"<I{len(per_slot_mods)}i", *per_slot_mods)
-                if freemods_enabled
-                else b"",
-            ),
-            (DataType.I32, random_seed),
+            (DataType.OSU_MATCH, match_data),
         ],
     )
 
@@ -747,9 +817,7 @@ def write_match_join_fail_packet() -> bytes:
 def write_fellow_spectator_joined_packet(user_id: int) -> bytes:
     return write_packet(
         packet_id=ServerPackets.FELLOW_SPECTATOR_JOINED,
-        packet_data_inputs=[
-            (DataType.I32, user_id),
-        ],
+        packet_data_inputs=[(DataType.I32, user_id)],
     )
 
 
@@ -759,9 +827,7 @@ def write_fellow_spectator_joined_packet(user_id: int) -> bytes:
 def write_fellow_spectator_left_packet(user_id: int) -> bytes:
     return write_packet(
         packet_id=ServerPackets.FELLOW_SPECTATOR_LEFT,
-        packet_data_inputs=[
-            (DataType.I32, user_id),
-        ],
+        packet_data_inputs=[(DataType.I32, user_id)],
     )
 
 
