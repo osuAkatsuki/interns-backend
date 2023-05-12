@@ -1,4 +1,3 @@
-from typing import Any
 from typing import cast
 from typing import TypedDict
 from uuid import UUID
