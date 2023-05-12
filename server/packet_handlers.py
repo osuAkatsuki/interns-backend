@@ -355,14 +355,14 @@ async def cant_spectate_handler(session: "Session", packet_data: bytes):
 
     data = packets.write_spectator_cant_spectate_packet(session["account_id"])
 
-    if session["presence"]["spectator_host_session_id"] is None:
+    host_session_id = session["presence"]["spectator_host_session_id"]
+    if host_session_id is None:
         logger.warning(
             "A user attempted to stop spectating user while not spectating anyone",
             spectator_id=session["account_id"],
         )
         return
 
-    host_session_id = session["presence"]["spectator_host_session_id"]
     await packet_bundles.enqueue(host_session_id, data)
 
     for spectator_session_id in await spectators.members(host_session_id):
