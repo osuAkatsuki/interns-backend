@@ -42,6 +42,7 @@ from server.errors import ServiceError
 from server.game_modes import GameMode
 from server.privileges import ServerPrivileges
 from server.repositories import accounts
+from server.repositories import achievements
 from server.repositories import channel_members
 from server.repositories import channels
 from server.repositories import packet_bundles
@@ -49,13 +50,13 @@ from server.repositories import relationships
 from server.repositories import scores
 from server.repositories import sessions
 from server.repositories import stats
+from server.repositories import user_achievements
 from server.repositories.accounts import Account
 from server.repositories.beatmaps import Beatmap
 from server.repositories.scores import Mods
 from server.repositories.scores import Score
 from server.services import beatmaps
 from server.services import screenshots
-
 
 app = FastAPI()
 
@@ -1023,7 +1024,17 @@ async def submit_score_handler(
 
     # TODO: send to #announcements if the score is #1
 
-    # TODO: unlock achievements
+    # unlock achievements
+    achievements_unlocked = []
+    for achievement in await achievements.fetch_many():
+        should_unlock = True  # TODO: handle it properly
+
+        if should_unlock:
+            unlocked = await user_achievements.create(
+                achievement["achievement_id"],
+                account["account_id"],
+            )
+            achievements_unlocked.append(unlocked)
 
     # TODO: construct score submission charts
 

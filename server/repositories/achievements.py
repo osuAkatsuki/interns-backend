@@ -1,6 +1,6 @@
+from typing import Any
 from typing import cast
 from typing import TypedDict
-from uuid import UUID
 
 from server import clients
 
@@ -13,14 +13,14 @@ READ_PARAMS = """\
 
 
 class Achievement(TypedDict):
-    achievement_id: UUID
+    achievement_id: int
     file_name: str
     achievement_name: str
     achievement_description: str
 
 
 async def create(
-    achievement_id: UUID,
+    achievement_id: int,
     file_name: str,
     achievement_name: str,
     achievement_description: str,
@@ -42,7 +42,7 @@ async def create(
     return cast(Achievement, achievement)
 
 
-async def fetch_one(achievement_id: UUID) -> Achievement | None:
+async def fetch_one(achievement_id: int) -> Achievement | None:
     achievement = await clients.database.fetch_one(
         query=f"""
             SELECT {READ_PARAMS}
@@ -54,3 +54,25 @@ async def fetch_one(achievement_id: UUID) -> Achievement | None:
         },
     )
     return cast(Achievement, achievement) if achievement is not None else None
+
+
+async def fetch_many(
+    page: int | None = None,
+    page_size: int | None = None,
+) -> list[Achievement]:
+    query = f"""
+        SELECT {READ_PARAMS}
+        FROM achievements
+    """
+    values: dict[str, Any] = {}
+
+    if page is not None and page_size is not None:
+        query += f"""\
+            LIMIT :limit
+            OFFSET :offset
+        """
+        values["limit"] = page_size
+        values["offset"] = (page - 1) * page_size
+
+    achievements = await clients.database.fetch_all(query, values)
+    return cast(list[Achievement], achievements)
