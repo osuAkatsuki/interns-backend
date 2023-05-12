@@ -1,6 +1,6 @@
 import pytest_mock
 
-from server import command_handlers
+from server import commands
 from testing import sample_data
 
 
@@ -9,7 +9,7 @@ async def test_echo_handler_should_echo_args():
     session = sample_data.fake_session()
 
     # act
-    command_response = await command_handlers.echo_handler(session, ["hello", "world"])
+    command_response = await commands.echo_handler(session, ["hello", "world"])
 
     # assert
     assert command_response is not None
@@ -21,7 +21,7 @@ async def test_roll_handler_should_roll_between_default_range():
     session = sample_data.fake_session()
 
     # act
-    command_response = await command_handlers.roll_handler(session, ["100"])
+    command_response = await commands.roll_handler(session, ["100"])
 
     # assert
     assert command_response is not None
@@ -33,7 +33,7 @@ async def test_py_handler_should_run_successfully():
     session = sample_data.fake_session()
 
     # act
-    command_response = await command_handlers.py_handler(session, ["return 1 + 1"])
+    command_response = await commands.py_handler(session, ["return 1 + 1"])
 
     # assert
     assert command_response is not None
@@ -64,7 +64,7 @@ async def test_block_handler_should_block_user(mocker: pytest_mock.MockerFixture
     )
 
     # act
-    command_response = await command_handlers.block_handler(
+    command_response = await commands.block_handler(
         fake_session, [fake_account["username"]]
     )
 
@@ -90,7 +90,7 @@ async def test_block_handler_should_not_block_user_if_not_found(
     )
 
     # act
-    command_response = await command_handlers.block_handler(
+    command_response = await commands.block_handler(
         fake_session, [fake_account["username"]]
     )
 
@@ -123,7 +123,7 @@ async def test_block_handler_should_not_block_user_if_already_blocked(
     )
 
     # act
-    command_response = await command_handlers.block_handler(
+    command_response = await commands.block_handler(
         fake_session, [fake_account["username"]]
     )
 
