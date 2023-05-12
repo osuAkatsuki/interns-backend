@@ -39,6 +39,7 @@ from server.adapters import osu_api_v2
 from server.adapters import s3
 from server.adapters.database import Database
 from server.errors import ServiceError
+from server.game_modes import GameMode
 from server.privileges import ServerPrivileges
 from server.repositories import accounts
 from server.repositories import channel_members
@@ -50,6 +51,7 @@ from server.repositories import sessions
 from server.repositories import stats
 from server.repositories.accounts import Account
 from server.repositories.beatmaps import Beatmap
+from server.repositories.scores import Mods
 from server.repositories.scores import Score
 from server.services import beatmaps
 from server.services import screenshots
@@ -321,15 +323,14 @@ async def handle_login(request: Request) -> Response:
             "utc_offset": login_data["utc_offset"],
             "country": account["country"],
             "privileges": account["privileges"],
-            "game_mode": 0,
+            "game_mode": GameMode.OSU,
             "latitude": user_geolocation["latitude"],
             "longitude": user_geolocation["longitude"],
             "action": 0,
             "info_text": "",
             "beatmap_md5": "",
             "beatmap_id": 0,
-            "mods": 0,
-            "mode": 0,
+            "mods": Mods.NOMOD,
             "spectator_host_session_id": None,
         },
     )
@@ -403,7 +404,7 @@ async def handle_login(request: Request) -> Response:
         own_presence["info_text"],
         own_presence["beatmap_md5"],
         own_presence["mods"],
-        own_presence["mode"],
+        own_presence["game_mode"],
         own_presence["beatmap_id"],
         own_stats["ranked_score"],
         own_stats["accuracy"],
@@ -456,7 +457,7 @@ async def handle_login(request: Request) -> Response:
             other_presence["info_text"],
             other_presence["beatmap_md5"],
             other_presence["mods"],
-            other_presence["mode"],
+            other_presence["game_mode"],
             other_presence["beatmap_id"],
             others_stats["ranked_score"],
             others_stats["accuracy"],
@@ -1006,7 +1007,7 @@ async def submit_score_handler(
             session["presence"]["info_text"],
             session["presence"]["beatmap_md5"],
             session["presence"]["mods"],
-            session["presence"]["mode"],
+            session["presence"]["game_mode"],
             session["presence"]["beatmap_id"],
             gamemode_stats["ranked_score"],
             gamemode_stats["accuracy"],

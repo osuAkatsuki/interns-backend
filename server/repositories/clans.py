@@ -1,5 +1,7 @@
 from datetime import datetime
-from typing import Any, TypedDict, cast
+from typing import cast
+from typing import TypedDict
+
 from server import clients
 
 READ_PARAMS = """\
@@ -115,7 +117,7 @@ async def delete_by_id(clan_id) -> Clan | None:
     clan = await clients.database.fetch_one(
         query=f"""\
             DELETE FROM clans
-            WHERE clan_id = :clan_id    
+            WHERE clan_id = :clan_id
         """,
         values={
             "clan_id": clan_id,

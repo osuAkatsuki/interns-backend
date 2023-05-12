@@ -42,7 +42,6 @@ class Presence(TypedDict):
     beatmap_md5: str
     beatmap_id: int
     mods: int
-    mode: int
     spectator_host_session_id: UUID | None
 
 
@@ -60,7 +59,6 @@ class _SerializablePresence(TypedDict):
     beatmap_md5: str
     beatmap_id: int
     mods: int
-    mode: int
     spectator_host_session_id: str | None
 
 
@@ -88,7 +86,6 @@ def serialize_presence(presence: Presence) -> _SerializablePresence:
         "beatmap_md5": presence["beatmap_md5"],
         "beatmap_id": presence["beatmap_id"],
         "mods": presence["mods"],
-        "mode": presence["mode"],
         "spectator_host_session_id": (
             str(presence["spectator_host_session_id"])
             if presence["spectator_host_session_id"] is not None
@@ -269,9 +266,9 @@ async def partial_update(session_id: UUID, **kwargs: Any) -> Session | None:
         if mods is not None:
             session["presence"]["mods"] = mods
 
-        mode = kwargs["presence"].get("mode")
-        if mode is not None:
-            session["presence"]["mode"] = mode
+        game_mode = kwargs["presence"].get("game_mode")
+        if game_mode is not None:
+            session["presence"]["game_mode"] = game_mode
 
         spectator_host_session_id = kwargs["presence"].get("spectator_host_session_id")
         if spectator_host_session_id is not None:
