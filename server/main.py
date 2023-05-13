@@ -24,6 +24,7 @@ from py3rijndael import Pkcs7Padding
 from py3rijndael import RijndaelCbc
 from starlette.datastructures import UploadFile as _StarletteUploadFile
 
+from server import achievement_handlers
 from server import clients
 from server import geolocation
 from server import logger
@@ -937,6 +938,7 @@ async def submit_score_handler(
         plays=beatmap["plays"] + 1,
         passes=beatmap["passes"] + 1 if passed else beatmap["passes"],
     )
+    assert not isinstance(beatmap, ServiceError)
 
     # update account stats
     gamemode_stats = await stats.fetch_one(account["account_id"], game_mode)
@@ -1027,7 +1029,17 @@ async def submit_score_handler(
     # unlock achievements
     achievements_unlocked = []
     for achievement in await achievements.fetch_many():
-        should_unlock = True  # TODO: handle it properly
+        handler = achievement_handlers.get_achievement_handler(
+            achievement["achievement_id"]
+        )
+        if handler is None:
+            logger.warning(
+                "Achievement handler not found",
+                achievement_id=achievement["achievement_id"],
+            )
+            continue
+
+        should_unlock = await handler(session, beatmap, score)
 
         if should_unlock:
             unlocked = await user_achievements.create(
@@ -1035,6 +1047,8 @@ async def submit_score_handler(
                 account["account_id"],
             )
             achievements_unlocked.append(unlocked)
+
+    # TODO: send achievements unlocked to client
 
     # TODO: construct score submission charts
 
