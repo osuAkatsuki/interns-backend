@@ -481,7 +481,7 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
         away_message_packet_data = packets.write_send_message_packet(
             recipient_presence["username"],
             recipient_presence["away_message"],
-            recipient_name,
+            own_presence["username"],
             recipient_session["account_id"],
         )
 
