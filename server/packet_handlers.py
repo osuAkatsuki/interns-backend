@@ -459,7 +459,6 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
     if recipient_session is None:
         logger.warning(
             "Recipient session could not be found by username.",
-            sender_name=sender_name,
             recipient_name=recipient_name,
         )
         return
