@@ -1,3 +1,5 @@
+from typing import Any
+
 import botocore.exceptions
 
 from server import clients
@@ -12,7 +14,7 @@ async def upload(
     content_type: str | None = None,
     acl: str | None = None,
 ) -> None:
-    params = {
+    params: dict[str, Any] = {
         "Bucket": settings.S3_BUCKET_NAME,
         "Key": f"{folder}/{filename}",
         "Body": body,
