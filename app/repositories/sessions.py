@@ -28,6 +28,23 @@ class Session(TypedDict):
     updated_at: datetime
 
 
+class Action:
+    IDLE = 0
+    AFK = 1
+    PLAYING = 2
+    EDITING = 3
+    MODDING = 4
+    MULTIPLAYER = 5
+    WATCHING = 6
+    UNKNOWN = 7
+    TESTING = 8
+    SUBMITTING = 9
+    PAUSED = 10
+    LOBBY = 11
+    MULTIPLAYING = 12
+    OSU_DIRECT = 13
+
+
 class Presence(TypedDict):
     account_id: int
     username: str
@@ -37,7 +54,7 @@ class Presence(TypedDict):
     game_mode: int
     latitude: float
     longitude: float
-    action: int  # TODO: enum
+    action: int
     info_text: str
     beatmap_md5: str
     beatmap_id: int
