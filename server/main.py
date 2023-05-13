@@ -26,6 +26,7 @@ from starlette.datastructures import UploadFile as _StarletteUploadFile
 
 from server import achievement_handlers
 from server import clients
+from server import game_modes
 from server import geolocation
 from server import logger
 from server import packet_handlers
@@ -316,6 +317,8 @@ async def handle_login(request: Request) -> Response:
                 headers={"cho-token": "no"},
             )
 
+    vanilla_game_mode = GameMode.VN_OSU
+
     own_session = await sessions.create(
         session_id=uuid4(),
         account_id=account["account_id"],
@@ -325,7 +328,7 @@ async def handle_login(request: Request) -> Response:
             "utc_offset": login_data["utc_offset"],
             "country": account["country"],
             "privileges": account["privileges"],
-            "game_mode": GameMode.OSU,
+            "game_mode": vanilla_game_mode,
             "latitude": user_geolocation["latitude"],
             "longitude": user_geolocation["longitude"],
             "action": 0,
@@ -380,13 +383,12 @@ async def handle_login(request: Request) -> Response:
         own_presence["utc_offset"],
         geolocation.country_str_to_int(own_presence["country"]),
         privileges.server_to_client_privileges(own_presence["privileges"]),
-        own_presence["game_mode"],
+        vanilla_game_mode,
         int(own_presence["latitude"]),
         int(own_presence["longitude"]),
         ranking.get_global_rank(own_presence["account_id"]),
     )
 
-    # user stats
     own_stats = await stats.fetch_one(
         account_id=account["account_id"],
         game_mode=own_presence["game_mode"],
@@ -406,7 +408,7 @@ async def handle_login(request: Request) -> Response:
         own_presence["info_text"],
         own_presence["beatmap_md5"],
         own_presence["mods"],
-        own_presence["game_mode"],
+        vanilla_game_mode,
         own_presence["beatmap_id"],
         own_stats["ranked_score"],
         own_stats["accuracy"],
@@ -433,7 +435,7 @@ async def handle_login(request: Request) -> Response:
             other_presence["utc_offset"],
             geolocation.country_str_to_int(other_presence["country"]),
             privileges.server_to_client_privileges(other_presence["privileges"]),
-            other_presence["game_mode"],
+            vanilla_game_mode,
             int(other_presence["latitude"]),
             int(other_presence["longitude"]),
             ranking.get_global_rank(other_session["account_id"]),
@@ -459,7 +461,7 @@ async def handle_login(request: Request) -> Response:
             other_presence["info_text"],
             other_presence["beatmap_md5"],
             other_presence["mods"],
-            other_presence["game_mode"],
+            vanilla_game_mode,
             other_presence["beatmap_id"],
             others_stats["ranked_score"],
             others_stats["accuracy"],
@@ -671,12 +673,14 @@ async def get_scores_handler(
     leaderboard_type: int = Query(..., alias="v"),
     beatmap_md5: str = Query(..., alias="c"),
     beatmap_filename: str = Query(..., alias="f"),
-    game_mode: int = Query(..., alias="m"),
+    vanilla_game_mode: int = Query(..., alias="m"),
     beatmap_set_id: int = Query(..., alias="i"),
     mods: int = Query(..., alias="mods"),
     map_package_hash: str = Query(..., alias="h"),
     aqn_files_found: bool = Query(..., alias="a"),
 ):
+    game_mode = game_modes.for_server(vanilla_game_mode, mods)
+
     # TODO: fix the responses in the case of an error
     account = await accounts.fetch_by_username(username)
     if account is None:
@@ -806,9 +810,11 @@ async def submit_score_handler(
 
     mods = int(score_data[13])
     passed = score_data[14] == "True"
-    game_mode = int(score_data[15])
+    vanilla_game_mode = int(score_data[15])
     client_time = datetime.strptime(score_data[16], "%y%m%d%H%M%S")
     client_anticheat_flags = score_data[17].count(" ") & ~4
+
+    game_mode = game_modes.for_server(vanilla_game_mode, mods)
 
     account = await accounts.fetch_by_username(username)
     if account is None:
@@ -889,7 +895,7 @@ async def submit_score_handler(
 
     performance_attrs = performance.calculate_performance(
         osu_file_contents,
-        game_mode,
+        vanilla_game_mode,
         mods,
         accuracy,
         num_300s,
@@ -1014,7 +1020,7 @@ async def submit_score_handler(
             session["presence"]["info_text"],
             session["presence"]["beatmap_md5"],
             session["presence"]["mods"],
-            session["presence"]["game_mode"],
+            vanilla_game_mode,
             session["presence"]["beatmap_id"],
             gamemode_stats["ranked_score"],
             gamemode_stats["accuracy"],
