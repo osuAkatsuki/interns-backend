@@ -22,6 +22,7 @@ from app.repositories.multiplayer_matches import MatchStatus
 from app.repositories.multiplayer_matches import MatchTeams
 from app.repositories.multiplayer_slots import SlotStatus
 from app.repositories.scores import Mods
+from app.repositories.sessions import Action
 from app.services import multiplayer_matches
 
 if TYPE_CHECKING:
@@ -469,6 +470,18 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
 
     if relationship_info is not None and relationship_info["relationship"] == "blocked":
         return
+
+    # if the recipient is afk and has a away message, send to self
+    if (
+        recipient_session["presence"]["action"] == Action.AFK
+        and own_presence["away_message"] is not None
+    ):
+        send_message_packet_data = packets.write_send_message_packet(
+            own_presence["username"],
+            own_presence["away_message"],
+            recipient_name,
+            own_presence["account_id"],
+        )
 
     send_message_packet_data = packets.write_send_message_packet(
         own_presence["username"],
