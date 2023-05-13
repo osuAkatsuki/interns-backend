@@ -964,11 +964,11 @@ async def submit_score_handler(
         client_anticheat_flags,
     )
 
-    # TODO: save replay to S3
     await s3.upload(
         body=await replay_file.read(),
         filename=f"{score['score_id']}.osr",
-        folder="professing/replays",
+        folder="replays",
+        acl="public-read",
     )
 
     # update beatmap stats (plays, passes)
