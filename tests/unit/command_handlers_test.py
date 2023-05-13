@@ -1,6 +1,6 @@
 import pytest_mock
 
-from server import commands
+from app import commands
 from testing import sample_data
 
 
@@ -47,15 +47,15 @@ async def test_block_handler_should_block_user(mocker: pytest_mock.MockerFixture
     fake_account = sample_data.fake_account()
 
     mocker.patch(
-        "server.repositories.accounts.fetch_by_username",
+        "app.repositories.accounts.fetch_by_username",
         return_value=fake_account,
     )
     mocker.patch(
-        "server.repositories.relationships.fetch_all",
+        "app.repositories.relationships.fetch_all",
         return_value=[],
     )
     mocker.patch(
-        "server.repositories.relationships.create",
+        "app.repositories.relationships.create",
         return_value={
             "account_id": fake_session["account_id"],
             "target_id": fake_account["account_id"],
@@ -85,7 +85,7 @@ async def test_block_handler_should_not_block_user_if_not_found(
     fake_account = sample_data.fake_account()
 
     mocker.patch(
-        "server.repositories.accounts.fetch_by_username",
+        "app.repositories.accounts.fetch_by_username",
         return_value=None,
     )
 
@@ -108,11 +108,11 @@ async def test_block_handler_should_not_block_user_if_already_blocked(
     fake_account = sample_data.fake_account()
 
     mocker.patch(
-        "server.repositories.accounts.fetch_by_username",
+        "app.repositories.accounts.fetch_by_username",
         return_value=fake_account,
     )
     mocker.patch(
-        "server.repositories.relationships.fetch_all",
+        "app.repositories.relationships.fetch_all",
         return_value=[
             {
                 "account_id": fake_session["account_id"],
