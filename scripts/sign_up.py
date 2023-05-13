@@ -77,7 +77,7 @@ async def main() -> int:
     while True:
         country = input("Country: ")
 
-        if geolocation.COUNTRY_STR_TO_INT.get(country) is None:
+        if geolocation.COUNTRY_STR_TO_INT.get(country.lower()) is None:
             print("Invalid Country! Retry!")
         else:
             break
