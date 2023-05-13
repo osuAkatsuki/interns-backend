@@ -1148,8 +1148,8 @@ async def friends_handler(
 async def handle_screenshot_upload(
     endpoint_version: int = Form(..., alias="v"),
     screenshot_file: UploadFile = File(..., alias="ss"),
-    username: str = Query(..., alias="u"),
-    password: str = Query(..., alias="p"),
+    username: str = Form(..., alias="u"),
+    password: str = Form(..., alias="p"),
 ):
     account = await accounts.fetch_by_username(username)
 
