@@ -476,12 +476,14 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
         recipient_session["presence"]["action"] == Action.AFK
         and own_presence["away_message"] is not None
     ):
-        send_message_packet_data = packets.write_send_message_packet(
+        away_message_packet_data = packets.write_send_message_packet(
             own_presence["username"],
             own_presence["away_message"],
             recipient_name,
             own_presence["account_id"],
         )
+
+        await packet_bundles.enqueue(session["session_id"], away_message_packet_data)
 
     send_message_packet_data = packets.write_send_message_packet(
         own_presence["username"],
