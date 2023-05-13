@@ -842,11 +842,15 @@ async def set_away_message_handler(session: "Session", packet_data: bytes) -> No
         presence={"away_message": away_message},
     )
 
-    await packet_bundles.enqueue(
-        session["session_id"],
-        packets.write_notification_packet(
+    if away_message is None:
+        notification_content = "Your away message has been cleared."
+    else:
+        notification_content = (
             f"Your away message has been updated to:\n\n{away_message}"
-        ),
+        )
+
+    await packet_bundles.enqueue(
+        session["session_id"], packets.write_notification_packet(notification_content)
     )
 
 
