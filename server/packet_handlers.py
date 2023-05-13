@@ -83,9 +83,6 @@ async def change_action_handler(session: "Session", packet_data: bytes):
 
     # send the stats update to all active osu sessions' packet bundles
     for other_session in await sessions.fetch_all():
-        if other_session["session_id"] == session["session_id"]:
-            continue
-
         await packet_bundles.enqueue(
             other_session["session_id"],
             packets.write_user_stats_packet(
