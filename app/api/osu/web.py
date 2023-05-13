@@ -3,9 +3,11 @@ import base64
 from datetime import datetime
 
 from fastapi import APIRouter
+from fastapi import Depends
 from fastapi import File
 from fastapi import Form
 from fastapi import Header
+from fastapi import HTTPException
 from fastapi import Query
 from fastapi import Request
 from fastapi import Response
@@ -41,7 +43,15 @@ from app.repositories.scores import Score
 from app.services import beatmaps
 from app.services import screenshots
 
-osu_web_router = APIRouter(default_response_class=Response)
+
+def ensure_osu_web_host(request: Request) -> None:
+    if request.headers["Host"] != "osu.cmyui.xyz":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+
+osu_web_router = APIRouter(
+    default_response_class=Response, dependencies=[Depends(ensure_osu_web_host)]
+)
 
 
 @osu_web_router.get("/")
