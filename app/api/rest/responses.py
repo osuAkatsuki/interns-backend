@@ -32,10 +32,6 @@ def success(
     return json.ORJSONResponse(data, status_code, headers)
 
 
-def no_content(headers: dict[str, str] | None = None) -> Any:
-    return Response(status_code=status.HTTP_204_NO_CONTENT, headers=headers)
-
-
 class Failure(BaseModel):
     status: Literal["error"]
     error: ServiceError
