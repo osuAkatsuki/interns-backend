@@ -52,12 +52,22 @@ async def fetch_many(
             status_code=status_code,
         )
 
+    total = await accounts.fetch_count(privileges=privileges)
+    if isinstance(total, ServiceError):
+        status_code = determine_status_code(total)
+        return responses.failure(
+            error=total,
+            message="Failed to fetch accounts",
+            status_code=status_code,
+        )
+
     resp = [Account.parse_obj(rec) for rec in data]
     return responses.success(
         content=resp,
         meta={
             "page": page,
             "page_size": page_size,
+            "total": total,
         },
     )
 

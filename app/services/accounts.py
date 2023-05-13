@@ -57,6 +57,20 @@ async def fetch_many(
     return _accounts
 
 
+async def fetch_count(
+    privileges: int | None = None,
+) -> int | ServiceError:
+    try:
+        count = await accounts.fetch_count(
+            privileges=privileges,
+        )
+    except Exception as exc:  # pragma: no cover
+        logger.error("Failed to fetch accounts", exc_info=exc)
+        return ServiceError.INTERNAL_SERVER_ERROR
+
+    return count
+
+
 async def fetch_by_account_id(account_id: int) -> Account | ServiceError:
     try:
         account = await accounts.fetch_by_account_id(account_id)
