@@ -3,3 +3,4 @@ __pycache__/
 .vscode/
 pgdata/
 venv/
+nginx.conf
