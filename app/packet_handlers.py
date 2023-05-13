@@ -471,16 +471,18 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
     if relationship_info is not None and relationship_info["relationship"] == "blocked":
         return
 
+    recipient_presence = recipient_session["presence"]
+
     # if the recipient is afk and has a away message, send to self
     if (
-        recipient_session["presence"]["action"] == Action.AFK
-        and own_presence["away_message"] is not None
+        recipient_presence["action"] == Action.AFK
+        and recipient_presence["away_message"] is not None
     ):
         away_message_packet_data = packets.write_send_message_packet(
-            own_presence["username"],
-            own_presence["away_message"],
+            recipient_presence["username"],
+            recipient_presence["away_message"],
             recipient_name,
-            own_presence["account_id"],
+            recipient_session["account_id"],
         )
 
         await packet_bundles.enqueue(session["session_id"], away_message_packet_data)
