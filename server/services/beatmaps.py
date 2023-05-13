@@ -177,6 +177,12 @@ async def fetch_one(
             file_name=file_name,
             beatmap_id=beatmap_id,
         )
+
+        # this map may have become unsubmitted since we last checked
+        if osu_api_beatmap is None:
+            # TODO: evict maps from our persistent storage?
+            return ServiceError.BEATMAPS_NOT_FOUND
+
         assert osu_api_beatmap is not None
 
         # keep changes that are manually set by the beatmap nomination team

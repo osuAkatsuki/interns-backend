@@ -964,7 +964,11 @@ async def submit_score_handler(
     weighted_accuracy = sum(
         score["accuracy"] * 0.95**i for i, score in enumerate(top_100_scores)
     )
-    bonus_accuracy = 100.0 / (20 * (1 - 0.95**total_score_count))
+    if total_score_count:
+        bonus_accuracy = 100.0 / (20 * (1 - 0.95**total_score_count))
+    else:
+        bonus_accuracy = 0.0
+
     total_accuracy = round((weighted_accuracy * bonus_accuracy) / 100.0, 3)
 
     # calculate new overall pp

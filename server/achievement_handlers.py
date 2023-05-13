@@ -114,6 +114,9 @@ class Achievement(IntEnum):
     ALL_INTRO_SPUNOUT = 83
 
 
+# TODO: separate achievements for vanilla, relax and autopilot
+
+
 @achievement_handler(Achievement.OSU_PASS_1_STAR)
 async def osu_pass_1_star(
     session: "Session",

@@ -59,7 +59,7 @@ async def fetch_many(
     account_id: int | None = None,
     page: int | None = None,
     page_size: int | None = None,
-) -> list[dict[str, Any]]:
+) -> list[UserAchievement]:
     query = f"""\
         SELECT {READ_PARAMS}
         FROM user_achievements
@@ -79,4 +79,4 @@ async def fetch_many(
         values["offset"] = (page - 1) * page_size
 
     user_achievements = await clients.database.fetch_all(query, values)
-    return user_achievements
+    return cast(list[UserAchievement], user_achievements)
