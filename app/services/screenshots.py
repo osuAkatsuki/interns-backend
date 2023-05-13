@@ -48,7 +48,7 @@ async def create(
         )
     except Exception as exc:  # pragma: no cover
         logger.error("Failed to upload screenshot file", exc_info=exc)
-        return ServiceError.SCREENSHOTS_UPLOAD_FAILED
+        return ServiceError.INTERNAL_SERVER_ERROR
 
     screenshot_download_url = s3.get_s3_public_url(
         bucket_name="osu-server-professing",
@@ -67,7 +67,7 @@ async def create(
         )
     except Exception as exc:  # pragma: no cover
         logger.error("Failed to upload screenshot file", exc_info=exc)
-        return ServiceError.SCREENSHOTS_UPLOAD_FAILED
+        return ServiceError.INTERNAL_SERVER_ERROR
 
     return screenshot
 
