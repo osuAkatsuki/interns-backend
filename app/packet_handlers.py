@@ -22,6 +22,7 @@ from app.repositories.multiplayer_matches import MatchStatus
 from app.repositories.multiplayer_matches import MatchTeams
 from app.repositories.multiplayer_slots import SlotStatus
 from app.repositories.scores import Mods
+from app.repositories.sessions import Action
 from app.services import multiplayer_matches
 
 if TYPE_CHECKING:
@@ -470,6 +471,22 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
     if relationship_info is not None and relationship_info["relationship"] == "blocked":
         return
 
+    recipient_presence = recipient_session["presence"]
+
+    # if the recipient is afk and has a away message, send to self
+    if (
+        recipient_presence["action"] == Action.AFK
+        and recipient_presence["away_message"] is not None
+    ):
+        away_message_packet_data = packets.write_send_message_packet(
+            recipient_presence["username"],
+            recipient_presence["away_message"],
+            own_presence["username"],
+            recipient_session["account_id"],
+        )
+
+        await packet_bundles.enqueue(session["session_id"], away_message_packet_data)
+
     send_message_packet_data = packets.write_send_message_packet(
         own_presence["username"],
         message_content,
@@ -797,6 +814,44 @@ async def user_leaves_channel_handler(session: "Session", packet_data: bytes):
 
 
 # SET_AWAY_MESSAGE = 82
+
+
+@bancho_handler(packets.ClientPackets.SET_AWAY_MESSAGE)
+async def set_away_message_handler(session: "Session", packet_data: bytes) -> None:
+    reader = packets.PacketReader(packet_data)
+
+    away_osu_message = reader.read_osu_message()
+
+    if away_osu_message["message_content"] != "":
+        away_message = away_osu_message["message_content"]
+
+        if len(away_message) > 500:
+            await packet_bundles.enqueue(
+                session["session_id"],
+                packets.write_notification_packet(
+                    f"Please keep away messages to under 500 characters."
+                ),
+            )
+            return
+
+    else:
+        away_message = None
+
+    await sessions.partial_update(
+        session["session_id"],
+        presence={"away_message": away_message},
+    )
+
+    if away_message is None:
+        notification_content = "Your away message has been cleared."
+    else:
+        notification_content = (
+            f"Your away message has been updated to:\n\n{away_message}"
+        )
+
+    await packet_bundles.enqueue(
+        session["session_id"], packets.write_notification_packet(notification_content)
+    )
 
 
 # IRC_ONLY = 84

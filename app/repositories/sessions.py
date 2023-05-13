@@ -28,6 +28,23 @@ class Session(TypedDict):
     updated_at: datetime
 
 
+class Action:
+    IDLE = 0
+    AFK = 1
+    PLAYING = 2
+    EDITING = 3
+    MODDING = 4
+    MULTIPLAYER = 5
+    WATCHING = 6
+    UNKNOWN = 7
+    TESTING = 8
+    SUBMITTING = 9
+    PAUSED = 10
+    LOBBY = 11
+    MULTIPLAYING = 12
+    OSU_DIRECT = 13
+
+
 class Presence(TypedDict):
     account_id: int
     username: str
@@ -37,12 +54,13 @@ class Presence(TypedDict):
     game_mode: int
     latitude: float
     longitude: float
-    action: int  # TODO: enum
+    action: int
     info_text: str
     beatmap_md5: str
     beatmap_id: int
     mods: int
     spectator_host_session_id: UUID | None
+    away_message: str | None
 
 
 class _SerializablePresence(TypedDict):
@@ -60,6 +78,7 @@ class _SerializablePresence(TypedDict):
     beatmap_id: int
     mods: int
     spectator_host_session_id: str | None
+    away_message: str | None
 
 
 class _SerializableSession(TypedDict):
@@ -91,6 +110,7 @@ def serialize_presence(presence: Presence) -> _SerializablePresence:
             if presence["spectator_host_session_id"] is not None
             else None
         ),
+        "away_message": presence["away_message"],
     }
 
 
@@ -273,6 +293,10 @@ async def partial_update(session_id: UUID, **kwargs: Any) -> Session | None:
         spectator_host_session_id = kwargs["presence"].get("spectator_host_session_id")
         if spectator_host_session_id is not None:
             session["presence"]["spectator_host_session_id"] = spectator_host_session_id
+
+        away_message = kwargs["presence"].get("away_message")
+        if away_message is not None:
+            session["presence"]["away_message"] = away_message
 
     session["updated_at"] = datetime.now()
 
