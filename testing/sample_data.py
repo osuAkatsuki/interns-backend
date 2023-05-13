@@ -4,11 +4,11 @@ from typing import TYPE_CHECKING
 
 from faker import Faker
 
-from server import geolocation
+from app import geolocation
 
 if TYPE_CHECKING:
-    from server.repositories.sessions import Session
-    from server.repositories.accounts import Account
+    from app.repositories.sessions import Session
+    from app.repositories.accounts import Account
 
 fake = Faker()
 

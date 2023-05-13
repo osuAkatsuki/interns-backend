@@ -12,7 +12,7 @@ else
   EXTRA_ARGUMENTS=""
 fi
 
-exec uvicorn server.main:app \
+exec uvicorn app.main:app \
   --host $APP_HOST \
   --port $APP_PORT \
   $EXTRA_ARGUMENTS

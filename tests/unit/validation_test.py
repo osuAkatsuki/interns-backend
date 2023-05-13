@@ -1,6 +1,6 @@
 import pytest
 
-from server import validation
+from app import validation
 
 
 @pytest.mark.parametrize(

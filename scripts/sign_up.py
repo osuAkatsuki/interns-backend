@@ -11,14 +11,14 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 mount_dir = os.path.join(script_dir, "..")
 sys.path.append(mount_dir)
 
-from server import geolocation
-from server import security
-from server.game_modes import GameMode
+from app import geolocation
+from app import security
+from app.game_modes import GameMode
 
 
-from server import settings
-from server import validation
-from server.privileges import ServerPrivileges
+from app import settings
+from app import validation
+from app.privileges import ServerPrivileges
 
 load_dotenv(dotenv_path=".env")
 
