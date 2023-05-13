@@ -10,7 +10,7 @@ server {
 server {
     listen 443 ssl;
     server_name c.cmyui.xyz c4.cmyui.xyz ce.cmyui.xyz
-                osu.cmyui.xyz;
+                osu.cmyui.xyz api.cmyui.xyz;
 
     ssl_certificate     /home/cmyui/certs/cert.pem;
     ssl_certificate_key /home/cmyui/certs/key.pem;

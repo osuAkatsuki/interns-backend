@@ -2,7 +2,8 @@ from enum import Enum
 
 
 class ServiceError(str, Enum):
-    ACCOUNTS_SIGNUP_FAILED = "accounts.signup_failed"
+    INTERNAL_SERVER_ERROR = "global.internal_server_error"
+
     ACCOUNTS_NOT_FOUND = "accounts.not_found"
     ACCOUNTS_USERNAME_INVALID = "accounts.username_invalid"
     ACCOUNTS_PASSWORD_INVALID = "accounts.password_invalid"
@@ -16,7 +17,6 @@ class ServiceError(str, Enum):
     CREDENTIALS_NOT_FOUND = "credentials.incorrect_credentials"
     CREDENTIALS_INCORRECT = "credentials.incorrect_credentials"
 
-    SCREENSHOTS_UPLOAD_FAILED = "screenshots.upload_failed"
     SCREENSHOTS_IMAGE_INVALID = "screenshots.image_invalid"
     SCREENSHOTS_NOT_FOUND = "screenshots.not_found"
 

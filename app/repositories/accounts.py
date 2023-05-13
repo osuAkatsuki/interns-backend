@@ -75,6 +75,23 @@ async def fetch_many(
     return cast(list[Account], accounts)
 
 
+async def fetch_count(
+    privileges: int | None = None,
+) -> int:
+    rec = await clients.database.fetch_one(
+        query=f"""\
+            SELECT COUNT(*) AS count
+            FROM accounts
+            WHERE privileges = COALESCE(:privileges, privileges)
+        """,
+        values={
+            "privileges": privileges,
+        },
+    )
+    assert rec is not None
+    return rec["count"]
+
+
 async def fetch_by_account_id(account_id: int) -> Account | None:
     account = await clients.database.fetch_one(
         query=f"""\

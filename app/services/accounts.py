@@ -34,7 +34,7 @@ async def create(
         )
     except Exception as exc:  # pragma: no cover
         logger.error("Failed to create account", exc_info=exc)
-        return ServiceError.ACCOUNTS_SIGNUP_FAILED
+        return ServiceError.INTERNAL_SERVER_ERROR
 
     return account
 
@@ -52,9 +52,23 @@ async def fetch_many(
         )
     except Exception as exc:  # pragma: no cover
         logger.error("Failed to fetch accounts", exc_info=exc)
-        return ServiceError.ACCOUNTS_NOT_FOUND
+        return ServiceError.INTERNAL_SERVER_ERROR
 
     return _accounts
+
+
+async def fetch_count(
+    privileges: int | None = None,
+) -> int | ServiceError:
+    try:
+        count = await accounts.fetch_count(
+            privileges=privileges,
+        )
+    except Exception as exc:  # pragma: no cover
+        logger.error("Failed to fetch accounts", exc_info=exc)
+        return ServiceError.INTERNAL_SERVER_ERROR
+
+    return count
 
 
 async def fetch_by_account_id(account_id: int) -> Account | ServiceError:
@@ -62,7 +76,7 @@ async def fetch_by_account_id(account_id: int) -> Account | ServiceError:
         account = await accounts.fetch_by_account_id(account_id)
     except Exception as exc:  # pragma: no cover
         logger.error("Failed to fetch account", exc_info=exc)
-        return ServiceError.ACCOUNTS_NOT_FOUND
+        return ServiceError.INTERNAL_SERVER_ERROR
 
     if account is None:
         return ServiceError.ACCOUNTS_NOT_FOUND
@@ -75,7 +89,7 @@ async def fetch_by_username(username: str) -> Account | ServiceError:
         account = await accounts.fetch_by_username(username)
     except Exception as exc:  # pragma: no cover
         logger.error("Failed to fetch account", exc_info=exc)
-        return ServiceError.ACCOUNTS_NOT_FOUND
+        return ServiceError.INTERNAL_SERVER_ERROR
 
     if account is None:
         return ServiceError.ACCOUNTS_NOT_FOUND
