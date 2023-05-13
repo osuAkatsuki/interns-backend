@@ -690,6 +690,39 @@ async def get_scores_handler(
     if session is None:
         return
 
+    # update user stats if they have changed
+    # TODO: should we do this on more attributes?
+    if game_mode != session["presence"]["game_mode"]:
+        session = await sessions.partial_update(
+            session["session_id"],
+            game_mode=game_mode,
+            mods=mods,
+        )
+        assert session is not None
+
+        own_stats = await stats.fetch_one(session["account_id"], game_mode)
+        assert own_stats is not None
+
+        for other_session in await sessions.fetch_all():
+            await packet_bundles.enqueue(
+                other_session["session_id"],
+                data=packets.write_user_stats_packet(
+                    session["presence"]["account_id"],
+                    session["presence"]["action"],
+                    session["presence"]["info_text"],
+                    session["presence"]["beatmap_md5"],
+                    session["presence"]["mods"],
+                    session["presence"]["game_mode"],
+                    session["presence"]["beatmap_id"],
+                    own_stats["ranked_score"],
+                    own_stats["accuracy"],
+                    own_stats["play_count"],
+                    own_stats["total_score"],
+                    ranking.get_global_rank(session["account_id"]),
+                    own_stats["performance_points"],
+                ),
+            )
+
     if not security.check_password(
         password=password_md5,
         hashword=account["password"].encode(),
