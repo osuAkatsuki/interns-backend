@@ -292,8 +292,6 @@ async def fetch_count(
     submission_status: int | None = None,
     game_mode: int | None = None,
     mods: int | None = None,
-    page: int | None = None,
-    page_size: int | None = None,
 ) -> int:
     query = f"""\
         SELECT COUNT(*) AS count
@@ -317,13 +315,6 @@ async def fetch_count(
         "game_mode": game_mode,
         "mods": mods,
     }
-    if page is not None and page_size is not None:
-        query += f"""\
-            LIMIT :page_size
-            OFFSET :offset
-        """
-        values["page_size"] = page_size
-        values["offset"] = page * page_size
     rec = await clients.database.fetch_one(query, values)
     assert rec is not None
     return rec["count"]
