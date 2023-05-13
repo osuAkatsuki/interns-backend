@@ -235,6 +235,7 @@ async def fetch_many(
     submission_status: int | None = None,
     game_mode: int | None = None,
     mods: int | None = None,
+    friends: set[int] | None = None,
     sort_by: Literal[
         "score",
         "performance_points",
@@ -245,13 +246,15 @@ async def fetch_many(
     page: int | None = None,
     page_size: int | None = None,
 ) -> list[Score]:
-    assert sort_by in (
+    if sort_by not in (
         "score",
         "performance_points",
         "accuracy",
         "highest_combo",
         "grade",
-    )
+    ):
+        raise ValueError(f"{sort_by} is not a valid value for sort_by parameter")
+
     query = f"""\
         SELECT {READ_PARAMS}
         FROM scores
@@ -263,7 +266,6 @@ async def fetch_many(
         AND submission_status = COALESCE(:submission_status, submission_status)
         AND game_mode = COALESCE(:game_mode, game_mode)
         AND mods = COALESCE(:mods, mods)
-        ORDER BY {sort_by} DESC
     """
     values = {
         "beatmap_md5": beatmap_md5,
@@ -275,6 +277,14 @@ async def fetch_many(
         "game_mode": game_mode,
         "mods": mods,
     }
+    if friends is not None:
+        query += f"""\
+            AND account_id = ANY(:friends)
+        """
+        values["friends"] = friends
+    query += f"""\
+        ORDER BY {sort_by} DESC
+    """
     if page is not None and page_size is not None:
         query += f"""\
             LIMIT :page_size

@@ -162,7 +162,17 @@ class LeaderBoardType:
 # &a=0
 # &us=cmyui
 # &ha=0cc175b9c0f1b6a831c399e269772661
-@osu_web_router.get("/web/osu-osz2-getscores.php")
+
+
+class LeaderboardType:
+    Local = 0
+    Global = 1
+    Mods = 2
+    Friends = 3
+    Country = 4
+
+
+@osu_web_handler.get("/web/osu-osz2-getscores.php")
 async def get_scores_handler(
     username: str = Query(..., alias="us"),
     password_md5: str = Query(..., alias="ha"),
@@ -246,30 +256,35 @@ async def get_scores_handler(
         "beatmap_md5": beatmap_md5,
         "account_id": None,
         "country": None,
-        "submission_status": 2,
         "game_mode": game_mode,
-        "mod_leaderboard": None,
+        "submission_status": 2,
+        "mods": None,
+        "friends": [],
+        # TODO: score for certain gamemodes?
         "sort_by": "performance_points",
         "page_size": 50,
     }
 
-    if leaderboard_type == LeaderBoardType.Local:
-        leaderboard_params["account_id"] = account["account_id"]
+    if leaderboard_type == LeaderboardType.Global:
+        leaderboard_params["game_mode"] = game_mode
 
-    # elif leaderboard_type == LeaderBoardType.Top:
-    elif leaderboard_type == LeaderBoardType.Mods:
-        leaderboard_params["mod_leaderboard"] = mods
+    elif leaderboard_type == LeaderboardType.Mods:
+        leaderboard_params["mods"] = mods
 
-    elif leaderboard_type == LeaderBoardType.Country:
+    elif leaderboard_type == LeaderboardType.Country:
         leaderboard_params["country"] = account["country"]
 
-    # elif leaderboard_type == LeaderBoardType.Friends:
-    # friends = await relationships.fetch_all(account_id=account["account_id"], relationship="friend")
+    elif leaderboard_type == LeaderboardType.Friends:
+        friends = await relationships.fetch_all(
+            account_id=account["account_id"],
+            relationship="friend",
+        )
+        friend_account_ids = [friend["account_id"] for friend in friends]
+        leaderboard_params["friends"] = friend_account_ids
 
-    # friend_accounts = [friend["account_id"] for friend in friends]
+        # SELECT {READ_PARAMS} FROM scores WHERE account_id IN :friends
 
     leaderboard_scores = await scores.fetch_many(**leaderboard_params)
-    # TODO: score for certain gamemodes?
 
     leaderboard_params["country"] = None
     leaderboard_params["page_size"] = 1
