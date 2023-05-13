@@ -14,7 +14,10 @@ logger.configure_logging(
 
 app = FastAPI()
 
-# osu web hosts
+# XXX: app.host is directly from starlette, and is not fully supported
+# by the fastapi wrapper; for example, it cannot be found in the docs.
+# we will probably want to try finding a better solution for this.
+
 app.host("osu.cmyui.xyz", osu_web_router)
 
 # osu bancho hosts
