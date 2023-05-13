@@ -11,6 +11,28 @@ from app.services import accounts
 router = APIRouter()
 
 
+def determine_status_code(error: ServiceError) -> int:
+    match error:
+        case ServiceError.ACCOUNTS_COUNTRY_INVALID:
+            return status.HTTP_422_UNPROCESSABLE_ENTITY
+        case ServiceError.ACCOUNTS_EMAIL_ADDRESS_INVALID:
+            return status.HTTP_422_UNPROCESSABLE_ENTITY
+        case ServiceError.ACCOUNTS_PASSWORD_INVALID:
+            return status.HTTP_422_UNPROCESSABLE_ENTITY
+        case ServiceError.ACCOUNTS_USERNAME_INVALID:
+            return status.HTTP_422_UNPROCESSABLE_ENTITY
+        case ServiceError.INTERNAL_SERVER_ERROR:
+            return status.HTTP_500_INTERNAL_SERVER_ERROR
+        case ServiceError.ACCOUNTS_NOT_FOUND:
+            return status.HTTP_404_NOT_FOUND
+        case _:
+            logger.warning(
+                "Unhandled error code in accounts rest api controller",
+                service_error=error,
+            )
+            return status.HTTP_500_INTERNAL_SERVER_ERROR
+
+
 @router.get("/v1/accounts")
 async def fetch_many(
     privileges: int | None = None,
@@ -23,26 +45,7 @@ async def fetch_many(
         page_size=page_size,
     )
     if isinstance(data, ServiceError):
-        match data:
-            case ServiceError.ACCOUNTS_COUNTRY_INVALID:
-                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-            case ServiceError.ACCOUNTS_EMAIL_ADDRESS_INVALID:
-                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-            case ServiceError.ACCOUNTS_PASSWORD_INVALID:
-                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-            case ServiceError.ACCOUNTS_USERNAME_INVALID:
-                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-            case ServiceError.INTERNAL_SERVER_ERROR:
-                status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
-            case ServiceError.ACCOUNTS_NOT_FOUND:
-                status_code = status.HTTP_404_NOT_FOUND
-            case _:
-                status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
-                logger.warning(
-                    "Unhandled error code in accounts.fetch_many",
-                    service_error=data,
-                )
-
+        status_code = determine_status_code(data)
         return responses.failure(
             error=data,
             message="Failed to fetch accounts",
@@ -63,18 +66,7 @@ async def fetch_many(
 async def fetch_one(account_id: int) -> Success[Account]:
     data = await accounts.fetch_by_account_id(account_id)
     if isinstance(data, ServiceError):
-        match data:
-            case ServiceError.ACCOUNTS_NOT_FOUND:
-                status_code = status.HTTP_404_NOT_FOUND
-            case ServiceError.INTERNAL_SERVER_ERROR:
-                status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
-            case _:
-                status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
-                logger.warning(
-                    "Unhandled error code in accounts.fetch_one",
-                    service_error=data,
-                )
-
+        status_code = determine_status_code(data)
         return responses.failure(
             error=data,
             message="Failed to fetch account",
