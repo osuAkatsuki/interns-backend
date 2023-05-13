@@ -820,11 +820,16 @@ async def user_leaves_channel_handler(session: "Session", packet_data: bytes):
 async def set_away_message_handler(session: "Session", packet_data: bytes) -> None:
     reader = packets.PacketReader(packet_data)
 
-    away_message = reader.read_osu_message()
+    away_osu_message = reader.read_osu_message()
+
+    if away_osu_message["message_content"] != "":
+        away_message = away_osu_message["message_content"]
+    else:
+        away_message = None
 
     await sessions.partial_update(
         session["session_id"],
-        presence={"away_message": away_message["message_content"]},
+        presence={"away_message": away_message},
     )
 
 
