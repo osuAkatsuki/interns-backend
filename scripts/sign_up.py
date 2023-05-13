@@ -13,6 +13,9 @@ sys.path.append(mount_dir)
 
 from server import geolocation
 from server import security
+from server.game_modes import GameMode
+
+
 from server import settings
 from server import validation
 from server.privileges import ServerPrivileges
@@ -96,7 +99,16 @@ async def main() -> int:
                 "country": country.upper(),
             },
         )
-        for game_mode in range(8):
+        for game_mode in [
+            GameMode.VN_OSU,
+            GameMode.VN_TAIKO,
+            GameMode.VN_CATCH,
+            GameMode.VN_MANIA,
+            GameMode.RX_OSU,
+            GameMode.RX_TAIKO,
+            GameMode.RX_CATCH,
+            GameMode.AP_OSU,
+        ]:
             await database.execute(
                 query="""\
                     INSERT INTO stats (account_id, game_mode)

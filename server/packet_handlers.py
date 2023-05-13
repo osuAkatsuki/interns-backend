@@ -3,10 +3,12 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from server import commands
+from server import game_modes
 from server import logger
 from server import packets
 from server import ranking
 from server.errors import ServiceError
+from server.game_modes import GameMode
 from server.privileges import ServerPrivileges
 from server.repositories import channel_members
 from server.repositories import channels
@@ -19,6 +21,7 @@ from server.repositories import stats
 from server.repositories.multiplayer_matches import MatchStatus
 from server.repositories.multiplayer_matches import MatchTeams
 from server.repositories.multiplayer_slots import SlotStatus
+from server.repositories.scores import Mods
 from server.services import multiplayer_matches
 
 if TYPE_CHECKING:
@@ -60,9 +63,35 @@ async def change_action_handler(session: "Session", packet_data: bytes):
     beatmap_md5 = data.read_string()
 
     mods = data.read_u32()
-    mode = data.read_u8()
+    vanilla_game_mode = data.read_u8()
 
     beatmap_id = data.read_i32()
+
+    # XXX: this is a quirk of the osu! client, where it adjusts this value
+    # only after it sends the packet to the server; so we need to adjust
+    # TODO: this should grow to filter all invalid mod combinations, similar to
+    # https://github.com/osuAkatsuki/bancho.py/blob/36dc2313ad8d7f62e605519bed7c218d9beae24f/app/constants/mods.py#L65-L126
+    if (
+        # client is attempting to switch to an invalid game mode for relax
+        vanilla_game_mode == GameMode.VN_MANIA
+        and mods & Mods.RELAX
+    ):
+        # remove relax from the mods
+        mods &= ~Mods.RELAX
+    elif (
+        # client is attempting to switch to an invalid game mode for autopilot
+        vanilla_game_mode
+        in (
+            GameMode.VN_TAIKO,
+            GameMode.VN_CATCH,
+            GameMode.VN_MANIA,
+        )
+        and mods & Mods.AUTOPILOT
+    ):
+        # remove autopilot from the mods
+        mods &= ~Mods.AUTOPILOT
+
+    game_mode = game_modes.for_server(vanilla_game_mode, mods)
 
     maybe_session = await sessions.partial_update(
         session["session_id"],
@@ -71,14 +100,14 @@ async def change_action_handler(session: "Session", packet_data: bytes):
             "info_text": info_text,
             "beatmap_md5": beatmap_md5,
             "mods": mods,
-            "mode": mode,
+            "game_mode": game_mode,
             "beatmap_id": beatmap_id,
         },
     )
     assert maybe_session is not None
     session = maybe_session
 
-    own_stats = await stats.fetch_one(session["account_id"], mode)
+    own_stats = await stats.fetch_one(session["account_id"], game_mode)
     assert own_stats is not None
 
     # send the stats update to all active osu sessions' packet bundles
@@ -91,7 +120,7 @@ async def change_action_handler(session: "Session", packet_data: bytes):
                 own_presence["info_text"],
                 own_presence["beatmap_md5"],
                 own_presence["mods"],
-                own_presence["game_mode"],
+                vanilla_game_mode,
                 own_presence["beatmap_id"],
                 own_stats["ranked_score"],
                 own_stats["accuracy"],
@@ -218,6 +247,11 @@ async def request_status_update_handler(session: "Session", packet_data: bytes):
     )
     assert own_stats is not None
 
+    vanilla_game_mode = game_modes.for_client(
+        own_presence["game_mode"],
+        own_presence["mods"],
+    )
+
     await packet_bundles.enqueue(
         session["session_id"],
         packets.write_user_stats_packet(
@@ -226,7 +260,7 @@ async def request_status_update_handler(session: "Session", packet_data: bytes):
             own_presence["info_text"],
             own_presence["beatmap_md5"],
             own_presence["mods"],
-            own_presence["game_mode"],
+            vanilla_game_mode,
             own_presence["beatmap_id"],
             own_stats["ranked_score"],
             own_stats["accuracy"],
@@ -473,6 +507,12 @@ async def create_match_handler(session: "Session", packet_data: bytes):
 
     osu_match_data = packet_reader.read_osu_match()
 
+    vanilla_game_mode = osu_match_data["game_mode"]
+    game_mode = game_modes.for_server(
+        osu_match_data["game_mode"],
+        own_presence["mods"],
+    )
+
     match = await multiplayer_matches.create(
         osu_match_data["match_name"],
         osu_match_data["match_password"],
@@ -480,7 +520,7 @@ async def create_match_handler(session: "Session", packet_data: bytes):
         osu_match_data["beatmap_id"],
         osu_match_data["beatmap_md5"],
         osu_match_data["host_account_id"],
-        osu_match_data["game_mode"],
+        game_mode,
         osu_match_data["mods"],
         osu_match_data["win_condition"],
         osu_match_data["team_type"],
@@ -553,7 +593,7 @@ async def create_match_handler(session: "Session", packet_data: bytes):
         [s["team"] for s in slots],
         [s["account_id"] for s in slots if s["status"] & 0b01111100 != 0],
         match["host_account_id"],
-        match["game_mode"],
+        vanilla_game_mode,
         match["win_condition"],
         match["team_type"],
         match["freemods_enabled"],
@@ -787,6 +827,11 @@ async def user_stats_request_handler(session: "Session", packet_data: bytes) -> 
         if other_stats is None:
             continue
 
+        vanilla_game_mode = game_modes.for_client(
+            other_session["presence"]["game_mode"],
+            other_session["presence"]["mods"],
+        )
+
         await packet_bundles.enqueue(
             session["session_id"],
             data=packets.write_user_stats_packet(
@@ -795,7 +840,7 @@ async def user_stats_request_handler(session: "Session", packet_data: bytes) -> 
                 other_session["presence"]["info_text"],
                 other_session["presence"]["beatmap_md5"],
                 other_session["presence"]["mods"],
-                other_session["presence"]["game_mode"],
+                vanilla_game_mode,
                 other_session["presence"]["beatmap_id"],
                 other_stats["ranked_score"],
                 other_stats["accuracy"],
