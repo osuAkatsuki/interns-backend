@@ -1027,11 +1027,21 @@ async def submit_score_handler(
     # TODO: send to #announcements if the score is #1
 
     # unlock achievements
-    achievements_unlocked = []
+    current_achievement_ids = [
+        a["achievement_id"]
+        for a in await user_achievements.fetch_many(account_id=account["account_id"])
+    ]
+    new_achievements = []
     for achievement in await achievements.fetch_many():
+        # user may have already unlocked this achievement
+        if achievement["achievement_id"] in current_achievement_ids:
+            continue
+
         handler = achievement_handlers.get_achievement_handler(
             achievement["achievement_id"]
         )
+
+        # handler may not exist
         if handler is None:
             logger.warning(
                 "Achievement handler not found",
@@ -1041,12 +1051,16 @@ async def submit_score_handler(
 
         should_unlock = await handler(session, beatmap, score)
 
-        if should_unlock:
-            unlocked = await user_achievements.create(
-                achievement["achievement_id"],
-                account["account_id"],
-            )
-            achievements_unlocked.append(unlocked)
+        # might not meet criteria
+        if not should_unlock:
+            continue
+
+        new_achievement = await user_achievements.create(
+            achievement["achievement_id"],
+            account["account_id"],
+        )
+
+        new_achievements.append(new_achievement)
 
     # TODO: send achievements unlocked to client
 
