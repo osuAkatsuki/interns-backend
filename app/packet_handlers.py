@@ -824,12 +824,29 @@ async def set_away_message_handler(session: "Session", packet_data: bytes) -> No
 
     if away_osu_message["message_content"] != "":
         away_message = away_osu_message["message_content"]
+
+        if len(away_message) > 500:
+            await packet_bundles.enqueue(
+                session["session_id"],
+                packets.write_notification_packet(
+                    f"Please keep away messages to under 500 characters."
+                ),
+            )
+            return
+
     else:
         away_message = None
 
     await sessions.partial_update(
         session["session_id"],
         presence={"away_message": away_message},
+    )
+
+    await packet_bundles.enqueue(
+        session["session_id"],
+        packets.write_notification_packet(
+            f"Your away message has been updated to:\n\n{away_message}"
+        ),
     )
 
 
