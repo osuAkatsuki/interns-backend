@@ -816,6 +816,7 @@ async def join_match_handler(session: "Session", packet_data: bytes) -> None:
     match_id = reader.read_i32()
     match_password = reader.read_string()
 
+    # attempt to find the match we are trying to join
     match = await multiplayer_matches.fetch_one(match_id)
     if isinstance(match, ServiceError):
         logger.warning(
@@ -829,6 +830,7 @@ async def join_match_handler(session: "Session", packet_data: bytes) -> None:
         )
         return
 
+    # if the match has a non-empty password, validate the client got it right
     if match["match_password"] != "" and match_password != match["match_password"]:
         logger.warning(
             "User tried to join a match with an incorrect password",
@@ -864,6 +866,7 @@ async def join_match_handler(session: "Session", packet_data: bytes) -> None:
             status=multiplayer_slots.SlotStatus.NOT_READY,
         )
 
+    # join the multiplayer match
     maybe_session = await sessions.partial_update(
         session["session_id"],
         presence={"multiplayer_match_id": match_id},
@@ -874,10 +877,11 @@ async def join_match_handler(session: "Session", packet_data: bytes) -> None:
     match_channel = await channels.fetch_one_by_name(f"#mp_{match_id}")
     assert match_channel is not None
 
-    # add user to the multiplayer match's channel
+    # join the #multiplayer channel
     await channel_members.add(match_channel["channel_id"], session["session_id"])
     match_channel_members = await channel_members.members(match_channel["channel_id"])
 
+    # inform our user of the #multiplayer channel
     await packet_bundles.enqueue(
         session["session_id"],
         data=(
