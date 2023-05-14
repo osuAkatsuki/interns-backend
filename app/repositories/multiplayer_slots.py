@@ -2,12 +2,14 @@ import json
 from typing import cast
 from typing import Literal
 from typing import TypedDict
+from uuid import UUID
 
 from app import clients
 
 
 class MultiplayerSlot(TypedDict):
     slot_id: int
+    session_id: UUID
     account_id: int
     status: int  # enum
     team: int  # enum
@@ -41,6 +43,7 @@ def serialize(slot: MultiplayerSlot) -> str:
         {
             "slot_id": slot["slot_id"],
             "account_id": slot["account_id"],
+            "session_id": str(slot["session_id"]),
             "status": slot["status"],
             "team": slot["team"],
             "mods": slot["mods"],
@@ -55,13 +58,31 @@ def deserialize(raw_slot: str) -> MultiplayerSlot:
 
     assert isinstance(match, dict)
 
+    match["session_id"] = UUID(match["session_id"])
+
     return cast(MultiplayerSlot, match)
+
+
+async def claim_slot_id(match_id: int) -> int | None:
+    slots = await fetch_all(match_id)
+
+    for slot in slots:
+        if slot["account_id"] != -1:
+            continue
+
+        if slot["status"] != SlotStatus.OPEN:
+            continue
+
+        return slot["slot_id"]
+
+    return None
 
 
 async def create(
     match_id: int,
     slot_id: int,
     account_id: int,
+    session_id: UUID,
     status: int,
     team: int,
     mods: int,
@@ -71,6 +92,7 @@ async def create(
     slot: MultiplayerSlot = {
         "slot_id": slot_id,
         "account_id": account_id,
+        "session_id": session_id,
         "status": status,
         "team": team,
         "mods": mods,
@@ -94,6 +116,26 @@ async def fetch_one(match_id: int, slot_id: int) -> MultiplayerSlot | None:
     return deserialize(raw_slot)
 
 
+async def fetch_one_by_session_id(
+    match_id: int,
+    session_id: UUID,
+) -> MultiplayerSlot | None:
+    slot_key = make_key(match_id, "*")
+
+    keys = await clients.redis.keys(slot_key)
+
+    raw_slots = await clients.redis.mget(keys)
+
+    for raw_slot in raw_slots:
+        assert raw_slot is not None  # TODO: why does mget return list[T | None]?
+        slot = deserialize(raw_slot)
+
+        if slot["session_id"] == session_id:
+            return slot
+
+    return None
+
+
 async def fetch_all(match_id: int) -> list[MultiplayerSlot]:
     slot_key = make_key(match_id, "*")
 
@@ -115,6 +157,7 @@ async def partial_update(
     match_id: int,
     slot_id: int,
     account_id: int | None = None,
+    session_id: UUID | None = None,
     status: int | None = None,
     team: int | None = None,
     mods: int | None = None,
@@ -127,6 +170,9 @@ async def partial_update(
 
     if account_id is not None:
         slot["account_id"] = account_id
+
+    if session_id is not None:
+        slot["session_id"] = session_id
 
     if status is not None:
         slot["status"] = status
@@ -162,18 +208,3 @@ async def delete(match_id: int, slot_id: int) -> MultiplayerSlot | None:
     await clients.redis.delete(slot_key)
 
     return deserialize(raw_slot)
-
-
-async def claim_slot_id(match_id: int) -> int | None:
-    slots = await fetch_all(match_id)
-
-    for slot in slots:
-        if slot["account_id"] != -1:
-            continue
-
-        if slot["status"] != SlotStatus.OPEN:
-            continue
-
-        return slot["slot_id"]
-
-    return None
