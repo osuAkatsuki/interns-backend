@@ -23,6 +23,7 @@ from app import packets
 from app import performance
 from app import ranking
 from app import security
+from app.adapters import mino
 from app.adapters import osu_api_v2
 from app.adapters import s3
 from app.errors import ServiceError
@@ -67,7 +68,7 @@ async def format_leaderboard_response(
     buffer = ""
 
     # first line
-    buffer += f"{2}|false|{beatmap['beatmap_id']}|{beatmap['beatmap_set_id']}|{len(leaderboard_scores)}|0|\n"
+    buffer += f"{beatmap['ranked_status']}|false|{beatmap['beatmap_id']}|{beatmap['beatmap_set_id']}|{len(leaderboard_scores)}|0|\n"
 
     # second line
     beatmap_name = "{artist} - {title} [{version}]".format(**beatmap)
@@ -557,32 +558,33 @@ async def submit_score_handler(
     # TODO: send to #announcements if the score is #1
 
     # unlock achievements
-    current_achievement_ids = [
-        a["achievement_id"]
-        for a in await user_achievements.fetch_many(account_id=account["account_id"])
-    ]
+    own_achievements = await user_achievements.fetch_many(
+        account_id=account["account_id"]
+    )
+    own_achievement_ids = [a["achievement_id"] for a in own_achievements]
+
     new_achievements = []
     for achievement in await achievements.fetch_many():
         # user may have already unlocked this achievement
-        if achievement["achievement_id"] in current_achievement_ids:
+        if achievement["achievement_id"] in own_achievement_ids:
             continue
 
-        handler = achievement_handlers.get_achievement_handler(
+        achievement_handler = achievement_handlers.get_achievement_handler(
             achievement["achievement_id"]
         )
 
         # handler may not exist
-        if handler is None:
+        if achievement_handler is None:
             logger.warning(
                 "Achievement handler not found",
                 achievement_id=achievement["achievement_id"],
             )
             continue
 
-        should_unlock = await handler(session, beatmap, score)
+        unlocked = await achievement_handler(session, beatmap, score)
 
         # might not meet criteria
-        if not should_unlock:
+        if not unlocked:
             continue
 
         new_achievement = await user_achievements.create(
@@ -632,7 +634,7 @@ async def friends_handler(
 
 
 @osu_web_router.post("/web/osu-screenshot.php")
-async def handle_screenshot_upload(
+async def screenshot_upload_handler(
     endpoint_version: int = Form(..., alias="v"),
     screenshot_file: UploadFile = File(..., alias="ss"),
     username: str = Form(..., alias="u"),
@@ -641,7 +643,7 @@ async def handle_screenshot_upload(
     account = await accounts.fetch_by_username(username)
 
     if account is None:
-        return Response(status_code=status.HTTP_400_BAD_REQUEST)
+        return Response(status_code=status.HTTP_401_UNAUTHORIZED)
 
     if not security.check_password(
         password=password,
@@ -657,3 +659,89 @@ async def handle_screenshot_upload(
         return
 
     return screenshot["download_url"]
+
+
+@osu_web_router.get("/web/osu-search.php")
+async def osu_search_handler(
+    username: str = Query(..., alias="u"),
+    password: str = Query(..., alias="h"),
+    ranked_status: int = Query(..., alias="r"),
+    query: str = Query(..., alias="q"),
+    game_mode: int = Query(..., alias="m"),  # -1 for all
+    page: int = Query(..., alias="p"),
+):
+    account = await accounts.fetch_by_username(username)
+
+    if account is None:
+        return Response(status_code=status.HTTP_401_UNAUTHORIZED)
+
+    if not security.check_password(
+        password=password,
+        hashword=account["password"].encode(),
+    ):
+        return Response(status_code=status.HTTP_401_UNAUTHORIZED)
+
+    response_data = await mino.osudirect_search(
+        query,
+        game_mode,
+        ranked_status,
+        page,
+    )
+    return response_data
+
+
+@osu_web_router.get("/web/osu-search-set.php")
+async def osu_search_set_handler(
+    username: str = Query(..., alias="u"),
+    password: str = Query(..., alias="h"),
+    beatmap_set_id: int | None = Query(None, alias="s"),
+    beatmap_id: int | None = Query(None, alias="b"),
+):
+    if beatmap_set_id is None and beatmap_id is None:
+        return Response(status_code=status.HTTP_400_BAD_REQUEST)
+
+    account = await accounts.fetch_by_username(username)
+
+    if account is None:
+        return Response(status_code=status.HTTP_401_UNAUTHORIZED)
+
+    if not security.check_password(
+        password=password,
+        hashword=account["password"].encode(),
+    ):
+        return Response(status_code=status.HTTP_401_UNAUTHORIZED)
+
+    # https://github.com/osuAkatsuki/bancho.py/blob/master/app/api/domains/osu.py#L535
+    #    if(raw) return `${s.beatmapset_id}.osz|${s.artist}|${s.title}|${s.creator}|${s.ranked}|${s.rating.toFixed(2)}|${new Date(s.last_updated * 1000).toISOString().slice(0, 19)}|${s.id}|0|${+s.video}|0|0|`
+    if beatmap_set_id is not None:
+        response_data = await mino.get_beatmap_set(beatmap_set_id)
+    elif beatmap_id is not None:
+        response_data = await mino.get_beatmap(beatmap_id)
+    else:  # pragma: no cover
+        raise NotImplementedError  # unreachable
+
+    return response_data
+
+
+@osu_web_router.get("/d/{beatmap_set_id}")
+async def download_beatmap_set_handler(
+    beatmap_set_id: int,
+    username: str = Query(..., alias="u"),
+    password: str = Query(..., alias="h"),
+    endpoint_version: int = Query(..., alias="vv"),
+):
+    account = await accounts.fetch_by_username(username)
+
+    if account is None:
+        return Response(status_code=status.HTTP_401_UNAUTHORIZED)
+
+    if not security.check_password(
+        password=password,
+        hashword=account["password"].encode(),
+    ):
+        return Response(status_code=status.HTTP_401_UNAUTHORIZED)
+
+    return RedirectResponse(
+        url=f"https://catboy.best/d/{beatmap_set_id}",
+        status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+    )
