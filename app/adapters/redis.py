@@ -8,14 +8,17 @@ class Redis(_Redis):
 
 def dsn(
     scheme: str,
+    username: str | None,
     host: str,
     port: int,
-    passwd: str,
+    password: str,
     database: int,
 ) -> str:
     # TODO: *optional* passwd support?
-    # TODO: optional user support?
-    return f"{scheme}://{passwd}@{host}:{port}/{database}?password={passwd}"
+    if username is not None:
+        return f"{scheme}://{username}:{password}@{host}:{port}/{database}"
+    else:
+        return f"{scheme}://{password}@{host}:{port}/{database}"
 
 
 async def from_url(url: str) -> Redis:

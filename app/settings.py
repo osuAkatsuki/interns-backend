@@ -39,6 +39,7 @@ DB_POOL_MIN_SIZE = int(os.environ["DB_POOL_MIN_SIZE"])
 DB_POOL_MAX_SIZE = int(os.environ["DB_POOL_MAX_SIZE"])
 
 REDIS_SCHEME = os.environ["REDIS_SCHEME"]
+REDIS_USER = os.environ["REDIS_USER"]
 REDIS_PASS = os.environ["REDIS_PASS"]
 REDIS_HOST = os.environ["REDIS_HOST"]
 REDIS_PORT = int(os.environ["REDIS_PORT"])
