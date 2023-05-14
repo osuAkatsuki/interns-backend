@@ -846,6 +846,41 @@ async def create_match_handler(session: "Session", packet_data: bytes):
 # JOIN_MATCH = 32
 
 
+@bancho_handler(packets.ClientPackets.JOIN_MATCH)
+async def join_match_handler(session: "Session", packet_data: bytes) -> None:
+    reader = packets.PacketReader(packet_data)
+
+    match_id = reader.read_i32()
+    match_password = reader.read_string()
+
+    match = await multiplayer_matches.fetch_one(match_id)
+    if isinstance(match, ServiceError):
+        logger.warning(
+            "Failed to find match when joining",
+            session_id=session["session_id"],
+            match_id=match_id,
+        )
+        await packet_bundles.enqueue(
+            session["session_id"],
+            packets.write_match_join_fail_packet(),
+        )
+        return
+
+    if match["match_password"] != "" and match_password != match["match_password"]:
+        logger.warning(
+            "User tried to join a match with an incorrect password",
+            session_id=session["session_id"],
+            match_id=match_id,
+        )
+        await packet_bundles.enqueue(
+            session["session_id"],
+            packets.write_match_join_fail_packet(),
+        )
+        return
+
+    await join_match(match_id, session)
+
+
 # PART_MATCH = 33
 
 
