@@ -97,24 +97,18 @@ async def fetch_one(match_id: int, slot_id: int) -> MultiplayerSlot | None:
 async def fetch_all(match_id: int) -> list[MultiplayerSlot]:
     slot_key = make_key(match_id, "*")
 
-    cursor = None
+    keys = await clients.redis.keys(slot_key)
+
+    raw_slots = await clients.redis.mget(keys)
     slots = []
 
-    while cursor != 0:
-        cursor, keys = await clients.redis.scan(
-            cursor=cursor or 0,
-            match=slot_key,
-        )
+    for raw_slot in raw_slots:
+        assert raw_slot is not None  # TODO: why does mget return list[T | None]?
+        slot = deserialize(raw_slot)
 
-        raw_slots = await clients.redis.mget(keys)
+        slots.append(slot)
 
-        for raw_slot in raw_slots:
-            assert raw_slot is not None  # TODO: why does mget return list[T | None]?
-            slot = deserialize(raw_slot)
-
-            slots.append(slot)
-
-    return slots
+    return sorted(slots, key=lambda slot: slot["slot_id"])
 
 
 async def partial_update(
