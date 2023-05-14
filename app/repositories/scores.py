@@ -28,6 +28,7 @@ READ_PARAMS = """\
     country,
     time_elapsed,
     client_anticheat_flags,
+    client_anticheat_token,
     created_at,
     updated_at
 """
@@ -91,6 +92,7 @@ class Score(TypedDict):
     country: str
     time_elapsed: int
     client_anticheat_flags: int
+    client_anticheat_token: str | None
     created_at: datetime
     updated_at: datetime
 
@@ -119,6 +121,7 @@ def deserialize(score: dict) -> Score:
         "country": score["country"],
         "time_elapsed": score["time_elapsed"],
         "client_anticheat_flags": score["client_anticheat_flags"],
+        "client_anticheat_token": score["client_anticheat_token"],
         "created_at": score["created_at"],
         "updated_at": score["updated_at"],
     }
@@ -148,6 +151,7 @@ def serialize(score: Score) -> dict:
         "country": score["country"],
         "time_elapsed": score["time_elapsed"],
         "client_anticheat_flags": score["client_anticheat_flags"],
+        "client_anticheat_token": score["client_anticheat_token"],
         "created_at": score["created_at"],
         "updated_at": score["updated_at"],
     }
@@ -175,6 +179,7 @@ async def create(
     country: str,
     time_elapsed: int,
     client_anticheat_flags: int,
+    client_anticheat_token: str | None,
 ) -> Score:
     _score = await clients.database.fetch_one(
         query=f"""
@@ -183,13 +188,13 @@ async def create(
                                 full_combo, mods, num_300s, num_100s, num_50s,
                                 num_misses, num_gekis, num_katus, grade,
                                 submission_status, game_mode, country,
-                                time_elapsed, client_anticheat_flags)
+                                time_elapsed, client_anticheat_flags, client_anticheat_token)
             VALUES (:account_id, :online_checksum, :beatmap_md5, :score,
                     :performance_points, :accuracy, :highest_combo,
                     :full_combo, :mods, :num_300s, :num_100s, :num_50s,
                     :num_misses, :num_gekis, :num_katus, :grade,
                     :submission_status, :game_mode, :country,
-                    :time_elapsed, :client_anticheat_flags)
+                    :time_elapsed, :client_anticheat_flags, :client_anticheat_token)
             RETURNING {READ_PARAMS}
         """,
         values={
@@ -214,6 +219,7 @@ async def create(
             "country": country,
             "time_elapsed": time_elapsed,
             "client_anticheat_flags": client_anticheat_flags,
+            "client_anticheat_token": client_anticheat_token,
         },
     )
     assert _score is not None
