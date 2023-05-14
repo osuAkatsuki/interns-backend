@@ -905,11 +905,11 @@ def write_channel_info_packet(
 # CHANNEL_KICK = 66
 
 
-def write_channel_kick_packet(name: str) -> bytes:
+def write_channel_kick_packet(channel_name: str) -> bytes:
     return write_packet(
         packet_id=ServerPackets.CHANNEL_KICK,
         packet_data_inputs=[
-            (DataType.STRING, name),
+            (DataType.STRING, channel_name),
         ],
     )
 
