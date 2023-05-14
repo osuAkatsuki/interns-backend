@@ -581,6 +581,9 @@ async def update_match(
     )
 
     for other_slot in slots:
+        if other_slot["status"] & 0b01111100 == 0:
+            continue
+
         await packet_bundles.enqueue(
             other_slot["session_id"],
             match_packet,
