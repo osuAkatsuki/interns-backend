@@ -778,6 +778,141 @@ async def create_match_handler(session: "Session", packet_data: bytes):
 # MATCH_CHANGE_SLOT = 38
 
 
+@bancho_handler(packets.ClientPackets.MATCH_CHANGE_SLOT)
+async def match_change_slot_handler(session: "Session", packet_data: bytes) -> None:
+    reader = packets.PacketReader(packet_data)
+
+    slot_id = reader.read_i32()
+
+    presence = session["presence"]
+
+    if presence["multiplayer_match_id"] is None:
+        logger.warning(
+            "User tried to change slot while not in a match",
+            account_id=session["account_id"],
+        )
+
+        return
+
+    slots = await multiplayer_slots.fetch_all(presence["multiplayer_match_id"])
+
+    current_slot = None
+    for slot in slots:
+        if slot["account_id"] == session["account_id"]:
+            current_slot = slot
+            break
+
+    if current_slot is None:
+        logger.warning(
+            "User not inside of a slot",
+            account_id=session["account_id"],
+            match_id=presence["multiplayer_match_id"],
+        )
+
+        return
+
+    slot = await multiplayer_slots.fetch_one(presence["multiplayer_match_id"], slot_id)
+    if slot is None:
+        logger.warning(
+            "User tried to change to a slot that doesn't exist",
+            match_id=presence["multiplayer_match_id"],
+            account_id=session["account_id"],
+            slot_id=slot_id,
+        )
+
+        return
+
+    if slot["status"] != SlotStatus.OPEN:
+        logger.warning(
+            "User tried to change to a slot that isn't open",
+            match_id=presence["multiplayer_match_id"],
+            account_id=session["account_id"],
+            slot_id=slot_id,
+        )
+
+    # open up old slot
+    await multiplayer_slots.partial_update(
+        presence["multiplayer_match_id"],
+        current_slot["slot_id"],
+        account_id=-1,
+        status=SlotStatus.OPEN,
+        team=MatchTeams.NEUTRAL,
+        mods=0,
+        loaded=False,
+        skipped=False,
+    )
+
+    # switch to new slot
+    await multiplayer_slots.partial_update(
+        presence["multiplayer_match_id"],
+        slot_id,
+        session["account_id"],
+        current_slot["status"],
+        current_slot["team"],
+        current_slot["mods"],
+        current_slot["loaded"],
+        current_slot["skipped"],
+    )
+
+    logger.info(
+        "User changed slot",
+        old_slot_id=current_slot["slot_id"],
+        new_slot_id=slot_id,
+        match_id=presence["multiplayer_match_id"],
+        account_id=session["account_id"],
+    )
+
+    # re-fetch new slots
+    slots = await multiplayer_slots.fetch_all(presence["multiplayer_match_id"])
+
+    match = await multiplayer_matches.fetch_one(presence["multiplayer_match_id"])
+    if isinstance(match, ServiceError):
+        logger.warning(
+            "Failed to find match",
+            match_id=presence["multiplayer_match_id"],
+            account_id=session["account_id"],
+        )
+
+        return
+
+    vanilla_game_mode = game_modes.for_client(match["game_mode"], match["mods"])
+
+    packet_params = (
+        match["match_id"],
+        match["status"] == MatchStatus.PLAYING,
+        match["mods"],
+        match["match_name"],
+        match["match_password"],
+        match["beatmap_name"],
+        match["beatmap_id"],
+        match["beatmap_md5"],
+        [s["status"] for s in slots],
+        [s["team"] for s in slots],
+        [s["account_id"] for s in slots if s["status"] & 0b01111100 != 0],
+        match["host_account_id"],
+        vanilla_game_mode,
+        match["win_condition"],
+        match["team_type"],
+        match["freemods_enabled"],
+        [s["mods"] for s in slots] if match["freemods_enabled"] else [],
+        match["random_seed"],
+    )
+
+    match_packet = packets.write_update_match_packet(
+        *packet_params,
+        should_send_password=True,
+    )
+
+    channel = await channels.fetch_one_by_name(f"#mp_{match['match_id']}")
+    assert channel is not None
+
+    for other_session_id in await channel_members.members(channel["channel_id"]):
+        await packet_bundles.enqueue(
+            other_session_id,
+            match_packet,
+        )
+
+
 # MATCH_READY = 39
 
 
