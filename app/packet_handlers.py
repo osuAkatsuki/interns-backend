@@ -577,6 +577,15 @@ async def create_match_handler(session: "Session", packet_data: bytes):
         )
         return
 
+    await channels.create(
+        name=f"#mp_{match['match_id']}",
+        topic=f"Channel for multiplayer match ID {match['match_id']}",
+        read_privileges=ServerPrivileges.UNRESTRICTED,
+        write_privileges=ServerPrivileges.UNRESTRICTED,
+        auto_join=False,
+        temporary=True,
+    )
+
     if own_presence["spectator_host_session_id"] is not None:
         host_session = await sessions.fetch_by_id(
             own_presence["spectator_host_session_id"]

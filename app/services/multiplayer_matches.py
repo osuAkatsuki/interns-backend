@@ -53,15 +53,6 @@ async def create(
                 loaded=False,
                 skipped=False,
             )
-
-        await channels.create(
-            name=f"#mp_{match['match_id']}",
-            topic=f"Channel for multiplayer match ID {match['match_id']}",
-            read_privileges=ServerPrivileges.UNRESTRICTED,
-            write_privileges=ServerPrivileges.UNRESTRICTED,
-            auto_join=False,
-            temporary=True,
-        )
     except Exception as exc:  # pragma: no cover
         logger.error("Failed to create multiplayer match", exc_info=exc)
         return ServiceError.MULTIPLAYER_MATCHES_CREATE_FAILED
