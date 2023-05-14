@@ -1,7 +1,7 @@
+from uuid import UUID
+
 from app import logger
 from app.errors import ServiceError
-from app.privileges import ServerPrivileges
-from app.repositories import channels
 from app.repositories import multiplayer_match_ids
 from app.repositories import multiplayer_matches
 from app.repositories import multiplayer_slots
@@ -47,6 +47,7 @@ async def create(
                 match["match_id"],
                 slot_id,
                 account_id=0,
+                session_id=UUID(int=0),
                 status=multiplayer_slots.SlotStatus.OPEN,
                 team=MatchTeams.NEUTRAL,
                 mods=0,
