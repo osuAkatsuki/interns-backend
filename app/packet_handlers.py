@@ -878,7 +878,18 @@ async def join_match_handler(session: "Session", packet_data: bytes) -> None:
         )
         return
 
-    await join_match(match_id, session)
+    join_success = await join_match(match_id, session)
+    if not join_success:
+        logger.warning(
+            "Failed to join multiplayer match",
+            match_id=match_id,
+            session_id=session["session_id"],
+        )
+        await packet_bundles.enqueue(
+            session["session_id"],
+            packets.write_match_join_fail_packet(),
+        )
+        return
 
 
 # PART_MATCH = 33
