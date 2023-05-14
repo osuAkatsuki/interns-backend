@@ -1,7 +1,11 @@
 from app import logger
 from app.errors import ServiceError
+from app.privileges import ServerPrivileges
+from app.repositories import channels
 from app.repositories import multiplayer_match_ids
 from app.repositories import multiplayer_matches
+from app.repositories import multiplayer_slots
+from app.repositories.multiplayer_matches import MatchTeams
 from app.repositories.multiplayer_matches import MultiplayerMatch
 
 
@@ -36,6 +40,27 @@ async def create(
             team_type,
             freemods_enabled,
             random_seed,
+        )
+
+        for slot_id in range(0, 16):
+            await multiplayer_slots.create(
+                match["match_id"],
+                slot_id,
+                account_id=0,
+                status=multiplayer_slots.SlotStatus.OPEN,
+                team=MatchTeams.NEUTRAL,
+                mods=0,
+                loaded=False,
+                skipped=False,
+            )
+
+        await channels.create(
+            name=f"#mp_{match['match_id']}",
+            topic=f"Channel for multiplayer match ID {match['match_id']}",
+            read_privileges=ServerPrivileges.UNRESTRICTED,
+            write_privileges=ServerPrivileges.UNRESTRICTED,
+            auto_join=False,
+            temporary=True,
         )
     except Exception as exc:  # pragma: no cover
         logger.error("Failed to create multiplayer match", exc_info=exc)
