@@ -1,0 +1,2 @@
+ALTER TABLE channels ALTER COLUMN updated_at DROP DEFAULT;
+ALTER TABLE channels ALTER COLUMN created_at DROP DEFAULT;

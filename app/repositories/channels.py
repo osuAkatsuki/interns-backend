@@ -11,6 +11,7 @@ READ_PARAMS = """
     read_privileges,
     write_privileges,
     auto_join,
+    temporary,
     created_at,
     updated_at
 """
@@ -23,6 +24,7 @@ class Channel(TypedDict):
     read_privileges: int
     write_privileges: int
     auto_join: bool
+    temporary: bool
     created_at: datetime
     updated_at: datetime
 
@@ -30,14 +32,15 @@ class Channel(TypedDict):
 async def create(
     name: str,
     topic: str,
-    read_privileges: str,
+    read_privileges: int,
     write_privileges: int,
     auto_join: bool,
+    temporary: bool,
 ) -> Channel:
     channel = await clients.database.fetch_one(
         query=f"""\
-            INSERT INTO channels (name, topic, read_privileges, write_privileges, auto_join, created_at, updated_at)
-            VALUES (:name, :topic, :read_privileges, :write_privileges, :auto_join, :created_at, :updated_at)
+            INSERT INTO channels (name, topic, read_privileges, write_privileges, auto_join, temporary)
+            VALUES (:name, :topic, :read_privileges, :write_privileges, :auto_join, :temporary)
             RETURNING {READ_PARAMS}
         """,
         values={
@@ -46,6 +49,7 @@ async def create(
             "read_privileges": read_privileges,
             "write_privileges": write_privileges,
             "auto_join": auto_join,
+            "temporary": temporary,
         },
     )
 
