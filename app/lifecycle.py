@@ -69,7 +69,8 @@ async def _start_redis():
     clients.redis = await redis.from_url(
         url=redis.dsn(
             scheme=settings.REDIS_SCHEME,
-            passwd=settings.REDIS_PASS,
+            username=settings.REDIS_USER,
+            password=settings.REDIS_PASS,
             host=settings.REDIS_HOST,
             port=settings.REDIS_PORT,
             database=settings.REDIS_DB,
