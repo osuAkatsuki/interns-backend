@@ -928,6 +928,12 @@ async def join_match_handler(session: "Session", packet_data: bytes) -> None:
     # make other people aware the session joined
     await _broadcast_match_updates(match_id)
 
+    logger.info(
+        "User joined a match",
+        session_id=session["session_id"],
+        match_id=match_id,
+    )
+
 
 # PART_MATCH = 33
 
