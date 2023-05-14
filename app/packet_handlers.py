@@ -211,9 +211,15 @@ async def logout_handler(session: "Session", packet_data: bytes) -> None:
     reason = packet_reader.read_i32()
 
     if reason == ExitReason.UPDATE:
-        ...
+        pass
     elif reason == ExitReason.QUIT:
-        ...
+        pass
+    else:
+        logger.warning(
+            "User sent invalid exit reason on logout",
+            reason=reason,
+            account_id=session["account_id"],
+        )
 
     own_presence = session["presence"]
 
