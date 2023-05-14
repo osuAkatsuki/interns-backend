@@ -112,3 +112,17 @@ async def fetch_one_by_name(name: str) -> Channel | None:
     )
 
     return cast(Channel, channel) if channel is not None else None
+
+
+async def delete(channel_id: int) -> Channel | None:
+    channel = await clients.database.fetch_one(
+        query=f"""
+            DELETE FROM channels
+            WHERE channel_id = :channel_id
+            RETURNING {READ_PARAMS}
+        """,
+        values={
+            "channel_id": channel_id,
+        },
+    )
+    return cast(Channel, channel) if channel is not None else None

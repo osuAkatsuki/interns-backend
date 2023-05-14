@@ -928,8 +928,149 @@ async def join_match_handler(session: "Session", packet_data: bytes) -> None:
     # make other people aware the session joined
     await _broadcast_match_updates(match_id)
 
+    logger.info(
+        "User joined a match",
+        session_id=session["session_id"],
+        match_id=match_id,
+    )
+
 
 # PART_MATCH = 33
+
+
+@bancho_handler(packets.ClientPackets.PART_MATCH)
+async def part_match_handler(session: "Session", packet_data: bytes) -> None:
+    own_presence = session["presence"]
+
+    if own_presence["multiplayer_match_id"] is None:
+        logger.warning(
+            "User tried to leave a match while not in a match",
+            session_id=session["session_id"],
+        )
+        return
+
+    match = await multiplayer_matches.fetch_one(own_presence["multiplayer_match_id"])
+    if isinstance(match, ServiceError):
+        logger.error(
+            "Failed to find match when leaving",
+            session_id=session["session_id"],
+            match_id=own_presence["multiplayer_match_id"],
+        )
+        return
+
+    current_slot = await multiplayer_slots.fetch_one_by_session_id(
+        match["match_id"],
+        session["session_id"],
+    )
+    assert current_slot is not None
+
+    # open up old slot
+    current_slot = await multiplayer_slots.partial_update(
+        match["match_id"],
+        current_slot["slot_id"],
+        account_id=-1,
+        session_id=UUID(int=0),
+        status=SlotStatus.OPEN,
+        team=MatchTeams.NEUTRAL,
+        mods=0,
+        loaded=False,
+        skipped=False,
+    )
+    assert current_slot is not None
+
+    match_channel = await channels.fetch_one_by_name(f"#mp_{match['match_id']}")
+    assert match_channel is not None
+
+    if match["host_account_id"] == session["account_id"]:
+        # if the host left, pick a new host
+        slots = await multiplayer_slots.fetch_all(match["match_id"])
+
+        new_host_slot = None
+        for slot in slots:
+            # slot doesn't have a user
+            if slot["account_id"] == -1:
+                continue
+
+            new_host_slot = slot
+            break
+
+        # no one is left in the match, close it
+        if new_host_slot is None:
+            lobby_channel = await channels.fetch_one_by_name("#lobby")
+            assert lobby_channel is not None
+
+            # inform everyone in the lobby that the match no longer exists
+            for other_session_id in await channel_members.members(
+                lobby_channel["channel_id"]
+            ):
+                await packet_bundles.enqueue(
+                    other_session_id,
+                    packets.write_dispose_match_packet(match["match_id"]),
+                )
+
+            # kick everyone out of the multiplayer match and channel
+            for other_session_id in await channel_members.members(
+                match_channel["channel_id"]
+            ):
+                await packet_bundles.enqueue(
+                    other_session_id,
+                    data=(
+                        packets.write_dispose_match_packet(match["match_id"])
+                        + packets.write_channel_kick_packet("#multiplayer")
+                    ),
+                )
+                await channel_members.remove(
+                    match_channel["channel_id"],
+                    other_session_id,
+                )
+
+            # delete the multiplayer channel and it's slots
+            match = await multiplayer_matches.delete(match["match_id"])
+            assert not isinstance(match, ServiceError)
+
+            # delete the multiplayer channel
+            match_channel = await channels.delete(match_channel["channel_id"])
+            assert not isinstance(match_channel, ServiceError)
+
+            logger.info(
+                "Match closed due to no members",
+                match_id=match["match_id"],
+            )
+
+            return
+
+        await multiplayer_matches.partial_update(
+            match_id=match["match_id"],
+            host_account_id=new_host_slot["account_id"],
+        )
+
+        await packet_bundles.enqueue(
+            new_host_slot["session_id"],
+            packets.write_match_transfer_host_packet(),
+        )
+
+        logger.info(
+            "Match host passed to new user",
+            old_host_session_id=session["session_id"],
+            new_host_session_id=new_host_slot["session_id"],
+            match_id=match["match_id"],
+        )
+
+    # leave the multiplayer channel
+    await channel_members.remove(match_channel["channel_id"], session["session_id"])
+    await packet_bundles.enqueue(
+        session["session_id"],
+        packets.write_channel_kick_packet("#multiplayer"),
+    )
+
+    # inform relevant places of the new match state
+    await _broadcast_match_updates(match["match_id"])
+
+    logger.info(
+        "User left a match",
+        session_id=session["session_id"],
+        match_id=match["match_id"],
+    )
 
 
 # MATCH_CHANGE_SLOT = 38
