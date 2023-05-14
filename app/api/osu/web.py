@@ -711,14 +711,16 @@ async def osu_search_set_handler(
     ):
         return Response(status_code=status.HTTP_401_UNAUTHORIZED)
 
-    # https://github.com/osuAkatsuki/bancho.py/blob/master/app/api/domains/osu.py#L535
-    #    if(raw) return `${s.beatmapset_id}.osz|${s.artist}|${s.title}|${s.creator}|${s.ranked}|${s.rating.toFixed(2)}|${new Date(s.last_updated * 1000).toISOString().slice(0, 19)}|${s.id}|0|${+s.video}|0|0|`
     if beatmap_set_id is not None:
         response_data = await mino.get_beatmap_set(beatmap_set_id)
     elif beatmap_id is not None:
         response_data = await mino.get_beatmap(beatmap_id)
     else:  # pragma: no cover
         raise NotImplementedError  # unreachable
+
+    # the response format resembles;
+    "{set_id}.osz|{artist}|{title}|{creator}|{status}|{beatmap_rating}|{last_update}|"
+    "{set_id}|{thread_id}|{has_video}|{has_storyboard}|{filesize}|{filesize_novideo}"
 
     return response_data
 
