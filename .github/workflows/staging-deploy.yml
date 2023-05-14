@@ -27,10 +27,10 @@ jobs:
       run: doctl registry login --expiry-seconds 600
 
     - name: Build container image
-      run: docker build -t registry.digitalocean.com/akatsuki/osu-server-professing:latest .
+      run: docker build -t registry.digitalocean.com/akatsuki/interns-backend:latest .
 
     - name: Push image to digitalocean container registry
-      run: docker push registry.digitalocean.com/akatsuki/osu-server-professing:latest
+      run: docker push registry.digitalocean.com/akatsuki/interns-backend:latest
 
     - name: Save kubeconfig from digitalocean
       run: doctl k8s cluster kubeconfig save --expiry-seconds 600 akatsuki-staging
@@ -53,7 +53,7 @@ jobs:
         path: common-helm-charts
 
     - name: Show manifest diff since previous release
-      run: helm diff upgrade --allow-unreleased --values chart/values.yaml osu-server-professing-staging common-helm-charts/microservice-base/
+      run: helm diff upgrade --allow-unreleased --values chart/values.yaml interns-backend-staging common-helm-charts/microservice-base/
 
     - name: Deploy service to staging cluster
-      run: helm upgrade --install --atomic --wait --timeout 120s --values chart/values.yaml osu-server-professing-staging common-helm-charts/microservice-base/
+      run: helm upgrade --install --atomic --wait --timeout 120s --values chart/values.yaml interns-backend-staging common-helm-charts/microservice-base/

@@ -1,10 +1,10 @@
 app:
-  name: osu-server-professing
+  name: interns-backend
   environment: staging
   group: backend
   container:
     image:
-      repository: registry.digitalocean.com/akatsuki/osu-server-professing
+      repository: registry.digitalocean.com/akatsuki/interns-backend
       tag: latest
     imagePullSecrets:
       - name: akatsuki
