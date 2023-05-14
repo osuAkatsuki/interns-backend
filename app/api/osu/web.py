@@ -645,7 +645,82 @@ async def submit_score_handler(
 
     # TODO: construct score submission charts
 
-    return b"error: no"
+    response_data = bytearray()
+
+    # TODO: fetch real values
+    beatmap_rank_before = 0
+    beatmap_rank_after = 0
+    beatmap_ranked_score_before = 0
+    beatmap_ranked_score_after = 0
+    beatmap_total_score_before = 0
+    beatmap_total_score_after = 0
+    beatmap_max_combo_before = 0
+    beatmap_max_combo_after = 0
+    beatmap_accuracy_before = 0.0
+    beatmap_accuracy_after = 0.0
+    beatmap_pp_before = 0.0
+    beatmap_pp_after = 0.0
+
+    # TODO: fetch real values
+    overall_rank_before = 0
+    overall_rank_after = 0
+    overall_ranked_score_before = 0
+    overall_ranked_score_after = 0
+    overall_total_score_before = 0
+    overall_total_score_after = 0
+    overall_max_combo_before = 0
+    overall_max_combo_after = 0
+    overall_accuracy_before = 0.0
+    overall_accuracy_after = 0.0
+    overall_pp_before = 0.0
+    overall_pp_after = 0.0
+
+    response_data += (
+        f"beatmapId:{beatmap['beatmap_id']}|"
+        f"beatmapSetId:{beatmap['beatmap_set_id']}|"
+        f"beatmapPlaycount:{beatmap['plays']}|"
+        f"beatmapPasscount:{beatmap['passes']}|"
+        # TODO: is this correct?
+        f"approvedDate:{beatmap['bancho_updated_at'].isoformat()}|"
+        "\n"
+        "|chartId:beatmap|"
+        f"chartUrl:https://osu.cmyui.xyz/beatmapsets/{beatmap['beatmap_set_id']}|"
+        "chartName:Beatmap Ranking|"
+        f"rankBefore:{beatmap_rank_before}|"
+        f"rankAfter:{beatmap_rank_after}|"
+        f"rankedScoreBefore:{beatmap_ranked_score_before}|"
+        f"rankedScoreAfter:{beatmap_ranked_score_after}|"
+        f"totalScoreBefore:{beatmap_total_score_before}|"
+        f"totalScoreAfter:{beatmap_total_score_after}|"
+        f"maxComboBefore:{beatmap_max_combo_before}|"
+        f"maxComboAfter:{beatmap_max_combo_after}|"
+        f"accuracyBefore:{beatmap_accuracy_before}|"
+        f"accuracyAfter:{beatmap_accuracy_after}|"
+        f"ppBefore:{beatmap_pp_before}|"
+        f"ppAfter:{beatmap_pp_after}|"
+        f"onlineScoreId:{score['score_id']}|"
+        "\n"
+        "|chartId:overall|"
+        f"chartUrl:https://osu.cmyui.xyz/u/{account['username']}|"
+        "chartName:Overall Ranking|"
+        f"rankBefore:{overall_rank_before}|"
+        f"rankAfter:{overall_rank_after}|"
+        f"rankedScoreBefore:{overall_ranked_score_before}|"
+        f"rankedScoreAfter:{overall_ranked_score_after}|"
+        f"totalScoreBefore:{overall_total_score_before}|"
+        f"totalScoreAfter:{overall_total_score_after}|"
+        f"maxComboBefore:{overall_max_combo_before}|"
+        f"maxComboAfter:{overall_max_combo_after}|"
+        f"accuracyBefore:{overall_accuracy_before}|"
+        f"accuracyAfter:{overall_accuracy_after}|"
+        f"ppBefore:{overall_pp_before}|"
+        f"ppAfter:{overall_pp_after}|"
+    ).encode()
+
+    achievements_string = "/".join(map(achievements.to_string, new_achievements))
+    response_data += f"achievements-new:{achievements_string}".encode()
+
+    return b"error: no"  # response_data
 
 
 @osu_web_router.post("/difficulty-rating")
