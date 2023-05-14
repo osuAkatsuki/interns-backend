@@ -1,47 +1,7 @@
-from datetime import datetime
-
 import httpx
-from pydantic import BaseModel
 
 from app import clients
 from app import logger
-
-
-class Beatmap(BaseModel):
-    FileMD5: str
-    TotalLength: int
-    Playcount: int
-    Mode: int
-    HP: int
-    Ranked: int
-    MaxCombo: int
-    ParentSetID: int
-    CS: int
-    AR: int
-    OD: int
-    BeatmapID: int
-    HitLength: int
-    DifficultyRating: int
-    Passcount: int
-    DiffName: str
-    BPM: int
-
-
-class BeatmapSet(BaseModel):
-    SetID: int
-    RankedStatus: int
-    ChildrenBeatmaps: list[Beatmap]
-    ApprovedDate: datetime
-    LastUpdate: datetime
-    LastChecked: datetime
-    Artist: str
-    Title: str
-    Creator: str
-    CreatorID: int
-    Source: str
-    Tags: str
-    HasVideo: int  # bool
-    Favourites: int
 
 
 async def osudirect_search(
@@ -76,10 +36,14 @@ async def osudirect_search(
     return response_data
 
 
-async def get_beatmap_set(beatmap_set_id: int) -> BeatmapSet | None:
+async def get_beatmap_set(beatmap_set_id: int) -> bytes:
     try:
         response = await clients.http_client.get(
-            url=f"https://catboy.best/s/{beatmap_set_id}",
+            url=f"https://catboy.best/api/search/set",
+            params={
+                "s": beatmap_set_id,
+                "raw": 1,
+            },
         )
     except httpx.NetworkError as exc:
         logger.error(
@@ -89,17 +53,18 @@ async def get_beatmap_set(beatmap_set_id: int) -> BeatmapSet | None:
         )
         raise  # TODO: handle this with retry logic
 
-    response_data = await response.json()
-    if response_data["error"]:
-        return None
-
-    return BeatmapSet(**response_data)
+    response_data = await response.aread()
+    return response_data
 
 
-async def get_beatmap(beatmap_id: int) -> Beatmap | None:
+async def get_beatmap(beatmap_id: int) -> bytes:
     try:
         response = await clients.http_client.get(
-            url=f"https://catboy.best/b/{beatmap_id}",
+            url=f"https://catboy.best/api/search/set",
+            params={
+                "b": beatmap_id,
+                "raw": 1,
+            },
         )
     except httpx.NetworkError as exc:
         logger.error(
@@ -109,8 +74,5 @@ async def get_beatmap(beatmap_id: int) -> Beatmap | None:
         )
         raise  # TODO: handle this with retry logic
 
-    response_data = await response.json()
-    if "error" in response_data:
-        return None
-
-    return Beatmap(**response_data)
+    response_data = await response.aread()
+    return response_data
