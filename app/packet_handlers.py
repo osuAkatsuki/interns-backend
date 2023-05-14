@@ -540,6 +540,80 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
 # CREATE_MATCH = 31
 
 
+# XXX: this is a helper for some code that is repeated several times
+# throughout a multiplayer implementation - broadcasting state changes
+async def _broadcast_match_updates(
+    match_id: int,
+    send_to_lobby: bool = True,
+) -> bool:
+    match = await multiplayer_matches.fetch_one(match_id)
+    assert not isinstance(match, ServiceError)
+
+    slots = await multiplayer_slots.fetch_all(match["match_id"])
+
+    vanilla_game_mode = game_modes.for_client(match["game_mode"], match["mods"])
+
+    packet_params = (
+        match["match_id"],
+        match["status"] == MatchStatus.PLAYING,
+        match["mods"],
+        match["match_name"],
+        match["match_password"],
+        match["beatmap_name"],
+        match["beatmap_id"],
+        match["beatmap_md5"],
+        [s["status"] for s in slots],
+        [s["team"] for s in slots],
+        [s["account_id"] for s in slots if s["status"] & 0b01111100 != 0],
+        match["host_account_id"],
+        vanilla_game_mode,
+        match["win_condition"],
+        match["team_type"],
+        match["freemods_enabled"],
+        [s["mods"] for s in slots] if match["freemods_enabled"] else [],
+        match["random_seed"],
+    )
+
+    # send the match data (with password) to those in the multiplayer match
+    match_packet = packets.write_update_match_packet(
+        *packet_params,
+        should_send_password=True,
+    )
+
+    for other_slot in slots:
+        if other_slot["status"] & 0b01111100 == 0:
+            continue
+
+        await packet_bundles.enqueue(
+            other_slot["session_id"],
+            match_packet,
+        )
+
+    # send the match data (without password) to those in #lobby
+    if send_to_lobby:
+        packet_without_password = packets.write_update_match_packet(
+            *packet_params,
+            should_send_password=False,
+        )
+        lobby_channel = await channels.fetch_one_by_name("#lobby")
+        if lobby_channel is None:
+            logger.error(
+                "Failed to fetch #lobby channel",
+                match_id=match["match_id"],
+            )
+            return False
+
+        for other_session_id in await channel_members.members(
+            lobby_channel["channel_id"]
+        ):
+            await packet_bundles.enqueue(
+                other_session_id,
+                packet_without_password,
+            )
+
+    return True
+
+
 @bancho_handler(packets.ClientPackets.CREATE_MATCH)
 async def create_match_handler(session: "Session", packet_data: bytes):
     own_presence = session["presence"]
@@ -562,8 +636,6 @@ async def create_match_handler(session: "Session", packet_data: bytes):
     )
 
     # if we are spectating someone, stop spectating them
-    # TODO: do we really need this? it seems like osu! will
-    # stop spectating users client-side upon joining #lobby
     if own_presence["spectator_host_session_id"] is not None:
         host_session = await sessions.fetch_by_id(
             own_presence["spectator_host_session_id"]
@@ -577,11 +649,14 @@ async def create_match_handler(session: "Session", packet_data: bytes):
             )
             return
 
-        await spectators.remove(
+        # remove us from the host's spectators
+        spectator = await spectators.remove(
             host_session["session_id"],
             session["session_id"],
         )
+        assert spectator is not None
 
+        # remove the host from our presence
         maybe_session = await sessions.partial_update(
             session["session_id"],
             presence={"spectator_host_session_id": None},
@@ -589,11 +664,13 @@ async def create_match_handler(session: "Session", packet_data: bytes):
         assert maybe_session is not None
         session = maybe_session
 
+        # inform the host that we left
         await packet_bundles.enqueue(
             host_session["session_id"],
             packets.write_spectator_left_packet(session["account_id"]),
         )
 
+        # inform the other spectators that we left
         for spectator_session_id in await spectators.members(
             host_session["session_id"]
         ):
@@ -604,19 +681,6 @@ async def create_match_handler(session: "Session", packet_data: bytes):
                 spectator_session_id,
                 packets.write_fellow_spectator_left_packet(session["account_id"]),
             )
-
-    # fetch the #lobby channel
-    lobby_channel = await channels.fetch_one_by_name("#lobby")
-    if lobby_channel is None:
-        logger.error(
-            "Failed to fetch #lobby channel",
-            user_id=session["account_id"],
-        )
-        await packet_bundles.enqueue(
-            session["session_id"],
-            data=packets.write_match_join_fail_packet(),
-        )
-        return
 
     # create the multiplayer match
     match = await multiplayer_matches.create(
@@ -645,13 +709,6 @@ async def create_match_handler(session: "Session", packet_data: bytes):
         )
         return
 
-    maybe_session = await sessions.partial_update(
-        session["session_id"],
-        presence={"multiplayer_match_id": match["match_id"]},
-    )
-    assert maybe_session is not None
-    session = maybe_session
-
     # create the #multiplayer chat
     match_channel = await channels.create(
         name=f"#mp_{match['match_id']}",
@@ -662,13 +719,14 @@ async def create_match_handler(session: "Session", packet_data: bytes):
         temporary=True,
     )
 
-    # claim a slot for our first session
+    # claim a slot for the session
     async with await clients.redlock.lock(f"slot_ids:lock:{match['match_id']}"):
         slot_id = await multiplayer_slots.claim_slot_id(match["match_id"])
         if slot_id is None:
             logger.error(
                 "Failed to claim slot",
-                user_id=session["account_id"],
+                session_id=session["session_id"],
+                match_id=match["match_id"],
             )
             await packet_bundles.enqueue(
                 session["session_id"],
@@ -684,17 +742,34 @@ async def create_match_handler(session: "Session", packet_data: bytes):
             status=multiplayer_slots.SlotStatus.NOT_READY,
         )
 
-    # add the creator as host
-    match = await multiplayer_matches.partial_update(
-        match_id=match["match_id"],
-        host_account_id=session["account_id"],
+    # join the multiplayer match
+    maybe_session = await sessions.partial_update(
+        session["session_id"],
+        presence={"multiplayer_match_id": match["match_id"]},
     )
-    assert not isinstance(match, ServiceError)
+    assert maybe_session is not None
+    session = maybe_session
 
-    # create two variants of the packet, with and without the password
-    # TODO: perhaps consider making a function to (deep)copy & patch the password?
+    # join the #multiplayer channel
+    await channel_members.add(match_channel["channel_id"], session["session_id"])
+
+    # inform our user of the #multiplayer channel
+    await packet_bundles.enqueue(
+        session["session_id"],
+        data=(
+            packets.write_channel_auto_join_packet(
+                name="#multiplayer",
+                topic=match_channel["topic"],
+                num_sessions=1,
+            )
+            + packets.write_channel_join_success_packet(channel_name="#multiplayer")
+        ),
+    )
+
     slots = await multiplayer_slots.fetch_all(match["match_id"])
-    packet_params = (
+
+    # send the match data (with password) to the creator
+    match_join_success_packet = packets.write_match_join_success_packet(
         match["match_id"],
         match["status"] == MatchStatus.PLAYING,
         match["mods"],
@@ -713,27 +788,6 @@ async def create_match_handler(session: "Session", packet_data: bytes):
         match["freemods_enabled"],
         [s["mods"] for s in slots] if match["freemods_enabled"] else [],
         match["random_seed"],
-    )
-
-    # add the creator to the #multiplayer channel
-    await channel_members.add(match_channel["channel_id"], session["session_id"])
-    await packet_bundles.enqueue(
-        session["session_id"],
-        packets.write_channel_auto_join_packet(
-            "#multiplayer",
-            topic=match_channel["topic"],
-            num_sessions=1,
-        ),
-    )
-
-    await packet_bundles.enqueue(
-        session["session_id"],
-        packets.write_channel_join_success_packet("#multiplayer"),
-    )
-
-    # send the match data (with password) to the creator
-    match_join_success_packet = packets.write_match_join_success_packet(
-        *packet_params,
         should_send_password=True,
     )
     await packet_bundles.enqueue(
@@ -741,23 +795,138 @@ async def create_match_handler(session: "Session", packet_data: bytes):
         match_join_success_packet,
     )
 
-    # send the match data (without password) to everyone in #lobby
-    packet_without_password = packets.write_update_match_packet(
-        *packet_params,
-        should_send_password=False,
+    # add the creator as host
+    # TODO: does this make sense over initially creating the match with the user as host?
+    match = await multiplayer_matches.partial_update(
+        match_id=match["match_id"],
+        host_account_id=session["account_id"],
     )
+    assert not isinstance(match, ServiceError)
 
-    for other_session_id in await channel_members.members(lobby_channel["channel_id"]):
-        if other_session_id == session["session_id"]:
-            continue
-
-        await packet_bundles.enqueue(
-            other_session_id,
-            packet_without_password,
-        )
+    await _broadcast_match_updates(match["match_id"])
 
 
 # JOIN_MATCH = 32
+
+
+@bancho_handler(packets.ClientPackets.JOIN_MATCH)
+async def join_match_handler(session: "Session", packet_data: bytes) -> None:
+    reader = packets.PacketReader(packet_data)
+
+    match_id = reader.read_i32()
+    match_password = reader.read_string()
+
+    # attempt to find the match we are trying to join
+    match = await multiplayer_matches.fetch_one(match_id)
+    if isinstance(match, ServiceError):
+        logger.warning(
+            "Failed to find match when joining",
+            session_id=session["session_id"],
+            match_id=match_id,
+        )
+        await packet_bundles.enqueue(
+            session["session_id"],
+            packets.write_match_join_fail_packet(),
+        )
+        return
+
+    # if the match has a non-empty password, validate the client got it right
+    if match["match_password"] != "" and match_password != match["match_password"]:
+        logger.warning(
+            "User tried to join a match with an incorrect password",
+            session_id=session["session_id"],
+            match_id=match_id,
+        )
+        await packet_bundles.enqueue(
+            session["session_id"],
+            packets.write_match_join_fail_packet(),
+        )
+        return
+
+    # claim a slot for the session
+    async with await clients.redlock.lock(f"slot_ids:lock:{match_id}"):
+        slot_id = await multiplayer_slots.claim_slot_id(match_id)
+        if slot_id is None:
+            logger.error(
+                "Failed to claim slot",
+                session_id=session["session_id"],
+                match_id=match_id,
+            )
+            await packet_bundles.enqueue(
+                session["session_id"],
+                packets.write_match_join_fail_packet(),
+            )
+            return
+
+        await multiplayer_slots.partial_update(
+            match_id,
+            slot_id,
+            account_id=session["account_id"],
+            session_id=session["session_id"],
+            status=multiplayer_slots.SlotStatus.NOT_READY,
+        )
+
+    # join the multiplayer match
+    maybe_session = await sessions.partial_update(
+        session["session_id"],
+        presence={"multiplayer_match_id": match_id},
+    )
+    assert maybe_session is not None
+    session = maybe_session
+
+    match_channel = await channels.fetch_one_by_name(f"#mp_{match_id}")
+    assert match_channel is not None
+
+    # join the #multiplayer channel
+    await channel_members.add(match_channel["channel_id"], session["session_id"])
+    match_channel_members = await channel_members.members(match_channel["channel_id"])
+
+    # inform our user of the #multiplayer channel
+    await packet_bundles.enqueue(
+        session["session_id"],
+        data=(
+            packets.write_channel_auto_join_packet(
+                name="#multiplayer",
+                topic=match_channel["topic"],
+                num_sessions=len(match_channel_members),
+            )
+            + packets.write_channel_join_success_packet("#multiplayer")
+        ),
+    )
+
+    slots = await multiplayer_slots.fetch_all(match["match_id"])
+
+    vanilla_game_mode = game_modes.for_client(match["game_mode"], match["mods"])
+
+    # send the match data (with password) to the creator
+    match_join_success_packet = packets.write_match_join_success_packet(
+        match["match_id"],
+        match["status"] == MatchStatus.PLAYING,
+        match["mods"],
+        match["match_name"],
+        match["match_password"],
+        match["beatmap_name"],
+        match["beatmap_id"],
+        match["beatmap_md5"],
+        [s["status"] for s in slots],
+        [s["team"] for s in slots],
+        [s["account_id"] for s in slots if s["status"] & 0b01111100 != 0],
+        match["host_account_id"],
+        vanilla_game_mode,
+        match["win_condition"],
+        match["team_type"],
+        match["freemods_enabled"],
+        [s["mods"] for s in slots] if match["freemods_enabled"] else [],
+        match["random_seed"],
+        should_send_password=True,
+    )
+    await packet_bundles.enqueue(
+        session["session_id"],
+        match_join_success_packet,
+    )
+
+    # make other people aware the session joined
+    await _broadcast_match_updates(match_id)
 
 
 # PART_MATCH = 33
@@ -860,61 +1029,10 @@ async def match_change_slot_handler(session: "Session", packet_data: bytes) -> N
     )
 
     # send updated data to those in the multi match, and #lobby
-    slots = await multiplayer_slots.fetch_all(match_id)
-    vanilla_game_mode = game_modes.for_client(match["game_mode"], match["mods"])
-
-    packet_params = (
+    await _broadcast_match_updates(
         match["match_id"],
-        match["status"] == MatchStatus.PLAYING,
-        match["mods"],
-        match["match_name"],
-        match["match_password"],
-        match["beatmap_name"],
-        match["beatmap_id"],
-        match["beatmap_md5"],
-        [s["status"] for s in slots],
-        [s["team"] for s in slots],
-        [s["account_id"] for s in slots if s["status"] & 0b01111100 != 0],
-        match["host_account_id"],
-        vanilla_game_mode,
-        match["win_condition"],
-        match["team_type"],
-        match["freemods_enabled"],
-        [s["mods"] for s in slots] if match["freemods_enabled"] else [],
-        match["random_seed"],
+        send_to_lobby=False,
     )
-
-    # send the match data (with password) to those in the multiplayer match
-    match_packet = packets.write_update_match_packet(
-        *packet_params,
-        should_send_password=True,
-    )
-
-    for other_slot in slots:
-        await packet_bundles.enqueue(
-            other_slot["session_id"],
-            match_packet,
-        )
-
-    # send the match data (without password) to those in #lobby
-    packet_without_password = packets.write_update_match_packet(
-        *packet_params,
-        should_send_password=False,
-    )
-
-    lobby_channel = await channels.fetch_one_by_name("#lobby")
-    if lobby_channel is None:
-        logger.error(
-            "Failed to fetch #lobby channel",
-            user_id=session["account_id"],
-        )
-        return
-
-    for other_session_id in await channel_members.members(lobby_channel["channel_id"]):
-        await packet_bundles.enqueue(
-            other_session_id,
-            packet_without_password,
-        )
 
 
 # MATCH_READY = 39
