@@ -555,6 +555,8 @@ async def create_match_handler(session: "Session", packet_data: bytes):
     )
 
     # if we are spectating someone, stop spectating them
+    # TODO: do we really need this? it seems like osu! will
+    # stop spectating users client-side upon joining #lobby
     if own_presence["spectator_host_session_id"] is not None:
         host_session = await sessions.fetch_by_id(
             own_presence["spectator_host_session_id"]
@@ -710,17 +712,8 @@ async def create_match_handler(session: "Session", packet_data: bytes):
         match["random_seed"],
     )
 
-    match_join_success_packet = packets.write_match_join_success_packet(
-        *packet_params,
-        should_send_password=True,
-    )
-    await packet_bundles.enqueue(
-        session["session_id"],
-        match_join_success_packet,
-    )
-
+    # add the creator to the #multiplayer channel
     await channel_members.add(match_channel["channel_id"], session["session_id"])
-
     await packet_bundles.enqueue(
         session["session_id"],
         packets.write_channel_auto_join_packet(
@@ -735,6 +728,17 @@ async def create_match_handler(session: "Session", packet_data: bytes):
         packets.write_channel_join_success_packet("#multiplayer"),
     )
 
+    # send the match data (with password) to the creator
+    match_join_success_packet = packets.write_match_join_success_packet(
+        *packet_params,
+        should_send_password=True,
+    )
+    await packet_bundles.enqueue(
+        session["session_id"],
+        match_join_success_packet,
+    )
+
+    # send the match data (without password) to everyone in #lobby
     packet_without_password = packets.write_update_match_packet(
         *packet_params,
         should_send_password=False,
