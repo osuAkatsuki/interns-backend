@@ -540,7 +540,9 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
 # CREATE_MATCH = 31
 
 
-async def update_match(
+# XXX: this is a helper for some code that is repeated several times
+# throughout a multiplayer implementation - broadcasting state changes
+async def _broadcast_match_updates(
     match_id: int,
     send_to_lobby: bool = True,
 ) -> bool:
@@ -815,7 +817,7 @@ async def create_match_handler(session: "Session", packet_data: bytes):
             match_id=match["match_id"],
         )
 
-    await update_match(match["match_id"])
+    await _broadcast_match_updates(match["match_id"])
 
 
 # JOIN_MATCH = 32
@@ -937,7 +939,7 @@ async def join_match_handler(session: "Session", packet_data: bytes) -> None:
     )
 
     # make other people aware the session joined
-    await update_match(match_id)
+    await _broadcast_match_updates(match_id)
 
 
 # PART_MATCH = 33
@@ -1040,7 +1042,7 @@ async def match_change_slot_handler(session: "Session", packet_data: bytes) -> N
     )
 
     # send updated data to those in the multi match, and #lobby
-    await update_match(
+    await _broadcast_match_updates(
         match["match_id"],
         send_to_lobby=False,
     )
