@@ -686,9 +686,9 @@ async def create_match_handler(session: "Session", packet_data: bytes):
 
         await multiplayer_slots.partial_update(
             match["match_id"],
-            own_slot["slot_id"],
-            account_id=-1,
-            status=multiplayer_slots.SlotStatus.OPEN,
+            slot_id,
+            session["account_id"],
+            status=multiplayer_slots.SlotStatus.NOT_READY,
             team=MatchTeams.NEUTRAL,
             mods=0,
             loaded=False,
