@@ -4,7 +4,7 @@ from akatsuki_pp_py import Beatmap as CalculatorBeatmap
 from akatsuki_pp_py import Calculator
 
 # TODO: we can improve the typing here to avoid the optionals
-# https://github.com/cmyui/osu-server-professing/pull/33/files#r1181634986
+# https://github.com/osuAkatsuki/interns-backend/pull/33/files#r1181634986
 
 
 class DifficultyAttributes(TypedDict):
