@@ -1,0 +1,11 @@
+app:
+  name: osu-server-professing
+  environment: staging
+  group: backend
+  container:
+    image:
+      repository: registry.digitalocean.com/akatsuki/osu-server-professing
+      tag: latest
+    imagePullSecrets:
+      - name: akatsuki
+    port: 80
