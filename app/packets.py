@@ -852,6 +852,13 @@ def write_fellow_spectator_left_packet(user_id: int) -> bytes:
 # MATCH_TRANSFER_HOST = 50
 
 
+def write_match_transfer_host_packet() -> bytes:
+    return write_packet(
+        packet_id=ServerPackets.MATCH_TRANSFER_HOST,
+        packet_data_inputs=[],
+    )
+
+
 # MATCH_ALL_PLAYERS_LOADED = 53
 
 
