@@ -8,7 +8,6 @@ from getpass import getpass
 
 from dotenv import load_dotenv
 
-from app.adapters import database as database_adapter
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 mount_dir = os.path.join(script_dir, "..")
@@ -16,11 +15,10 @@ sys.path.append(mount_dir)
 
 from app import geolocation
 from app import security
-from app.game_modes import GameMode
-
-
 from app import settings
 from app import validation
+from app.adapters import database as database_adapter
+from app.game_modes import GameMode
 from app.privileges import ServerPrivileges
 
 load_dotenv(dotenv_path=".env")
