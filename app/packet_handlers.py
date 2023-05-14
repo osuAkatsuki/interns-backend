@@ -679,6 +679,7 @@ async def create_match_handler(session: "Session", packet_data: bytes):
             match["match_id"],
             slot_id,
             account_id=session["account_id"],
+            session_id=session["session_id"],
             status=multiplayer_slots.SlotStatus.NOT_READY,
         )
 
