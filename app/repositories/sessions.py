@@ -61,6 +61,7 @@ class Presence(TypedDict):
     mods: int
     spectator_host_session_id: UUID | None
     away_message: str | None
+    multiplayer_match_id: int | None
 
 
 class _SerializablePresence(TypedDict):
@@ -79,6 +80,7 @@ class _SerializablePresence(TypedDict):
     mods: int
     spectator_host_session_id: str | None
     away_message: str | None
+    multiplayer_match_id: int | None
 
 
 class _SerializableSession(TypedDict):
@@ -111,6 +113,7 @@ def serialize_presence(presence: Presence) -> _SerializablePresence:
             else None
         ),
         "away_message": presence["away_message"],
+        "multiplayer_match_id": presence["multiplayer_match_id"],
     }
 
 
@@ -297,6 +300,10 @@ async def partial_update(session_id: UUID, **kwargs: Any) -> Session | None:
         away_message = kwargs["presence"].get("away_message")
         if away_message is not None:
             session["presence"]["away_message"] = away_message
+
+        multiplayer_match_id = kwargs["presence"].get("multiplayer_match_id")
+        if multiplayer_match_id is not None:
+            session["presence"]["multiplayer_match_id"] = multiplayer_match_id
 
     session["updated_at"] = datetime.now()
 

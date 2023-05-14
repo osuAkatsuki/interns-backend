@@ -168,6 +168,7 @@ async def handle_login(request: Request) -> Response:
             "mods": Mods.NOMOD,
             "spectator_host_session_id": None,
             "away_message": None,
+            "multiplayer_match_id": None,
         },
     )
     own_presence = own_session["presence"]
