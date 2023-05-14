@@ -26,10 +26,10 @@ server {
 
 server {
     listen 443 ssl;
+    server_name b.cmyui.xyz;
 
     ssl_certificate     /home/cmyui/certs/cert.pem;
     ssl_certificate_key /home/cmyui/certs/key.pem;
-    server_name b.cmyui.xyz;
 
     location ~^/preview/(.*).mp3 {
         return 302 $scheme://catboy.best/preview/audio/$1?set=1;
