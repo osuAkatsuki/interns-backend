@@ -69,16 +69,13 @@ async def fetch_many(
     submission_status: int | None = None,
     game_mode: int | None = None,
     mods: int | None = None,
-    sort_by: (
-        Literal[
-            "score",
-            "performance_points",
-            "accuracy",
-            "highest_combo",
-            "grade",
-        ]
-        | None
-    ) = None,
+    sort_by: Literal[
+        "score",
+        "performance_points",
+        "accuracy",
+        "highest_combo",
+        "grade",
+    ] = "performance_points",
     page: int | None = None,
     page_size: int | None = None,
 ) -> list[Score] | ServiceError:
