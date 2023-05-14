@@ -755,3 +755,34 @@ async def download_beatmap_set_handler(
         url=f"https://catboy.best/d/{beatmap_set_id}",
         status_code=status.HTTP_307_TEMPORARY_REDIRECT,
     )
+
+
+@osu_web_router.get("/web/osu-getreplay.php")
+async def get_replay_handler(
+    username: str = Query(..., alias="u"),
+    password: str = Query(..., alias="h"),
+    score_id: int = Query(..., alias="c"),
+):
+    account = await accounts.fetch_by_username(username)
+
+    if account is None:
+        return Response(status_code=status.HTTP_401_UNAUTHORIZED)
+
+    if not security.check_password(
+        password=password,
+        hashword=account["password"].encode(),
+    ):
+        return Response(status_code=status.HTTP_401_UNAUTHORIZED)
+
+    score = await scores.fetch_one_by_id(score_id=score_id)
+    if score is None:
+        return Response(status_code=status.HTTP_404_NOT_FOUND)
+
+    replay_data = await s3.download(
+        filename=f"{score['score_id']}.osr",
+        folder="replays",
+    )
+    if replay_data is None:
+        return Response(status_code=status.HTTP_404_NOT_FOUND)
+
+    return Response(replay_data, media_type="application/octet-stream")
