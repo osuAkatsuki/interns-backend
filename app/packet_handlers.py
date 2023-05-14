@@ -1,6 +1,7 @@
 from collections.abc import Awaitable
 from collections.abc import Callable
 from typing import TYPE_CHECKING
+from uuid import UUID
 
 from app import clients
 from app import commands
@@ -841,6 +842,7 @@ async def match_change_slot_handler(session: "Session", packet_data: bytes) -> N
         match_id,
         current_slot["slot_id"],
         account_id=-1,
+        session_id=UUID(int=0),
         status=SlotStatus.OPEN,
         team=MatchTeams.NEUTRAL,
         mods=0,
