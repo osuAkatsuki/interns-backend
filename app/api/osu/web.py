@@ -700,7 +700,7 @@ async def submit_score_handler(
         f"onlineScoreId:{score['score_id']}|"
         "\n"
         "|chartId:overall|"
-        f"chartUrl:https://osu.cmyui.xyz/u/{account['username']}|"
+        f"chartUrl:https://osu.cmyui.xyz/u/{account['account_id']}|"
         "chartName:Overall Ranking|"
         f"rankBefore:{overall_rank_before}|"
         f"rankAfter:{overall_rank_after}|"
