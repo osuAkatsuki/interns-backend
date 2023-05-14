@@ -46,7 +46,7 @@ async def create(
             await multiplayer_slots.create(
                 match["match_id"],
                 slot_id,
-                account_id=0,
+                account_id=-1,
                 session_id=UUID(int=0),
                 status=multiplayer_slots.SlotStatus.OPEN,
                 team=MatchTeams.NEUTRAL,
