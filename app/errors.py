@@ -29,3 +29,5 @@ class ServiceError(str, Enum):
 
     BEATMAPS_CREATE_FAILED = "beatmaps.create_failed"
     BEATMAPS_NOT_FOUND = "beatmaps.not_found"
+
+    SCORES_NOT_FOUND = "scores.not_found"
