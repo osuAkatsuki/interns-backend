@@ -2,7 +2,7 @@
 
 build: # build all containers
 	if [ -d "pgdata" ]; then sudo chmod -R 755 pgdata; fi
-	docker build -t interns-backend:latest -t interns-backend:latest .
+	docker build -t interns-backend:latest -t registry.digitalocean.com/akatsuki/interns-backend:latest .
 
 run-bg: # run all containers in the background
 	docker-compose up -d \
