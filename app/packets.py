@@ -899,7 +899,21 @@ def write_channel_info_packet(
 
 
 # CHANNEL_AUTO_JOIN = 67
-# TODO: this is used for #spectator and #multiplayer
+
+
+def write_channel_auto_join_packet(
+    name: str,
+    topic: str,
+    num_sessions: int,
+) -> bytes:
+    return write_packet(
+        packet_id=ServerPackets.CHANNEL_AUTO_JOIN,
+        packet_data_inputs=[
+            (DataType.STRING, name),
+            (DataType.STRING, topic),
+            (DataType.U16, num_sessions),
+        ],
+    )
 
 
 # BEATMAP_INFO_REPLY = 69

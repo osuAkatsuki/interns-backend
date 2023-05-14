@@ -2,6 +2,7 @@ from collections.abc import Awaitable
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
+from app import clients
 from app import commands
 from app import game_modes
 from app import logger
@@ -551,41 +552,7 @@ async def create_match_handler(session: "Session", packet_data: bytes):
         own_presence["mods"],
     )
 
-    match = await multiplayer_matches.create(
-        osu_match_data["match_name"],
-        osu_match_data["match_password"],
-        osu_match_data["beatmap_name"],
-        osu_match_data["beatmap_id"],
-        osu_match_data["beatmap_md5"],
-        osu_match_data["host_account_id"],
-        game_mode,
-        osu_match_data["mods"],
-        osu_match_data["win_condition"],
-        osu_match_data["team_type"],
-        osu_match_data["freemods_enabled"],
-        osu_match_data["random_seed"],
-    )
-    if isinstance(match, ServiceError):
-        logger.error(
-            "Failed to create multiplayer match",
-            error=match,
-            user_id=session["account_id"],
-        )
-        await packet_bundles.enqueue(
-            session["session_id"],
-            data=packets.write_match_join_fail_packet(),
-        )
-        return
-
-    await channels.create(
-        name=f"#mp_{match['match_id']}",
-        topic=f"Channel for multiplayer match ID {match['match_id']}",
-        read_privileges=ServerPrivileges.UNRESTRICTED,
-        write_privileges=ServerPrivileges.UNRESTRICTED,
-        auto_join=False,
-        temporary=True,
-    )
-
+    # if we are spectating someone, stop spectating them
     if own_presence["spectator_host_session_id"] is not None:
         host_session = await sessions.fetch_by_id(
             own_presence["spectator_host_session_id"]
@@ -604,10 +571,18 @@ async def create_match_handler(session: "Session", packet_data: bytes):
             session["session_id"],
         )
 
-        await sessions.partial_update(
+        maybe_session = await sessions.partial_update(
             session["session_id"],
             presence={"spectator_host_session_id": None},
         )
+        if maybe_session is None:
+            logger.warning(
+                "Failed to update session",
+                session_id=session["session_id"],
+            )
+            return
+
+        session = maybe_session
 
         await packet_bundles.enqueue(
             host_session["session_id"],
@@ -625,6 +600,7 @@ async def create_match_handler(session: "Session", packet_data: bytes):
                 packets.write_fellow_spectator_left_packet(session["account_id"]),
             )
 
+    # fetch the #lobby channel
     lobby_channel = await channels.fetch_one_by_name("#lobby")
     if lobby_channel is None:
         logger.error(
@@ -637,6 +613,7 @@ async def create_match_handler(session: "Session", packet_data: bytes):
         )
         return
 
+    # if we are already in a match, leave it
     if own_presence["multiplayer_match_id"] is not None:
         old_match = await multiplayer_matches.fetch_one(
             own_presence["multiplayer_match_id"]
@@ -662,7 +639,7 @@ async def create_match_handler(session: "Session", packet_data: bytes):
 
         assert own_slot is not None
 
-        await multiplayer_slots.partial_update(
+        own_slot = await multiplayer_slots.partial_update(
             own_presence["multiplayer_match_id"],
             own_slot["slot_id"],
             account_id=0,
@@ -686,9 +663,14 @@ async def create_match_handler(session: "Session", packet_data: bytes):
 
         current_channel_members = await channel_members.members(channel["channel_id"])
         if session["session_id"] in current_channel_members:
-            await channel_members.remove(channel["channel_id"], session["session_id"])
+            removed_session_id = await channel_members.remove(
+                channel["channel_id"],
+                session["session_id"],
+            )
+            if removed_session_id is not None:
+                current_channel_members.remove(removed_session_id)
 
-        for other_session_id in await channel_members.members(channel["channel_id"]):
+        for other_session_id in current_channel_members:
             await packet_bundles.enqueue(
                 other_session_id,
                 packets.write_channel_info_packet(
@@ -742,10 +724,25 @@ async def create_match_handler(session: "Session", packet_data: bytes):
                 packet_without_password,
             )
 
-    slot_id = await multiplayer_slots.claim_slot_id(match["match_id"])
-    if slot_id is None:
+    # create the multiplayer match
+    match = await multiplayer_matches.create(
+        osu_match_data["match_name"],
+        osu_match_data["match_password"],
+        osu_match_data["beatmap_name"],
+        osu_match_data["beatmap_id"],
+        osu_match_data["beatmap_md5"],
+        osu_match_data["host_account_id"],
+        game_mode,
+        osu_match_data["mods"],
+        osu_match_data["win_condition"],
+        osu_match_data["team_type"],
+        osu_match_data["freemods_enabled"],
+        osu_match_data["random_seed"],
+    )
+    if isinstance(match, ServiceError):
         logger.error(
-            "Failed to claim slot",
+            "Failed to create multiplayer match",
+            error=match,
             user_id=session["account_id"],
         )
         await packet_bundles.enqueue(
@@ -754,29 +751,55 @@ async def create_match_handler(session: "Session", packet_data: bytes):
         )
         return
 
-    own_slot = await multiplayer_slots.partial_update(
-        match["match_id"],
-        slot_id,
-        session["account_id"],
-        status=multiplayer_slots.SlotStatus.NOT_READY,
-        team=MatchTeams.NEUTRAL,
-        mods=0,
-        loaded=False,
-        skipped=False,
+    maybe_session = await sessions.partial_update(
+        session["session_id"],
+        presence={"multiplayer_match_id": match["match_id"]},
     )
-    assert own_slot is not None
+    assert maybe_session is not None
+    session = maybe_session
 
+    # create the #multiplayer chat
+    channel = await channels.create(
+        name=f"#mp_{match['match_id']}",
+        topic=f"Channel for multiplayer match ID {match['match_id']}",
+        read_privileges=ServerPrivileges.UNRESTRICTED,
+        write_privileges=ServerPrivileges.UNRESTRICTED,
+        auto_join=False,
+        temporary=True,
+    )
+
+    # claim a slot for our first session
+    async with await clients.redlock.lock(f"slot_ids:lock:{match['match_id']}"):
+        slot_id = await multiplayer_slots.claim_slot_id(match["match_id"])
+        if slot_id is None:
+            logger.error(
+                "Failed to claim slot",
+                user_id=session["account_id"],
+            )
+            await packet_bundles.enqueue(
+                session["session_id"],
+                data=packets.write_match_join_fail_packet(),
+            )
+            return
+
+        own_slot = await multiplayer_slots.partial_update(
+            match["match_id"],
+            slot_id,
+            session["account_id"],
+            status=multiplayer_slots.SlotStatus.NOT_READY,
+            team=MatchTeams.NEUTRAL,
+            mods=0,
+            loaded=False,
+            skipped=False,
+        )
+        assert own_slot is not None
+
+    # add the creator as host
     match = await multiplayer_matches.partial_update(
         match_id=match["match_id"],
         host_account_id=session["account_id"],
     )
     assert not isinstance(match, ServiceError)
-
-    maybe_session = await sessions.partial_update(
-        session["session_id"], presence={"multiplayer_match_id": match["match_id"]}
-    )
-    assert maybe_session is not None
-    session = maybe_session
 
     slots = await multiplayer_slots.fetch_all(match["match_id"])
 
@@ -816,6 +839,15 @@ async def create_match_handler(session: "Session", packet_data: bytes):
     assert channel is not None
 
     current_channel_members = await channel_members.members(channel["channel_id"])
+
+    await packet_bundles.enqueue(
+        session["session_id"],
+        packets.write_channel_auto_join_packet(
+            "#multiplayer",
+            topic=channel["topic"],
+            num_sessions=len(current_channel_members),
+        ),
+    )
 
     await channel_members.add(channel["channel_id"], session["session_id"])
 

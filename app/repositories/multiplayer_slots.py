@@ -171,16 +171,15 @@ async def delete(match_id: int, slot_id: int) -> MultiplayerSlot | None:
 
 
 async def claim_slot_id(match_id: int) -> int | None:
-    async with await clients.redlock.lock(f"slot_ids:lock:{match_id}"):
-        slots = await fetch_all(match_id)
+    slots = await fetch_all(match_id)
 
-        for slot in slots:
-            if slot["account_id"] != 0:
-                continue
+    for slot in slots:
+        if slot["account_id"] != 0:
+            continue
 
-            if slot["status"] != SlotStatus.OPEN:
-                continue
+        if slot["status"] != SlotStatus.OPEN:
+            continue
 
-            return slot["slot_id"]
+        return slot["slot_id"]
 
-        return None
+    return None
