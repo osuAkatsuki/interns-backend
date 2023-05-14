@@ -714,6 +714,27 @@ async def create_match_handler(session: "Session", packet_data: bytes):
             old_match["random_seed"],
         )
 
+        packet_with_password = packets.write_update_match_packet(
+            *packet_params,
+            should_send_password=True,
+        )
+        # TODO: store session_id in slot so channel doesn't need to be fetched
+        old_match_channel = await channels.fetch_one_by_name(
+            f"#mp_{old_match['match_id']}"
+        )
+        assert old_match_channel is not None
+
+        for other_session_id in await channel_members.members(
+            old_match_channel["channel_id"]
+        ):
+            # if other_session_id == session["session_id"]:
+            #     continue
+
+            await packet_bundles.enqueue(
+                other_session_id,
+                packet_with_password,
+            )
+
         packet_without_password = packets.write_update_match_packet(
             *packet_params,
             should_send_password=False,
