@@ -577,13 +577,7 @@ async def create_match_handler(session: "Session", packet_data: bytes):
             session["session_id"],
             presence={"spectator_host_session_id": None},
         )
-        if maybe_session is None:
-            logger.warning(
-                "Failed to update session",
-                session_id=session["session_id"],
-            )
-            return
-
+        assert maybe_session is not None
         session = maybe_session
 
         await packet_bundles.enqueue(
