@@ -5,6 +5,7 @@ from aioredlock import Aioredlock
 from httpx import AsyncClient
 
 from app import settings
+from app.adapters import redis as redis_adapter
 from app.adapters.database import Database
 from app.adapters.redis import Redis
 
@@ -18,6 +19,13 @@ osu_api: aiosu.v2.Client
 s3_client: "S3Client"
 redlock = Aioredlock(
     redis_connections=[  # type: ignore
-        (settings.REDIS_HOST, settings.REDIS_PORT),
+        redis_adapter.dsn(
+            scheme=settings.REDIS_SCHEME,
+            username=settings.REDIS_USER,
+            password=settings.REDIS_PASS,
+            host=settings.REDIS_HOST,
+            port=settings.REDIS_PORT,
+            database=settings.REDIS_DB,
+        ),
     ],
 )
