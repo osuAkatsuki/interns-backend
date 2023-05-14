@@ -161,16 +161,18 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
             )
             return
 
-        channel = await channels.fetch_one_by_name(f"#mp_{multiplayer_match_id}")
-
+        channel_name = f"#mp_{multiplayer_match_id}"
     # TODO: spectator
     else:
-        channel = await channels.fetch_one_by_name(recipient_name)
+        channel_name = recipient_name
+
+    channel = await channels.fetch_one_by_name(channel_name)
 
     if channel is None:
         logger.warning(
             "User tried to join channel when it doesn't exist",
-            channel_name=recipient_name,
+            channel_name=channel_name,
+            recipient_name=recipient_name,
             account_id=session["account_id"],
         )
         return
