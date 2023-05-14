@@ -794,9 +794,6 @@ async def create_match_handler(session: "Session", packet_data: bytes):
         match_join_success_packet,
     )
 
-    # make other people aware the session joined
-    await update_match(match["match_id"])
-
     # fetch any updates to the session caused by join_match
     maybe_session = await sessions.fetch_by_id(session["session_id"])
     assert maybe_session is not None
