@@ -168,6 +168,7 @@ async def handle_login(request: Request) -> Response:
             "mods": Mods.NOMOD,
             "spectator_host_session_id": None,
             "away_message": None,
+            "multiplayer_match_id": None,
         },
     )
     own_presence = own_session["presence"]
@@ -188,6 +189,9 @@ async def handle_login(request: Request) -> Response:
 
     # osu chat channels
     for channel in await channels.fetch_many():
+        if channel["temporary"]:
+            continue
+
         if (account["privileges"] & channel["read_privileges"]) == 0:
             continue
 
