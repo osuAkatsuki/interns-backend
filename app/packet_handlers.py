@@ -659,27 +659,31 @@ async def create_match_handler(session: "Session", packet_data: bytes):
         assert maybe_session is not None
         session = maybe_session
 
-        channel = await channels.fetch_one_by_name(f"#mp_{old_match['match_id']}")
-        if channel is None:
+        old_match_channel = await channels.fetch_one_by_name(
+            f"#mp_{old_match['match_id']}"
+        )
+        if old_match_channel is None:
             return
 
-        current_channel_members = await channel_members.members(channel["channel_id"])
-        if session["session_id"] in current_channel_members:
+        old_match_channel_members = await channel_members.members(
+            old_match_channel["channel_id"]
+        )
+        if session["session_id"] in old_match_channel_members:
             removed_session_id = await channel_members.remove(
-                channel["channel_id"],
+                old_match_channel["channel_id"],
                 session["session_id"],
             )
             if removed_session_id is not None:
-                current_channel_members.remove(removed_session_id)
+                old_match_channel_members.remove(removed_session_id)
 
-        for other_session_id in current_channel_members:
+        for other_session_id in old_match_channel_members:
             await packet_bundles.enqueue(
                 other_session_id,
                 packets.write_channel_info_packet(
                     "#multiplayer",
-                    channel["topic"],
-                    len(current_channel_members) - 1
-                    if len(current_channel_members) > 0
+                    old_match_channel["topic"],
+                    len(old_match_channel_members) - 1
+                    if len(old_match_channel_members) > 0
                     else 0,
                 ),
             )
