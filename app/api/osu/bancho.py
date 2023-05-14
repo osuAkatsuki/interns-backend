@@ -189,6 +189,9 @@ async def handle_login(request: Request) -> Response:
 
     # osu chat channels
     for channel in await channels.fetch_many():
+        if channel["temporary"]:
+            continue
+
         if (account["privileges"] & channel["read_privileges"]) == 0:
             continue
 
