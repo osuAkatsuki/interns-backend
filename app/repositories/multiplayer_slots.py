@@ -7,6 +7,7 @@ from app import clients
 
 
 class MultiplayerSlot(TypedDict):
+    slot_id: int
     account_id: int
     status: int  # enum
     team: int  # enum
@@ -38,6 +39,7 @@ def make_key(match_id: int, slot_id: int | Literal["*"]) -> str:
 def serialize(slot: MultiplayerSlot) -> str:
     return json.dumps(
         {
+            "slot_id": slot["slot_id"],
             "account_id": slot["account_id"],
             "status": slot["status"],
             "team": slot["team"],
@@ -67,6 +69,7 @@ async def create(
     skipped: bool,
 ) -> MultiplayerSlot:
     slot: MultiplayerSlot = {
+        "slot_id": slot_id,
         "account_id": account_id,
         "status": status,
         "team": team,
@@ -165,3 +168,19 @@ async def delete(match_id: int, slot_id: int) -> MultiplayerSlot | None:
     await clients.redis.delete(slot_key)
 
     return deserialize(raw_slot)
+
+
+async def claim_slot_id(match_id: int) -> int | None:
+    async with await clients.redlock.lock(f"slot_ids:lock:{match_id}"):
+        slots = await fetch_all(match_id)
+
+        for slot in slots:
+            if slot["account_id"] != 0:
+                continue
+
+            if slot["status"] != SlotStatus.OPEN:
+                continue
+
+            return slot["slot_id"]
+
+        return None
