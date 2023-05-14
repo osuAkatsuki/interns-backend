@@ -66,7 +66,7 @@ async def help_handler(session: "Session", args: list[str]) -> str | None:
 @command("!roll")
 async def roll_handler(session: "Session", args: list[str]) -> str | None:
     """Roll a random number between 0 and a given number."""
-    random_number_max = int(args[0])
+    random_number_max = int(args[0]) if args else 100
     return str(random.randrange(0, random_number_max))
 
 
