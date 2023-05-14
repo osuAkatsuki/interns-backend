@@ -68,7 +68,8 @@ async def format_leaderboard_response(
     buffer = ""
 
     # first line
-    buffer += f"{beatmap['ranked_status']}|false|{beatmap['beatmap_id']}|{beatmap['beatmap_set_id']}|{len(leaderboard_scores)}|0|\n"
+    web_ranked_status = ranked_statuses.to_web_status(beatmap["ranked_status"])
+    buffer += f"{web_ranked_status}|false|{beatmap['beatmap_id']}|{beatmap['beatmap_set_id']}|{len(leaderboard_scores)}|0|\n"
 
     # second line
     beatmap_name = "{artist} - {title} [{version}]".format(**beatmap)
@@ -137,6 +138,9 @@ async def format_leaderboard_response(
         buffer = buffer.removesuffix("\n")
 
     return buffer.encode()
+
+
+from app import ranked_statuses
 
 
 # GET /web/osu-osz2-getscores.php

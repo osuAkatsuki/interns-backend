@@ -4,9 +4,9 @@ from datetime import timezone
 
 from app.adapters import osu_api_v2
 from app.errors import ServiceError
+from app.ranked_statuses import BeatmapRankedStatus
 from app.repositories import beatmaps
 from app.repositories.beatmaps import Beatmap
-from app.repositories.beatmaps import BeatmapRankedStatus
 
 
 def _create_beatmap_filename(
