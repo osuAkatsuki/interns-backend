@@ -21,8 +21,8 @@ services:
 
   ## application services
 
-  osu-server:
-    image: osu-server:latest
+  interns-backend:
+    image: interns-backend:latest
     ports:
       - 10000:${APP_PORT}
     environment:
