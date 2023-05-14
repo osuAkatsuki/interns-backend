@@ -978,8 +978,8 @@ async def part_match_handler(session: "Session", packet_data: bytes) -> None:
     )
     assert current_slot is not None
 
-    multiplayer_channel = await channels.fetch_one_by_name(f"#mp_{match['match_id']}")
-    assert multiplayer_channel is not None
+    match_channel = await channels.fetch_one_by_name(f"#mp_{match['match_id']}")
+    assert match_channel is not None
 
     if match["host_account_id"] == session["account_id"]:
         # if the host left, pick a new host
@@ -1008,25 +1008,29 @@ async def part_match_handler(session: "Session", packet_data: bytes) -> None:
                     packets.write_dispose_match_packet(match["match_id"]),
                 )
 
-            # kick everyone out of the multiplayer channel and the lobby
+            # kick everyone out of the multiplayer match and channel
             for other_session_id in await channel_members.members(
-                multiplayer_channel["channel_id"]
+                match_channel["channel_id"]
             ):
                 await packet_bundles.enqueue(
                     other_session_id,
-                    packets.write_dispose_match_packet(match["match_id"]),
+                    data=(
+                        packets.write_dispose_match_packet(match["match_id"])
+                        + packets.write_channel_kick_packet("#multiplayer")
+                    ),
                 )
-
-                await packet_bundles.enqueue(
+                await channel_members.remove(
+                    match_channel["channel_id"],
                     other_session_id,
-                    packets.write_channel_kick_packet("#multiplayer"),
                 )
 
             # delete the multiplayer channel and it's slots
-            await multiplayer_matches.delete(match["match_id"])
+            match = await multiplayer_matches.delete(match["match_id"])
+            assert not isinstance(match, ServiceError)
 
             # delete the multiplayer channel
-            await channels.delete(multiplayer_channel["channel_id"])
+            match_channel = await channels.delete(match_channel["channel_id"])
+            assert not isinstance(match_channel, ServiceError)
 
             logger.info(
                 "Match closed due to no members",
@@ -1041,21 +1045,19 @@ async def part_match_handler(session: "Session", packet_data: bytes) -> None:
         )
 
         await packet_bundles.enqueue(
-            session["session_id"],
+            new_host_slot["session_id"],
             packets.write_match_transfer_host_packet(),
         )
 
         logger.info(
-            "Host match passed to new user",
+            "Match host passed to new user",
             old_host_session_id=session["session_id"],
             new_host_session_id=new_host_slot["session_id"],
             match_id=match["match_id"],
         )
 
     # leave the multiplayer channel
-    await channel_members.remove(
-        multiplayer_channel["channel_id"], session["session_id"]
-    )
+    await channel_members.remove(match_channel["channel_id"], session["session_id"])
     await packet_bundles.enqueue(
         session["session_id"],
         packets.write_channel_kick_packet("#multiplayer"),
