@@ -564,7 +564,7 @@ async def update_match(
         match["beatmap_md5"],
         [s["status"] for s in slots],
         [s["team"] for s in slots],
-        [s["account_id"] for s in slots if s["account_id"] != -1],
+        [s["account_id"] for s in slots if s["status"] & 0b01111100 != 0],
         match["host_account_id"],
         vanilla_game_mode,
         match["win_condition"],
@@ -581,7 +581,7 @@ async def update_match(
     )
 
     for other_slot in slots:
-        if other_slot["account_id"] == -1:
+        if other_slot["status"] & 0b01111100 == 0:
             continue
 
         await packet_bundles.enqueue(
