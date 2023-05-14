@@ -113,6 +113,8 @@ async def partial_update(
 async def delete(match_id: int) -> MultiplayerMatch | ServiceError:
     try:
         match = await multiplayer_matches.delete(match_id)
+        for slot in await multiplayer_slots.fetch_all(match_id):
+            await multiplayer_slots.delete(match_id, slot["slot_id"])
     except Exception as exc:  # pragma: no cover
         logger.error("Failed to delete multiplayer match", exc_info=exc)
         return ServiceError.MULTIPLAYER_MATCHES_DELETE_FAILED
