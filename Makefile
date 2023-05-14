@@ -49,3 +49,34 @@ up-seeds: # apply up seeds from current state
 
 down-seeds: # apply down seeds from current state
 	docker-compose exec osu-server /scripts/seed-db.sh down
+
+push:
+	docker push registry.digitalocean.com/akatsuki/osu-server-professing:latest
+
+install:
+	helm install \
+		--atomic \
+		--wait --timeout 120s \
+		--values chart/values.yaml \
+		osu-server-professing-staging \
+		../akatsuki/common-helm-charts/microservice-base/
+
+uninstall:
+	helm uninstall \
+		--wait --timeout 120s \
+		osu-server-professing-staging
+
+upgrade:
+	helm upgrade \
+		--atomic \
+		--wait --timeout 120s \
+		--values chart/values.yaml \
+		osu-server-professing-staging \
+		../akatsuki/common-helm-charts/microservice-base/
+
+diff:
+	helm diff upgrade \
+		--allow-unreleased \
+		--values chart/values.yaml \
+		osu-server-professing-staging \
+		../akatsuki/common-helm-charts/microservice-base/
