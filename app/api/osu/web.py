@@ -785,4 +785,4 @@ async def get_replay_handler(
     if replay_data is None:
         return Response(status_code=status.HTTP_404_NOT_FOUND)
 
-    return replay_data
+    return Response(replay_data, media_type="application/octet-stream")
