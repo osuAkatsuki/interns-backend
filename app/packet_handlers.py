@@ -629,14 +629,13 @@ async def create_match_handler(session: "Session", packet_data: bytes):
 
     osu_match_data = packet_reader.read_osu_match()
 
+    vanilla_game_mode = osu_match_data["game_mode"]
     game_mode = game_modes.for_server(
         osu_match_data["game_mode"],
         own_presence["mods"],
     )
 
     # if we are spectating someone, stop spectating them
-    # TODO: do we really need this? it seems like osu! will
-    # stop spectating users client-side upon joining #lobby
     if own_presence["spectator_host_session_id"] is not None:
         host_session = await sessions.fetch_by_id(
             own_presence["spectator_host_session_id"]
@@ -650,11 +649,14 @@ async def create_match_handler(session: "Session", packet_data: bytes):
             )
             return
 
-        await spectators.remove(
+        # remove us from the host's spectators
+        spectator = await spectators.remove(
             host_session["session_id"],
             session["session_id"],
         )
+        assert spectator is not None
 
+        # remove the host from our presence
         maybe_session = await sessions.partial_update(
             session["session_id"],
             presence={"spectator_host_session_id": None},
@@ -662,11 +664,13 @@ async def create_match_handler(session: "Session", packet_data: bytes):
         assert maybe_session is not None
         session = maybe_session
 
+        # inform the host that we left
         await packet_bundles.enqueue(
             host_session["session_id"],
             packets.write_spectator_left_packet(session["account_id"]),
         )
 
+        # inform the other spectators that we left
         for spectator_session_id in await spectators.members(
             host_session["session_id"]
         ):
@@ -706,7 +710,7 @@ async def create_match_handler(session: "Session", packet_data: bytes):
         return
 
     # create the #multiplayer chat
-    await channels.create(
+    match_channel = await channels.create(
         name=f"#mp_{match['match_id']}",
         topic=f"Channel for multiplayer match ID {match['match_id']}",
         read_privileges=ServerPrivileges.UNRESTRICTED,
@@ -738,6 +742,7 @@ async def create_match_handler(session: "Session", packet_data: bytes):
             status=multiplayer_slots.SlotStatus.NOT_READY,
         )
 
+    # join the multiplayer match
     maybe_session = await sessions.partial_update(
         session["session_id"],
         presence={"multiplayer_match_id": match["match_id"]},
@@ -745,29 +750,23 @@ async def create_match_handler(session: "Session", packet_data: bytes):
     assert maybe_session is not None
     session = maybe_session
 
-    match_channel = await channels.fetch_one_by_name(f"#mp_{match['match_id']}")
-    assert match_channel is not None
-
-    # add user to the multiplayer match's channel
+    # join the #multiplayer channel
     await channel_members.add(match_channel["channel_id"], session["session_id"])
 
+    # inform our user of the #multiplayer channel
     await packet_bundles.enqueue(
         session["session_id"],
-        packets.write_channel_auto_join_packet(
-            "#multiplayer",
-            topic=match_channel["topic"],
-            num_sessions=1,
+        data=(
+            packets.write_channel_auto_join_packet(
+                name="#multiplayer",
+                topic=match_channel["topic"],
+                num_sessions=1,
+            )
+            + packets.write_channel_join_success_packet(channel_name="#multiplayer")
         ),
     )
 
-    await packet_bundles.enqueue(
-        session["session_id"],
-        packets.write_channel_join_success_packet("#multiplayer"),
-    )
-
     slots = await multiplayer_slots.fetch_all(match["match_id"])
-
-    vanilla_game_mode = game_modes.for_client(match["game_mode"], match["mods"])
 
     # send the match data (with password) to the creator
     match_join_success_packet = packets.write_match_join_success_packet(
@@ -796,11 +795,6 @@ async def create_match_handler(session: "Session", packet_data: bytes):
         match_join_success_packet,
     )
 
-    # fetch any updates to the session caused by join_match
-    maybe_session = await sessions.fetch_by_id(session["session_id"])
-    assert maybe_session is not None
-    session = maybe_session
-
     # add the creator as host
     # TODO: does this make sense over initially creating the match with the user as host?
     match = await multiplayer_matches.partial_update(
@@ -808,14 +802,6 @@ async def create_match_handler(session: "Session", packet_data: bytes):
         host_account_id=session["account_id"],
     )
     assert not isinstance(match, ServiceError)
-
-    transfer_success = not isinstance(match, ServiceError)
-    if not transfer_success:
-        logger.error(
-            "Failed to transfer host",
-            account_id=session["account_id"],
-            match_id=match["match_id"],
-        )
 
     await _broadcast_match_updates(match["match_id"])
 
@@ -888,23 +874,20 @@ async def join_match_handler(session: "Session", packet_data: bytes) -> None:
     match_channel = await channels.fetch_one_by_name(f"#mp_{match_id}")
     assert match_channel is not None
 
-    current_channel_members = await channel_members.members(match_channel["channel_id"])
-
     # add user to the multiplayer match's channel
     await channel_members.add(match_channel["channel_id"], session["session_id"])
+    match_channel_members = await channel_members.members(match_channel["channel_id"])
 
     await packet_bundles.enqueue(
         session["session_id"],
-        packets.write_channel_auto_join_packet(
-            "#multiplayer",
-            topic=match_channel["topic"],
-            num_sessions=len(current_channel_members) + 1,
+        data=(
+            packets.write_channel_auto_join_packet(
+                name="#multiplayer",
+                topic=match_channel["topic"],
+                num_sessions=len(match_channel_members),
+            )
+            + packets.write_channel_join_success_packet("#multiplayer")
         ),
-    )
-
-    await packet_bundles.enqueue(
-        session["session_id"],
-        packets.write_channel_join_success_packet("#multiplayer"),
     )
 
     slots = await multiplayer_slots.fetch_all(match["match_id"])
