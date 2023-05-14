@@ -714,6 +714,7 @@ async def create_match_handler(session: "Session", packet_data: bytes):
             old_match["random_seed"],
         )
 
+        # send the updated match (with password) to users in the match
         packet_with_password = packets.write_update_match_packet(
             *packet_params,
             should_send_password=True,
@@ -727,14 +728,12 @@ async def create_match_handler(session: "Session", packet_data: bytes):
         for other_session_id in await channel_members.members(
             old_match_channel["channel_id"]
         ):
-            # if other_session_id == session["session_id"]:
-            #     continue
-
             await packet_bundles.enqueue(
                 other_session_id,
                 packet_with_password,
             )
 
+        # send the updated match (without password) to users in #lobby
         packet_without_password = packets.write_update_match_packet(
             *packet_params,
             should_send_password=False,
@@ -743,9 +742,6 @@ async def create_match_handler(session: "Session", packet_data: bytes):
         for other_session_id in await channel_members.members(
             lobby_channel["channel_id"]
         ):
-            if other_session_id == session["session_id"]:
-                continue
-
             await packet_bundles.enqueue(
                 other_session_id,
                 packet_without_password,
@@ -786,7 +782,7 @@ async def create_match_handler(session: "Session", packet_data: bytes):
     session = maybe_session
 
     # create the #multiplayer chat
-    channel = await channels.create(
+    match_channel = await channels.create(
         name=f"#mp_{match['match_id']}",
         topic=f"Channel for multiplayer match ID {match['match_id']}",
         read_privileges=ServerPrivileges.UNRESTRICTED,
@@ -828,10 +824,9 @@ async def create_match_handler(session: "Session", packet_data: bytes):
     )
     assert not isinstance(match, ServiceError)
 
-    slots = await multiplayer_slots.fetch_all(match["match_id"])
-
     # create two variants of the packet, with and without the password
     # TODO: perhaps consider making a function to (deep)copy & patch the password?
+    slots = await multiplayer_slots.fetch_all(match["match_id"])
     packet_params = (
         match["match_id"],
         match["status"] == MatchStatus.PLAYING,
@@ -862,36 +857,21 @@ async def create_match_handler(session: "Session", packet_data: bytes):
         match_join_success_packet,
     )
 
-    channel = await channels.fetch_one_by_name(f"#mp_{match['match_id']}")
-    assert channel is not None
-
-    current_channel_members = await channel_members.members(channel["channel_id"])
+    await channel_members.add(match_channel["channel_id"], session["session_id"])
 
     await packet_bundles.enqueue(
         session["session_id"],
         packets.write_channel_auto_join_packet(
             "#multiplayer",
-            topic=channel["topic"],
-            num_sessions=len(current_channel_members),
+            topic=match_channel["topic"],
+            num_sessions=1,
         ),
     )
-
-    await channel_members.add(channel["channel_id"], session["session_id"])
 
     await packet_bundles.enqueue(
         session["session_id"],
         packets.write_channel_join_success_packet("#multiplayer"),
     )
-
-    for other_session_id in await channel_members.members(channel["channel_id"]):
-        await packet_bundles.enqueue(
-            other_session_id,
-            packets.write_channel_info_packet(
-                "#multiplayer",
-                channel["topic"],
-                len(current_channel_members) + 1,
-            ),
-        )
 
     packet_without_password = packets.write_update_match_packet(
         *packet_params,

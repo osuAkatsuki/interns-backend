@@ -18,7 +18,7 @@ async def claim_id() -> int:  # | None
     async with await clients.redlock.lock("match_ids:lock"):
         raw_match_id = await clients.redis.get(make_key())
         if raw_match_id is None:
-            current_match_id = 1
+            current_match_id = 1  # TODO: i don't think this is the way
         else:
             current_match_id = deserialize(raw_match_id)
 
