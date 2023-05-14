@@ -766,59 +766,78 @@ async def create_match_handler(session: "Session", packet_data: bytes):
 
 @bancho_handler(packets.ClientPackets.MATCH_CHANGE_SLOT)
 async def match_change_slot_handler(session: "Session", packet_data: bytes) -> None:
+    own_presence = session["presence"]
+
     reader = packets.PacketReader(packet_data)
 
     slot_id = reader.read_i32()
 
-    presence = session["presence"]
-
-    if presence["multiplayer_match_id"] is None:
+    match_id = own_presence["multiplayer_match_id"]
+    if match_id is None:
         logger.warning(
             "User tried to change slot while not in a match",
             account_id=session["account_id"],
         )
-
         return
 
-    slots = await multiplayer_slots.fetch_all(presence["multiplayer_match_id"])
+    match = await multiplayer_matches.fetch_one(match_id)
+    if isinstance(match, ServiceError):
+        logger.warning(
+            "Failed to find match when changing slot",
+            match_id=match_id,
+            account_id=session["account_id"],
+            target_slot_id=slot_id,
+        )
+        return
 
-    current_slot = None
-    for slot in slots:
-        if slot["account_id"] == session["account_id"]:
-            current_slot = slot
-            break
-
+    current_slot = await multiplayer_slots.fetch_one_by_session_id(
+        match_id,
+        session["session_id"],
+    )
     if current_slot is None:
         logger.warning(
             "User not inside of a slot",
             account_id=session["account_id"],
-            match_id=presence["multiplayer_match_id"],
+            match_id=match_id,
         )
-
         return
 
-    slot = await multiplayer_slots.fetch_one(presence["multiplayer_match_id"], slot_id)
-    if slot is None:
+    target_slot = await multiplayer_slots.fetch_one(match_id, slot_id)
+    if target_slot is None:
         logger.warning(
             "User tried to change to a slot that doesn't exist",
-            match_id=presence["multiplayer_match_id"],
+            match_id=match_id,
             account_id=session["account_id"],
             slot_id=slot_id,
         )
-
         return
 
-    if slot["status"] != SlotStatus.OPEN:
+    if target_slot["status"] != SlotStatus.OPEN:
         logger.warning(
             "User tried to change to a slot that isn't open",
-            match_id=presence["multiplayer_match_id"],
+            match_id=match_id,
             account_id=session["account_id"],
             slot_id=slot_id,
         )
+        return
+
+    # switch to new slot
+    target_slot = await multiplayer_slots.partial_update(
+        match_id,
+        slot_id,
+        account_id=current_slot["account_id"],
+        session_id=current_slot["session_id"],
+        status=current_slot["status"],
+        team=current_slot["team"],
+        mods=current_slot["mods"],
+        loaded=current_slot["loaded"],
+        skipped=current_slot["skipped"],
+    )
+    assert target_slot is not None
 
     # open up old slot
-    await multiplayer_slots.partial_update(
-        presence["multiplayer_match_id"],
+    current_slot = await multiplayer_slots.partial_update(
+        match_id,
         current_slot["slot_id"],
         account_id=-1,
         status=SlotStatus.OPEN,
@@ -827,40 +846,18 @@ async def match_change_slot_handler(session: "Session", packet_data: bytes) -> N
         loaded=False,
         skipped=False,
     )
-
-    # switch to new slot
-    await multiplayer_slots.partial_update(
-        presence["multiplayer_match_id"],
-        slot_id,
-        session["account_id"],
-        current_slot["status"],
-        current_slot["team"],
-        current_slot["mods"],
-        current_slot["loaded"],
-        current_slot["skipped"],
-    )
+    assert current_slot is not None
 
     logger.info(
         "User changed slot",
         old_slot_id=current_slot["slot_id"],
         new_slot_id=slot_id,
-        match_id=presence["multiplayer_match_id"],
+        match_id=match_id,
         account_id=session["account_id"],
     )
 
-    # re-fetch new slots
-    slots = await multiplayer_slots.fetch_all(presence["multiplayer_match_id"])
-
-    match = await multiplayer_matches.fetch_one(presence["multiplayer_match_id"])
-    if isinstance(match, ServiceError):
-        logger.warning(
-            "Failed to find match",
-            match_id=presence["multiplayer_match_id"],
-            account_id=session["account_id"],
-        )
-
-        return
-
+    # send updated data to those in the multi match, and #lobby
+    slots = await multiplayer_slots.fetch_all(match_id)
     vanilla_game_mode = game_modes.for_client(match["game_mode"], match["mods"])
 
     packet_params = (
@@ -884,18 +881,36 @@ async def match_change_slot_handler(session: "Session", packet_data: bytes) -> N
         match["random_seed"],
     )
 
+    # send the match data (with password) to those in the multiplayer match
     match_packet = packets.write_update_match_packet(
         *packet_params,
         should_send_password=True,
     )
 
-    channel = await channels.fetch_one_by_name(f"#mp_{match['match_id']}")
-    assert channel is not None
+    for other_slot in slots:
+        await packet_bundles.enqueue(
+            other_slot["session_id"],
+            match_packet,
+        )
 
-    for other_session_id in await channel_members.members(channel["channel_id"]):
+    # send the match data (without password) to those in #lobby
+    packet_without_password = packets.write_update_match_packet(
+        *packet_params,
+        should_send_password=False,
+    )
+
+    lobby_channel = await channels.fetch_one_by_name("#lobby")
+    if lobby_channel is None:
+        logger.error(
+            "Failed to fetch #lobby channel",
+            user_id=session["account_id"],
+        )
+        return
+
+    for other_session_id in await channel_members.members(lobby_channel["channel_id"]):
         await packet_bundles.enqueue(
             other_session_id,
-            match_packet,
+            packet_without_password,
         )
 
 
