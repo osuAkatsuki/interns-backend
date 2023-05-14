@@ -296,9 +296,8 @@ async def submit_score_handler(
     osu_version: str = Form(..., alias="osuver"),
     client_hash_aes_b64: bytes = Form(..., alias="s"),
     fl_cheat_screenshot: bytes | None = File(None, alias="i"),
-    # this is optional as in the case of an osu! update,
-    # the anticheat won't run.
-    # TODO: how to ensure this? surely bancho don't just let it slide...
+    # this may be null in the case where the osu! updater ran before client startup.
+    # TODO: how can we ensure this? surely bancho doesn't just let it slide
     client_anticheat_token: str | None = Header(None, alias="Token"),
 ):
     score_data_aes_b64, replay_file = (await request.form()).getlist("score")
