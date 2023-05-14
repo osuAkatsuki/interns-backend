@@ -745,6 +745,15 @@ def write_new_match_packet(
 # DISPOSE_MATCH = 28
 
 
+def write_dispose_match_packet(match_id: int) -> bytes:
+    return write_packet(
+        ServerPackets.DISPOSE_MATCH,
+        packet_data_inputs=[
+            (DataType.I32, match_id),
+        ],
+    )
+
+
 # TOGGLE_BLOCK_NON_FRIEND_DMS = 34
 
 
