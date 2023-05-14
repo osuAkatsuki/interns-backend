@@ -766,6 +766,12 @@ async def create_match_handler(session: "Session", packet_data: bytes):
     )
     assert own_slot is not None
 
+    match = await multiplayer_matches.partial_update(
+        match_id=match["match_id"],
+        host_account_id=session["account_id"],
+    )
+    assert not isinstance(match, ServiceError)
+
     maybe_session = await sessions.partial_update(
         session["session_id"], presence={"multiplayer_match_id": match["match_id"]}
     )
