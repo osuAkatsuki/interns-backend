@@ -699,6 +699,9 @@ async def join_match(
         match_join_success_packet,
     )
 
+    # make other people aware the session joined
+    await update_match(match_id)
+
     return True
 
 
