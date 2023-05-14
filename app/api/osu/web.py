@@ -680,8 +680,7 @@ async def submit_score_handler(
         f"beatmapSetId:{beatmap['beatmap_set_id']}|"
         f"beatmapPlaycount:{beatmap['plays']}|"
         f"beatmapPasscount:{beatmap['passes']}|"
-        # TODO: is this correct?
-        f"approvedDate:{beatmap['bancho_updated_at'].isoformat()}|"
+        f"approvedDate:{beatmap['created_at'].isoformat()}|"
         "\n"
         "|chartId:beatmap|"
         f"chartUrl:https://osu.cmyui.xyz/beatmapsets/{beatmap['beatmap_set_id']}|"
