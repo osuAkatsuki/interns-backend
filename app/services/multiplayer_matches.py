@@ -85,19 +85,19 @@ async def fetch_one(match_id: int) -> MultiplayerMatch | ServiceError:
 
 async def partial_update(
     match_id: int,
-    match_name: str | None,
-    match_password: str | None,
-    beatmap_name: str | None,
-    beatmap_id: int | None,
-    beatmap_md5: str | None,
-    host_account_id: int | None,
-    game_mode: int | None,  # enum
-    mods: int | None,  # flags
-    win_condition: int | None,  # enum
-    team_type: int | None,  # enum
-    freemods_enabled: bool | None,
-    random_seed: int | None,
-    status: int | None,  # enum
+    match_name: str | None = None,
+    match_password: str | None = None,
+    beatmap_name: str | None = None,
+    beatmap_id: int | None = None,
+    beatmap_md5: str | None = None,
+    host_account_id: int | None = None,
+    game_mode: int | None = None,  # enum
+    mods: int | None = None,  # flags
+    win_condition: int | None = None,  # enum
+    team_type: int | None = None,  # enum
+    freemods_enabled: bool | None = None,
+    random_seed: int | None = None,
+    status: int | None = None,  # enum
 ) -> MultiplayerMatch | ServiceError:
     try:
         match = await multiplayer_matches.partial_update(
