@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 import asyncio
+import base64
 import os
+import ssl
 import sys
 from getpass import getpass
 
-import databases
 from dotenv import load_dotenv
+
+from app.adapters import database as database_adapter
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 mount_dir = os.path.join(script_dir, "..")
@@ -23,26 +26,41 @@ from app.privileges import ServerPrivileges
 load_dotenv(dotenv_path=".env")
 
 
-def db_dsn(
-    scheme: str,
-    user: str,
-    password: str,
-    host: str,
-    port: int,
-    database: str,
-) -> str:
-    return f"{scheme}://{user}:{password}@{host}:{port}/{database}"
-
-
-database = databases.Database(
-    db_dsn(
-        scheme=os.environ["WRITE_DB_SCHEME"],
-        user=os.environ["WRITE_DB_USER"],
-        password=os.environ["WRITE_DB_PASS"],
-        host="localhost",
-        port=int(os.environ["WRITE_DB_PORT"]),
-        database=os.environ["WRITE_DB_NAME"],
-    )
+database = database_adapter.Database(
+    read_dsn=database_adapter.dsn(
+        scheme=settings.READ_DB_SCHEME,
+        user=settings.READ_DB_USER,
+        password=settings.READ_DB_PASS,
+        host=settings.READ_DB_HOST,
+        port=settings.READ_DB_PORT,
+        database=settings.READ_DB_NAME,
+    ),
+    read_db_ssl=(
+        ssl.create_default_context(
+            purpose=ssl.Purpose.SERVER_AUTH,
+            cadata=base64.b64decode(settings.READ_DB_CA_CERTIFICATE_BASE64).decode(),
+        )
+        if settings.READ_DB_USE_SSL
+        else False
+    ),
+    write_dsn=database_adapter.dsn(
+        scheme=settings.WRITE_DB_SCHEME,
+        user=settings.WRITE_DB_USER,
+        password=settings.WRITE_DB_PASS,
+        host=settings.WRITE_DB_HOST,
+        port=settings.WRITE_DB_PORT,
+        database=settings.WRITE_DB_NAME,
+    ),
+    write_db_ssl=(
+        ssl.create_default_context(
+            purpose=ssl.Purpose.SERVER_AUTH,
+            cadata=base64.b64decode(settings.WRITE_DB_CA_CERTIFICATE_BASE64).decode(),
+        )
+        if settings.WRITE_DB_USE_SSL
+        else False
+    ),
+    min_pool_size=settings.DB_POOL_MIN_SIZE,
+    max_pool_size=settings.DB_POOL_MAX_SIZE,
 )
 
 
