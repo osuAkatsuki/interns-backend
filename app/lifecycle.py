@@ -1,3 +1,6 @@
+import base64
+import ssl
+
 import aiosu
 from aiobotocore.session import get_session
 
@@ -19,7 +22,16 @@ async def _start_database():
             port=settings.READ_DB_PORT,
             database=settings.READ_DB_NAME,
         ),
-        read_db_ssl=settings.READ_DB_USE_SSL,
+        read_db_ssl=(
+            ssl.create_default_context(
+                purpose=ssl.Purpose.SERVER_AUTH,
+                cadata=base64.b64decode(
+                    settings.READ_DB_CA_CERTIFICATE_BASE64
+                ).decode(),
+            )
+            if settings.READ_DB_USE_SSL
+            else False
+        ),
         write_dsn=database.dsn(
             scheme=settings.WRITE_DB_SCHEME,
             user=settings.WRITE_DB_USER,
@@ -28,7 +40,16 @@ async def _start_database():
             port=settings.WRITE_DB_PORT,
             database=settings.WRITE_DB_NAME,
         ),
-        write_db_ssl=settings.WRITE_DB_USE_SSL,
+        write_db_ssl=(
+            ssl.create_default_context(
+                purpose=ssl.Purpose.SERVER_AUTH,
+                cadata=base64.b64decode(
+                    settings.WRITE_DB_CA_CERTIFICATE_BASE64
+                ).decode(),
+            )
+            if settings.WRITE_DB_USE_SSL
+            else False
+        ),
         min_pool_size=settings.DB_POOL_MIN_SIZE,
         max_pool_size=settings.DB_POOL_MAX_SIZE,
     )
