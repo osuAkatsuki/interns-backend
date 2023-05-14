@@ -114,12 +114,12 @@ async def fetch_all(match_id: int) -> list[MultiplayerSlot]:
 async def partial_update(
     match_id: int,
     slot_id: int,
-    account_id: int | None,
-    status: int | None,
-    team: int | None,
-    mods: int | None,
-    loaded: bool | None,
-    skipped: bool | None,
+    account_id: int | None = None,
+    status: int | None = None,
+    team: int | None = None,
+    mods: int | None = None,
+    loaded: bool | None = None,
+    skipped: bool | None = None,
 ) -> MultiplayerSlot | None:
     slot = await fetch_one(match_id, slot_id)
     if slot is None:
