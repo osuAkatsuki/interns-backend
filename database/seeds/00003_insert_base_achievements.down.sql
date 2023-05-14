@@ -1,4 +1,4 @@
-DELETE FROM achievements WHERE id IN (
+DELETE FROM achievements WHERE achievement_id IN (
     1,
     2,
     3,
@@ -81,5 +81,5 @@ DELETE FROM achievements WHERE id IN (
     80,
     81,
     82,
-    83,
+    83
 );

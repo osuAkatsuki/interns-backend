@@ -51,7 +51,7 @@ async def create(
         return ServiceError.INTERNAL_SERVER_ERROR
 
     screenshot_download_url = s3.get_s3_public_url(
-        bucket_name="osu-server-professing",
+        bucket_name="interns-backend",
         file_path=f"screenshots/{file_name}",
     )
 

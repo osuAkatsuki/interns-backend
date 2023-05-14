@@ -1,0 +1,11 @@
+app:
+  name: interns-backend
+  environment: staging
+  group: backend
+  container:
+    image:
+      repository: registry.digitalocean.com/akatsuki/interns-backend
+      tag: latest
+    imagePullSecrets:
+      - name: akatsuki
+    port: 80
