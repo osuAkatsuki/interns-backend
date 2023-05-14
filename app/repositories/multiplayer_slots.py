@@ -168,7 +168,7 @@ async def claim_slot_id(match_id: int) -> int | None:
     slots = await fetch_all(match_id)
 
     for slot in slots:
-        if slot["account_id"] != 0:
+        if slot["account_id"] != -1:
             continue
 
         if slot["status"] != SlotStatus.OPEN:

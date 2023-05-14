@@ -675,11 +675,20 @@ async def create_match_handler(session: "Session", packet_data: bytes):
             )
             return
 
-        own_slot = await multiplayer_slots.partial_update(
+        slots = await multiplayer_slots.fetch_all(match["match_id"])
+        own_slot = None
+
+        for slot in slots:
+            if slot["account_id"] == session["account_id"]:
+                own_slot = slot
+
+        assert own_slot is not None
+
+        await multiplayer_slots.partial_update(
             match["match_id"],
-            slot_id,
-            session["account_id"],
-            status=multiplayer_slots.SlotStatus.NOT_READY,
+            own_slot["slot_id"],
+            account_id=-1,
+            status=multiplayer_slots.SlotStatus.OPEN,
             team=MatchTeams.NEUTRAL,
             mods=0,
             loaded=False,
