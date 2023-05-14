@@ -28,6 +28,7 @@ async def create(
     country: str,
     time_elapsed: int,
     client_anticheat_flags: int,
+    client_anticheat_token: str | None,
 ) -> Score | ServiceError:
     try:
         score = await scores.create(
@@ -52,6 +53,7 @@ async def create(
             country,
             time_elapsed,
             client_anticheat_flags,
+            client_anticheat_token,
         )
     except Exception as exc:  # pragma: no cover
         logger.error("Failed to create score", exc_info=exc)
