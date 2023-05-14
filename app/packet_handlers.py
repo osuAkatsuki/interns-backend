@@ -227,8 +227,8 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
 
 
 class ExitReason:
-    UPDATE = 1
-    QUIT = 2
+    UPDATE = 0
+    QUIT = 1
 
 
 @bancho_handler(packets.ClientPackets.OSU_EXIT)
