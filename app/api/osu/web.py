@@ -720,7 +720,7 @@ async def submit_score_handler(
     achievements_string = "/".join(map(achievements.to_string, new_achievements))
     response_data += f"achievements-new:{achievements_string}".encode()
 
-    return b"error: no"  # response_data
+    return bytes(response_data)
 
 
 @osu_web_router.post("/difficulty-rating")
