@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 import base64
 from datetime import datetime
+from typing import Any
+from typing import Literal
 
+import pydantic
 from fastapi import APIRouter
 from fastapi import File
 from fastapi import Form
@@ -14,6 +17,7 @@ from fastapi import UploadFile
 from fastapi.responses import RedirectResponse
 from py3rijndael import Pkcs7Padding
 from py3rijndael import RijndaelCbc
+from pydantic import BaseModel
 from starlette.datastructures import UploadFile as _StarletteUploadFile
 
 from app import achievement_handlers
@@ -786,3 +790,93 @@ async def get_replay_handler(
         return Response(status_code=status.HTTP_404_NOT_FOUND)
 
     return Response(replay_data, media_type="application/octet-stream")
+
+
+class RunningAverageTimes(BaseModel):
+    BetweenFrames: float
+    Update: float
+    Scheduler: float
+    Draw: float
+    Sleep: float
+    SwapBuffer: float
+
+
+class Tags(BaseModel):
+    OS: str
+    Cores: int
+    Fullscreen: bool
+    FrameSync: Literal[
+        "VSync",
+        "Limit120",
+        "Optimal",
+        "Unlimited",
+        "PowerSaving",
+        "Custom",
+    ]
+    Compatibility: bool
+    Version: str
+    Beatmap: bool
+    Bancho: bool
+    Replay: bool
+
+
+class OsuSessionContent(BaseModel):
+    RunningAverageTimes: RunningAverageTimes
+    SpikeAccumulatedTimes: dict  # TODO: dict of what?
+    Tags: Tags
+    TotalGarbageCollects: list[int]
+    SpikeGarbageCollects: list[int]
+    StartTime: float
+    EndTime: float
+    ProcessedFrameCount: int
+    SpikeFrameCount: int
+    MaxSpikeFrameLength: float
+    MinAverageFrameTime: float
+    MaxAverageFrameTime: float
+    MaxFrameTime: float
+    AimFrameRate: float | Literal["Infinity"]
+    Completion: int
+    Identifier: Any | None  # TODO: what else can this be outside of None?
+    AverageFrameTime: float
+
+
+@osu_web_router.post("/web/osu-session.php")
+async def osu_session_handler(
+    username: str = Form(..., alias="u"),
+    password: str = Form(..., alias="h"),
+    action: Literal["check", "submit"] = Form(...),
+    content: str = Form(...),
+):
+    if action == "check":
+        return
+
+    # account = await accounts.fetch_by_username(username)
+
+    # if account is None:
+    #     return Response(status_code=status.HTTP_401_UNAUTHORIZED)
+
+    # if not security.check_password(
+    #     password=password,
+    #     hashword=account["password"].encode(),
+    # ):
+    #     return Response(status_code=status.HTTP_401_UNAUTHORIZED)
+
+    try:
+        osu_session_content = OsuSessionContent.parse_raw(content)
+    except pydantic.ValidationError:
+        logger.warning("Invalid content", content=content)
+        return
+
+    # these are two cases i'm interested in learning more about
+    if osu_session_content.Identifier is not None:
+        logger.warning(
+            "Identifier is not None",
+            identifier=osu_session_content.Identifier,
+        )
+        return
+    if osu_session_content.SpikeAccumulatedTimes:
+        logger.warning(
+            "SpikeAccumulatedTimes is not empty",
+            spike_accumulated_times=osu_session_content.SpikeAccumulatedTimes,
+        )
+        return
