@@ -64,72 +64,52 @@ class Presence(TypedDict):
     multiplayer_match_id: int | None
 
 
-class _SerializablePresence(TypedDict):
-    account_id: int
-    username: str
-    utc_offset: int
-    country: str
-    privileges: int
-    game_mode: int
-    latitude: float
-    longitude: float
-    action: int
-    info_text: str
-    beatmap_md5: str
-    beatmap_id: int
-    mods: int
-    spectator_host_session_id: str | None
-    away_message: str | None
-    multiplayer_match_id: int | None
+def serialize_presence(presence: Presence) -> str:
+    return json.dumps(
+        {
+            "account_id": presence["account_id"],
+            "username": presence["username"],
+            "utc_offset": presence["utc_offset"],
+            "country": presence["country"],
+            "privileges": presence["privileges"],
+            "game_mode": presence["game_mode"],
+            "latitude": presence["latitude"],
+            "longitude": presence["longitude"],
+            "action": presence["action"],
+            "info_text": presence["info_text"],
+            "beatmap_md5": presence["beatmap_md5"],
+            "beatmap_id": presence["beatmap_id"],
+            "mods": presence["mods"],
+            "spectator_host_session_id": str(presence["spectator_host_session_id"]),
+            "away_message": presence["away_message"],
+            "multiplayer_match_id": presence["multiplayer_match_id"],
+        }
+    )
 
 
-class _SerializableSession(TypedDict):
-    session_id: str
-    account_id: int
-    presence: _SerializablePresence
-    expires_at: str
-    created_at: str
-    updated_at: str
+def deserialize_presence(raw_presence: str) -> Presence:
+    untyped_presence = json.loads(raw_presence)
 
+    assert isinstance(untyped_presence, dict)
 
-def serialize_presence(presence: Presence) -> _SerializablePresence:
-    return {
-        "account_id": presence["account_id"],
-        "username": presence["username"],
-        "utc_offset": presence["utc_offset"],
-        "country": presence["country"],
-        "privileges": presence["privileges"],
-        "game_mode": presence["game_mode"],
-        "latitude": presence["latitude"],
-        "longitude": presence["longitude"],
-        "action": presence["action"],
-        "info_text": presence["info_text"],
-        "beatmap_md5": presence["beatmap_md5"],
-        "beatmap_id": presence["beatmap_id"],
-        "mods": presence["mods"],
-        "spectator_host_session_id": (
-            str(presence["spectator_host_session_id"])
-            if presence["spectator_host_session_id"] is not None
-            else None
-        ),
-        "away_message": presence["away_message"],
-        "multiplayer_match_id": presence["multiplayer_match_id"],
-    }
+    untyped_presence["spectator_host_session_id"] = UUID(
+        untyped_presence["spectator_host_session_id"]
+    )
 
-
-def serialize_session(session: Session) -> _SerializableSession:
-    return {
-        "session_id": str(session["session_id"]),
-        "account_id": session["account_id"],
-        "presence": serialize_presence(session["presence"]),
-        "expires_at": session["expires_at"].isoformat(),
-        "created_at": session["created_at"].isoformat(),
-        "updated_at": session["updated_at"].isoformat(),
-    }
+    return cast(Presence, untyped_presence)
 
 
 def serialize(session: Session) -> str:
-    return json.dumps(serialize_session(session))
+    return json.dumps(
+        {
+            "session_id": str(session["session_id"]),
+            "account_id": session["account_id"],
+            "presence": serialize_presence(session["presence"]),
+            "expires_at": session["expires_at"].isoformat(),
+            "created_at": session["created_at"].isoformat(),
+            "updated_at": session["updated_at"].isoformat(),
+        }
+    )
 
 
 def deserialize(raw_session: str) -> Session:
@@ -139,6 +119,7 @@ def deserialize(raw_session: str) -> Session:
 
     untyped_session["session_id"] = UUID(untyped_session["session_id"])
     untyped_session["account_id"] = untyped_session["account_id"]
+    untyped_session["presence"] = deserialize_presence(untyped_session["presence"])
     untyped_session["expires_at"] = datetime.fromisoformat(
         untyped_session["expires_at"]
     )
