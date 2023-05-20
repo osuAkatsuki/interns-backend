@@ -251,6 +251,10 @@ async def logout_handler(session: "Session", packet_data: bytes) -> None:
 
     await sessions.delete_by_id(session["session_id"])
 
+    # TODO: spectator
+    # TODO: multiplayer
+    # TODO: channels
+
     # tell everyone else we logged out
     if not own_presence["privileges"] & ServerPrivileges.UNRESTRICTED:
         logout_packet_data = packets.write_logout_packet(session["account_id"])
