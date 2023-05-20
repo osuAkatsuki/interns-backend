@@ -69,6 +69,12 @@ class Mods:
     MIRROR = 1 << 30
 
 
+class SubmissionStatus:
+    FAILED = 0
+    SUBMITTED = 1
+    BEST = 2
+
+
 class Score(TypedDict):
     score_id: int
     account_id: int
@@ -335,3 +341,78 @@ async def fetch_one_by_id(score_id: int) -> Score | None:
         },
     )
     return deserialize(score) if score is not None else None
+
+
+async def partial_update(
+    score_id: int,
+    # TODO: probably not all of this should be updatable
+    score: int | None = None,
+    performance_points: float | None = None,
+    accuracy: float | None = None,
+    highest_combo: int | None = None,
+    full_combo: bool | None = None,
+    mods: int | None = None,
+    num_300s: int | None = None,
+    num_100s: int | None = None,
+    num_50s: int | None = None,
+    num_misses: int | None = None,
+    num_gekis: int | None = None,
+    num_katus: int | None = None,
+    grade: str | None = None,  # enum
+    submission_status: int | None = None,  # enum
+    game_mode: int | None = None,  # enum
+    country: str | None = None,
+    time_elapsed: int | None = None,
+    client_anticheat_flags: int | None = None,
+    client_anticheat_token: str | None = None,
+) -> Score | None:
+    _score = await clients.database.fetch_one(
+        query=f"""
+            UPDATE scores
+            SET score = COALESCE(:score, score),
+                performance_points = COALESCE(:performance_points, performance_points),
+                accuracy = COALESCE(:accuracy, accuracy),
+                highest_combo = COALESCE(:highest_combo, highest_combo),
+                full_combo = COALESCE(:full_combo, full_combo),
+                mods = COALESCE(:mods, mods),
+                num_300s = COALESCE(:num_300s, num_300s),
+                num_100s = COALESCE(:num_100s, num_100s),
+                num_50s = COALESCE(:num_50s, num_50s),
+                num_misses = COALESCE(:num_misses, num_misses),
+                num_gekis = COALESCE(:num_gekis, num_gekis),
+                num_katus = COALESCE(:num_katus, num_katus),
+                grade = COALESCE(:grade, grade),
+                submission_status = COALESCE(:submission_status, submission_status),
+                game_mode = COALESCE(:game_mode, game_mode),
+                country = COALESCE(:country, country),
+                time_elapsed = COALESCE(:time_elapsed, time_elapsed),
+                client = COALESCE(:client, client),
+                client_anticheat_flags = COALESCE(:client_anticheat_flags, client_anticheat_flags),
+                client_anticheat_token = COALESCE(:client_anticheat_token, client_anticheat_token)
+            WHERE score_id = :score_id
+            RETURNING {READ_PARAMS}
+        """,
+        values={
+            "score_id": score_id,
+            "score": score,
+            "performance_points": performance_points,
+            "accuracy": accuracy,
+            "highest_combo": highest_combo,
+            "full_combo": full_combo,
+            "mods": mods,
+            "num_300s": num_300s,
+            "num_100s": num_100s,
+            "num_50s": num_50s,
+            "num_misses": num_misses,
+            "num_gekis": num_gekis,
+            "num_katus": num_katus,
+            "grade": grade,
+            "submission_status": submission_status,
+            "game_mode": game_mode,
+            "country": country,
+            "time_elapsed": time_elapsed,
+            "client_anticheat_flags": client_anticheat_flags,
+            "client_anticheat_token": client_anticheat_token,
+        },
+    )
+    return deserialize(_score) if _score is not None else None
