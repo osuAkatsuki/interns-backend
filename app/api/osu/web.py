@@ -141,9 +141,9 @@ async def format_leaderboard_response(
     return buffer.encode()
 
 
-class LeaderBoardType:
+class LeaderboardType:
     Local = 0
-    Top = 1
+    Global = 1
     Mods = 2
     Friends = 3
     Country = 4
@@ -162,17 +162,7 @@ class LeaderBoardType:
 # &a=0
 # &us=cmyui
 # &ha=0cc175b9c0f1b6a831c399e269772661
-
-
-class LeaderboardType:
-    Local = 0
-    Global = 1
-    Mods = 2
-    Friends = 3
-    Country = 4
-
-
-@osu_web_handler.get("/web/osu-osz2-getscores.php")
+@osu_web_router.get("/web/osu-osz2-getscores.php")
 async def get_scores_handler(
     username: str = Query(..., alias="us"),
     password_md5: str = Query(..., alias="ha"),
