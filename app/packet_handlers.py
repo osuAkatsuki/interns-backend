@@ -1263,10 +1263,238 @@ async def match_change_slot_handler(session: "Session", packet_data: bytes) -> N
 # MATCH_READY = 39
 
 
+@bancho_handler(packets.ClientPackets.MATCH_READY)
+async def match_ready_handler(session: "Session", packet_data: bytes):
+    presence = session["presence"]
+    match_id = presence["multiplayer_match_id"]
+    if match_id is None:
+        logger.warning(
+            "A user attempted to get ready but they are not in a match.",
+            user_id=session["account_id"],
+        )
+        return
+    
+    slot = await multiplayer_slots.fetch_one_by_session_id(
+        match_id=match_id,
+        session_id=session["session_id"]
+    )
+    if not slot:
+        logger.warning(
+            "A user attempted to get ready but they don't have a slot.",
+            user_id=session["account_id"],
+            match_id=match_id,
+        )
+        return
+    
+    if slot["status"] != SlotStatus.NOT_READY:
+        logger.warning(
+            "A user attempted to get ready but they are not allowed to.",
+            user_id=session["account_id"],
+            match_id=match_id,
+            slot_id=slot["slot_id"],
+            slot_status=slot["status"],
+        )
+        return
+
+    await multiplayer_slots.partial_update(
+        match_id=match_id,
+        slot_id=slot["slot_id"],
+        status=SlotStatus.READY,
+    )
+
+    await _broadcast_match_updates(match_id)
+
+
 # MATCH_LOCK = 40
 
 
+@bancho_handler(packets.ClientPackets.MATCH_LOCK)
+async def match_lock_handler(session: "Session", packet_data: bytes):
+    reader = packets.PacketReader(packet_data)
+    slot_id = reader.read_i32()
+
+    presence = session["presence"]
+    match_id = presence["multiplayer_match_id"]
+    if match_id is None:
+        logger.warning(
+            "A user attempted to (un)lock a slot but they are not in a match.",
+            user_id=session["account_id"],
+        )
+        return
+    
+    match = await multiplayer_matches.fetch_one(match_id)
+    if isinstance(match, ServiceError):
+        logger.warning(
+            "A user attempted to (un)lock a slot but their match doesn't exist.",
+            user_id=session["account_id"],
+        )
+        return
+    
+    # only the host can edit slots
+    if match["host_account_id"] != session["account_id"]:
+        logger.warning(
+            "A user attempted to (un)lock a slot but they are not the host.",
+            user_id=session["account_id"],
+            match_id=match_id,
+        )
+        return
+    
+    slot = await multiplayer_slots.fetch_one(
+        match_id=match_id,
+        slot_id=slot_id,
+    )
+    if not slot:
+        logger.warning(
+            "A user attempted to (un)lock a slot that does not exist.",
+            user_id=session["account_id"],
+            match_id=match_id,
+        )
+        return
+    
+    if slot["account_id"] != -1:
+        if slot["account_id"] == session["account_id"]:
+            logger.warning(
+                "A user attempted to lock their own slot.",
+                user_id=session["account_id"],
+                match_id=match_id,
+            )
+            return
+        
+        slot_session = await sessions.fetch_by_account_id(slot["account_id"])
+        assert slot_session is not None
+
+        match_channel = await channels.fetch_one_by_name(f"#mp_{match_id}")
+        assert match_channel is not None
+
+        await channel_members.remove(
+            channel_id=match_channel["channel_id"],
+            session_id=slot_session["session_id"]
+        )
+
+        await packet_bundles.enqueue(
+            session_id=slot_session["session_id"],
+            data=packets.write_channel_kick_packet("#multiplayer"),
+        )
+
+        logger.info(
+            "User was kicked from match.",
+            host_id=session["session_id"],
+            target_session_id=slot_session["session_id"],
+            match_id=match_id,
+        )
+
+    if slot["status"] == SlotStatus.LOCKED:
+        new_status = SlotStatus.OPEN
+    else:
+        new_status = SlotStatus.LOCKED
+
+    # lock slot
+    await multiplayer_slots.partial_update(
+        match_id=match_id,
+        slot_id=slot["slot_id"],
+        account_id=-1,
+        session_id=UUID(int=0),
+        status=new_status,
+        team=MatchTeams.NEUTRAL,
+        mods=0,
+        loaded=False,
+        skipped=False,
+    )
+
+    # inform relevant places of the new match state
+    await _broadcast_match_updates(match_id)
+
+    logger.info(
+        "User (un)locked match slot.",
+        host_id=session["session_id"],
+        slot_id=slot_id,
+        match_id=match_id,
+    )
+    
+
 # MATCH_CHANGE_SETTINGS = 41
+
+
+@bancho_handler(packets.ClientPackets.MATCH_CHANGE_SETTINGS)
+async def match_change_settings_handler(session: "Session", packet_data: bytes):
+    presence = session["presence"]
+    match_id = presence["multiplayer_match_id"]
+    if match_id is None:
+        logger.warning(
+            "A user attempted to change match settings but they are not in a match.",
+            user_id=session["account_id"],
+        )
+        return
+
+    match = await multiplayer_matches.fetch_one(match_id)
+    if isinstance(match, ServiceError):
+        logger.warning(
+            "A user attempted to change match settings but their match doesn't exist.",
+            user_id=session["account_id"],
+        )
+        return
+    
+    # only the host can change match settings
+    if match["host_account_id"] != session["account_id"]:
+        logger.warning(
+            "A user attempted to change match settings but they are not the host.",
+            user_id=session["account_id"],
+        )
+        return
+
+    packet_reader = packets.PacketReader(packet_data)
+    osu_match_data = packet_reader.read_osu_match()
+
+    vanilla_game_mode = osu_match_data["game_mode"]
+    game_mode = game_modes.for_server(
+        vanilla_game_mode,
+        match["mods"],
+    )
+
+    if osu_match_data["freemods_enabled"] != match["freemods_enabled"]:
+        # copy bancho's behaviour
+        if osu_match_data["freemods_enabled"]:
+            mods = match["mods"]
+        else:
+            mods = Mods.NOMOD
+
+        slots = await multiplayer_slots.fetch_all(match_id)
+        for slot in slots:
+            await multiplayer_slots.partial_update(
+                match_id=match_id,
+                slot_id=slot["slot_id"],
+                mods=mods,
+            )
+
+    match_params = {
+        "match_name": osu_match_data["match_name"],
+        "match_password": osu_match_data["match_password"],
+        "beatmap_name": osu_match_data["beatmap_name"],
+        "beatmap_id": osu_match_data["beatmap_id"],
+        "beatmap_md5": osu_match_data["beatmap_md5"],
+        "host_account_id": osu_match_data["host_account_id"],
+        "game_mode": game_mode,
+        "mods": osu_match_data["mods"],
+        "win_condition": osu_match_data["win_condition"],
+        "team_type": osu_match_data["team_type"],
+        "freemods_enabled": osu_match_data["freemods_enabled"],
+        "random_seed": osu_match_data["random_seed"],
+    }
+
+    await multiplayer_matches.partial_update(
+        match_id=match_id,
+        **match_params,
+    )
+
+    # inform relevant places of the new match state
+    await _broadcast_match_updates(match_id)
+
+    logger.info(
+        "User changed match settings.",
+        session_id=session["session_id"],
+        match_id=match_id,
+        **match_params,
+    )
 
 
 # MATCH_START = 44
@@ -1288,6 +1516,48 @@ async def match_change_slot_handler(session: "Session", packet_data: bytes) -> N
 
 
 # MATCH_NOT_READY = 55
+
+
+@bancho_handler(packets.ClientPackets.MATCH_NOT_READY)
+async def match_not_ready_handler(session: "Session", packet_data: bytes):
+    presence = session["presence"]
+    match_id = presence["multiplayer_match_id"]
+    if match_id is None:
+        logger.warning(
+            "A user attempted to unready but they are not in a match.",
+            user_id=session["account_id"],
+        )
+        return
+    
+    slot = await multiplayer_slots.fetch_one_by_session_id(
+        match_id=match_id,
+        session_id=session["session_id"]
+    )
+    if not slot:
+        logger.warning(
+            "A user attempted to unready but they don't have a slot.",
+            user_id=session["account_id"],
+            match_id=match_id,
+        )
+        return
+    
+    if slot["status"] != SlotStatus.READY:
+        logger.warning(
+            "A user attempted to unready but they are not allowed to.",
+            user_id=session["account_id"],
+            match_id=match_id,
+            slot_id=slot["slot_id"],
+            slot_status=slot["status"],
+        )
+        return
+
+    await multiplayer_slots.partial_update(
+        match_id=match_id,
+        slot_id=slot["slot_id"],
+        status=SlotStatus.NOT_READY,
+    )
+
+    await _broadcast_match_updates(match_id)
 
 
 # MATCH_FAILED = 56
