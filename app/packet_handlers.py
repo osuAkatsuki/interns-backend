@@ -1378,8 +1378,8 @@ async def match_lock_handler(session: "Session", packet_data: bytes):
 
         logger.info(
             "User was kicked from match.",
-            host_id=session["session_id"],
-            target_session_id=slot_session["session_id"],
+            host_id=session["account_id"],
+            target_id=slot_session["account_id"],
             match_id=match_id,
         )
 
@@ -1406,7 +1406,7 @@ async def match_lock_handler(session: "Session", packet_data: bytes):
 
     logger.info(
         "User (un)locked match slot.",
-        host_id=session["session_id"],
+        host_id=session["account_id"],
         slot_id=slot_id,
         match_id=match_id,
     )
@@ -1491,7 +1491,7 @@ async def match_change_settings_handler(session: "Session", packet_data: bytes):
 
     logger.info(
         "User changed match settings.",
-        session_id=session["session_id"],
+        user_id=session["account_id"],
         match_id=match_id,
         **match_params,
     )
