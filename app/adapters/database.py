@@ -120,7 +120,9 @@ class Database:
 
         return val
 
-    async def execute(self, query: str, values: dict | None = None) -> Any:
+    async def execute(
+        self, query: str, values: dict | None = None
+    ) -> Any:  # TODO: this Any can surely be typed better
         async with self.write_pool.connection() as connection:
             result = await connection.execute(query, values)
 

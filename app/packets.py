@@ -147,7 +147,7 @@ class ServerPackets(IntEnum):
 class Packet:
     packet_id: ClientPackets
     packet_data_length: int
-    packet_data: Any
+    packet_data: bytes
 
 
 class OsuMessage(TypedDict):

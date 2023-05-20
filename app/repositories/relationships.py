@@ -1,4 +1,6 @@
-from typing import Any
+from typing import cast
+from typing import Literal
+from typing import TypedDict
 
 from app import clients
 
@@ -9,11 +11,18 @@ READ_PARAMS = """
 """
 
 
+class Relationship(TypedDict):
+    account_id: int
+    target_id: int
+    # TODO: rename to type or relationship_type?
+    relationship: Literal["friend", "blocked"]
+
+
 async def create(
     account_id: int,
     target_id: int,
     relationship: str,
-) -> dict[str, Any]:
+) -> Relationship:
     _relationship = await clients.database.fetch_one(
         query=f"""
             INSERT INTO relationships (account_id, target_id, relationship)
@@ -28,13 +37,13 @@ async def create(
     )
 
     assert _relationship is not None
-    return _relationship
+    return cast(Relationship, _relationship)
 
 
 async def fetch_all(
     account_id: int | None = None,
     relationship: str | None = None,
-) -> list[dict[str, Any]]:
+) -> list[Relationship]:
     relationships = await clients.database.fetch_all(
         query=f"""
             SELECT {READ_PARAMS}
@@ -44,13 +53,13 @@ async def fetch_all(
         """,
         values={"account_id": account_id, "relationship": relationship},
     )
-    return relationships
+    return cast(list[Relationship], relationships)
 
 
 async def remove(
     account_id: int,
     target_id: int,
-) -> dict[str, Any] | None:
+) -> Relationship | None:
     relationship = await clients.database.fetch_one(
         query=f"""
             DELETE FROM relationships
@@ -63,13 +72,13 @@ async def remove(
             "target_id": target_id,
         },
     )
-    return relationship
+    return cast(Relationship, relationship)
 
 
 async def fetch_one(
     target_id: int,
     account_id: int,
-) -> dict[str, Any] | None:
+) -> Relationship | None:
     relationship = await clients.database.fetch_one(
         query=f"""
             SELECT {READ_PARAMS}
@@ -79,4 +88,4 @@ async def fetch_one(
         """,
         values={"account_id": account_id, "target_id": target_id},
     )
-    return relationship
+    return cast(Relationship, relationship)
