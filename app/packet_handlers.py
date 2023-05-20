@@ -1277,10 +1277,9 @@ async def match_ready_handler(session: "Session", packet_data: bytes):
             user_id=session["account_id"],
         )
         return
-    
+
     slot = await multiplayer_slots.fetch_one_by_session_id(
-        match_id=match_id,
-        session_id=session["session_id"]
+        match_id=match_id, session_id=session["session_id"]
     )
     if not slot:
         logger.warning(
@@ -1289,7 +1288,7 @@ async def match_ready_handler(session: "Session", packet_data: bytes):
             match_id=match_id,
         )
         return
-    
+
     if slot["status"] != SlotStatus.NOT_READY:
         logger.warning(
             "A user attempted to get ready but they are not allowed to.",
@@ -1325,7 +1324,7 @@ async def match_lock_handler(session: "Session", packet_data: bytes):
             user_id=session["account_id"],
         )
         return
-    
+
     match = await multiplayer_matches.fetch_one(match_id)
     if isinstance(match, ServiceError):
         logger.warning(
@@ -1333,7 +1332,7 @@ async def match_lock_handler(session: "Session", packet_data: bytes):
             user_id=session["account_id"],
         )
         return
-    
+
     # only the host can edit slots
     if match["host_account_id"] != session["account_id"]:
         logger.warning(
@@ -1342,7 +1341,7 @@ async def match_lock_handler(session: "Session", packet_data: bytes):
             match_id=match_id,
         )
         return
-    
+
     slot = await multiplayer_slots.fetch_one(
         match_id=match_id,
         slot_id=slot_id,
@@ -1354,7 +1353,7 @@ async def match_lock_handler(session: "Session", packet_data: bytes):
             match_id=match_id,
         )
         return
-    
+
     if slot["account_id"] != -1:
         if slot["account_id"] == session["account_id"]:
             logger.warning(
@@ -1363,7 +1362,7 @@ async def match_lock_handler(session: "Session", packet_data: bytes):
                 match_id=match_id,
             )
             return
-        
+
         slot_session = await sessions.fetch_by_account_id(slot["account_id"])
         assert slot_session is not None
 
@@ -1372,7 +1371,7 @@ async def match_lock_handler(session: "Session", packet_data: bytes):
 
         await channel_members.remove(
             channel_id=match_channel["channel_id"],
-            session_id=slot_session["session_id"]
+            session_id=slot_session["session_id"],
         )
 
         await packet_bundles.enqueue(
@@ -1414,7 +1413,7 @@ async def match_lock_handler(session: "Session", packet_data: bytes):
         slot_id=slot_id,
         match_id=match_id,
     )
-    
+
 
 # MATCH_CHANGE_SETTINGS = 41
 
@@ -1437,7 +1436,7 @@ async def match_change_settings_handler(session: "Session", packet_data: bytes):
             user_id=session["account_id"],
         )
         return
-    
+
     # only the host can change match settings
     if match["host_account_id"] != session["account_id"]:
         logger.warning(
@@ -1532,10 +1531,9 @@ async def match_not_ready_handler(session: "Session", packet_data: bytes):
             user_id=session["account_id"],
         )
         return
-    
+
     slot = await multiplayer_slots.fetch_one_by_session_id(
-        match_id=match_id,
-        session_id=session["session_id"]
+        match_id=match_id, session_id=session["session_id"]
     )
     if not slot:
         logger.warning(
@@ -1544,7 +1542,7 @@ async def match_not_ready_handler(session: "Session", packet_data: bytes):
             match_id=match_id,
         )
         return
-    
+
     if slot["status"] != SlotStatus.READY:
         logger.warning(
             "A user attempted to unready but they are not allowed to.",
