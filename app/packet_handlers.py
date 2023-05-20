@@ -599,7 +599,7 @@ async def join_lobby_handler(session: "Session", packet_data: bytes):
             match["freemods_enabled"],
             [s["mods"] for s in slots] if match["freemods_enabled"] else [],
             match["random_seed"],
-        )   
+        )
 
         match_packet = packets.write_update_match_packet(
             *packet_params,
@@ -1384,11 +1384,11 @@ async def user_leaves_channel_handler(session: "Session", packet_data: bytes):
     channel = await channels.fetch_one_by_name(channel_name)
     if channel is None:
         return
-    
+
     # NOTE: we ignore #lobby to enqueue the match updates
     # and we actually remove them from the channel on lobby part
-    presence: Presence | None = session.get("presence")
-    if channel["name"] == "#lobby" and presence and presence["receive_match_updates"]:
+    presence = session["presence"]
+    if channel["name"] == "#lobby" and presence["receive_match_updates"]:
         return
 
     current_channel_members = await channel_members.members(channel["channel_id"])
