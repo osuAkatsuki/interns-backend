@@ -372,20 +372,6 @@ async def submit_score_handler(
     # TODO: does this account for DT/HT?
     time_elapsed = score_time if passed else fail_time
 
-    top_100_scores = await scores.fetch_many(
-        account_id=account["account_id"],
-        game_mode=game_mode,
-        sort_by="performance_points",
-        submission_status=SubmissionStatus.BEST,
-        page_size=100,
-    )
-
-    total_score_count = await scores.fetch_count(
-        account_id=account["account_id"],
-        submission_status=SubmissionStatus.BEST,
-        game_mode=game_mode,
-    )
-
     accuracy = calculate_accuracy(
         num_300s,
         num_100s,
