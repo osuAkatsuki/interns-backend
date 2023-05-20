@@ -85,10 +85,11 @@ async def main() -> int:
 
     while True:
         password = getpass("Password: ")
-        if not validation.validate_password(password):
-            print("Invalid Password! Retry!")
-        else:
-            break
+        # TODO: turn this on once we're past initial dev stage?
+        # if not validation.validate_password(password):
+        #     print("Invalid Password! Retry!")
+        # else:
+        break
 
     while True:
         country = input("Country: ")
