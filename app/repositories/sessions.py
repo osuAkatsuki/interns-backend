@@ -96,8 +96,10 @@ def deserialize_presence(raw_presence: str) -> Presence:
 
     assert isinstance(untyped_presence, dict)
 
-    untyped_presence["spectator_host_session_id"] = UUID(
-        untyped_presence["spectator_host_session_id"]
+    untyped_presence["spectator_host_session_id"] = (
+        UUID(untyped_presence["spectator_host_session_id"])
+        if untyped_presence["spectator_host_session_id"] is not None
+        else None
     )
 
     return cast(Presence, untyped_presence)
