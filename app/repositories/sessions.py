@@ -80,7 +80,11 @@ def serialize_presence(presence: Presence) -> str:
             "beatmap_md5": presence["beatmap_md5"],
             "beatmap_id": presence["beatmap_id"],
             "mods": presence["mods"],
-            "spectator_host_session_id": str(presence["spectator_host_session_id"]),
+            "spectator_host_session_id": (
+                str(presence["spectator_host_session_id"])
+                if presence["spectator_host_session_id"] is not None
+                else None
+            ),
             "away_message": presence["away_message"],
             "multiplayer_match_id": presence["multiplayer_match_id"],
         }
