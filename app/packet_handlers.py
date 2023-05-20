@@ -342,10 +342,12 @@ async def start_spectating_handler(session: "Session", packet_data: bytes):
         session["session_id"],
     )
 
-    session = await sessions.partial_update(
+    maybe_session = await sessions.partial_update(
         session["session_id"],
         presence={"spectator_host_session_id": host_session["session_id"]},
     )
+    assert maybe_session is not None
+    session = maybe_session
 
     await packet_bundles.enqueue(
         host_session["session_id"],
