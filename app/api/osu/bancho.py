@@ -180,6 +180,7 @@ async def handle_login(request: Request) -> Response:
             "beatmap_md5": "",
             "beatmap_id": 0,
             "mods": Mods.NOMOD,
+            "receive_match_updates": False,
             "spectator_host_session_id": None,
             "away_message": None,
             "multiplayer_match_id": None,

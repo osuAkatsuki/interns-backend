@@ -59,6 +59,7 @@ class Presence(TypedDict):
     beatmap_md5: str
     beatmap_id: int
     mods: int
+    receive_match_updates: bool
     spectator_host_session_id: UUID | None
     away_message: str | None
     multiplayer_match_id: int | None
@@ -80,6 +81,7 @@ def serialize_presence(presence: Presence) -> str:
             "beatmap_md5": presence["beatmap_md5"],
             "beatmap_id": presence["beatmap_id"],
             "mods": presence["mods"],
+            "receive_match_updates": presence["receive_match_updates"],
             "spectator_host_session_id": (
                 str(presence["spectator_host_session_id"])
                 if presence["spectator_host_session_id"] is not None
@@ -245,51 +247,55 @@ async def partial_update(session_id: UUID, **kwargs: Any) -> Session | None:
     # we need to adjust here because `presence=None` could be setting for real
     presence: Presence | None = kwargs.get("presence")
     if presence is not None:
-        username = kwargs["presence"].get("username")
+        username = presence.get("username")
         if username is not None:
             session["presence"]["username"] = username
 
-        privileges = kwargs["presence"].get("privileges")
+        privileges = presence.get("privileges")
         if privileges is not None:
             session["presence"]["privileges"] = privileges
 
-        game_mode = kwargs["presence"].get("game_mode")
+        game_mode = presence.get("game_mode")
         if game_mode is not None:
             session["presence"]["game_mode"] = game_mode
 
-        action = kwargs["presence"].get("action")
+        action = presence.get("action")
         if action is not None:
             session["presence"]["action"] = action
 
-        info_text = kwargs["presence"].get("info_text")
+        info_text = presence.get("info_text")
         if info_text is not None:
             session["presence"]["info_text"] = info_text
 
-        beatmap_md5 = kwargs["presence"].get("beatmap_md5")
+        beatmap_md5 = presence.get("beatmap_md5")
         if beatmap_md5 is not None:
             session["presence"]["beatmap_md5"] = beatmap_md5
 
-        beatmap_id = kwargs["presence"].get("beatmap_id")
+        beatmap_id = presence.get("beatmap_id")
         if beatmap_id is not None:
             session["presence"]["beatmap_id"] = beatmap_id
 
-        mods = kwargs["presence"].get("mods")
+        mods = presence.get("mods")
         if mods is not None:
             session["presence"]["mods"] = mods
 
-        game_mode = kwargs["presence"].get("game_mode")
+        game_mode = presence.get("game_mode")
         if game_mode is not None:
             session["presence"]["game_mode"] = game_mode
 
-        spectator_host_session_id = kwargs["presence"].get("spectator_host_session_id")
+        receive_match_updates = presence.get("receive_match_updates")
+        if receive_match_updates is not None:
+            session["presence"]["receive_match_updates"] = receive_match_updates
+
+        spectator_host_session_id = presence.get("spectator_host_session_id")
         if spectator_host_session_id is not None:
             session["presence"]["spectator_host_session_id"] = spectator_host_session_id
 
-        away_message = kwargs["presence"].get("away_message")
+        away_message = presence.get("away_message")
         if away_message is not None:
             session["presence"]["away_message"] = away_message
 
-        multiplayer_match_id = kwargs["presence"].get("multiplayer_match_id")
+        multiplayer_match_id = presence.get("multiplayer_match_id")
         if multiplayer_match_id is not None:
             session["presence"]["multiplayer_match_id"] = multiplayer_match_id
 

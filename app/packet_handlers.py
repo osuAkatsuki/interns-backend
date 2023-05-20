@@ -28,7 +28,7 @@ from app.repositories.sessions import Action
 from app.services import multiplayer_matches
 
 if TYPE_CHECKING:
-    from app.repositories.sessions import Session
+    from app.repositories.sessions import Presence, Session
 
 BanchoHandler = Callable[["Session", bytes], Awaitable[None]]
 
@@ -342,10 +342,12 @@ async def start_spectating_handler(session: "Session", packet_data: bytes):
         session["session_id"],
     )
 
-    await sessions.partial_update(
+    maybe_session = await sessions.partial_update(
         session["session_id"],
         presence={"spectator_host_session_id": host_session["session_id"]},
     )
+    assert maybe_session is not None
+    session = maybe_session
 
     await packet_bundles.enqueue(
         host_session["session_id"],
@@ -394,10 +396,12 @@ async def stop_spectating_handler(session: "Session", packet_data: bytes):
         session["session_id"],
     )
 
-    await sessions.partial_update(
+    maybe_session = await sessions.partial_update(
         session["session_id"],
         presence={"spectator_host_session_id": None},
     )
+    assert maybe_session is not None
+    session = maybe_session
 
     await packet_bundles.enqueue(
         host_session["session_id"],
@@ -534,7 +538,87 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
 # PART_LOBBY = 29
 
 
+@bancho_handler(packets.ClientPackets.PART_LOBBY)
+async def part_lobby_handler(session: "Session", packet_data: bytes):
+    maybe_session = await sessions.partial_update(
+        session["session_id"],
+        presence={"receive_match_updates": False},
+    )
+    assert maybe_session is not None
+    session = maybe_session
+
+    channel = await channels.fetch_one_by_name("#lobby")
+    assert channel
+
+    await channel_members.remove(
+        channel_id=channel["channel_id"],
+        session_id=session["session_id"],
+    )
+
+    current_channel_members = await channel_members.members(channel["channel_id"])
+
+    for other_session in await sessions.fetch_all(
+        has_any_privilege_bit=channel["read_privileges"]
+    ):
+        await packet_bundles.enqueue(
+            other_session["session_id"],
+            packets.write_channel_info_packet(
+                channel["name"],
+                channel["topic"],
+                len(current_channel_members),
+            ),
+        )
+
+
 # JOIN_LOBBY = 30
+
+
+@bancho_handler(packets.ClientPackets.JOIN_LOBBY)
+async def join_lobby_handler(session: "Session", packet_data: bytes):
+    maybe_session = await sessions.partial_update(
+        session["session_id"],
+        presence={"receive_match_updates": True},
+    )
+    assert maybe_session is not None
+    session = maybe_session
+
+    matches = await multiplayer_matches.fetch_all()
+    assert not isinstance(matches, ServiceError)
+
+    for match in matches:
+        slots = await multiplayer_slots.fetch_all(match["match_id"])
+
+        vanilla_game_mode = game_modes.for_client(match["game_mode"], match["mods"])
+        packet_params = (
+            match["match_id"],
+            match["status"] == MatchStatus.PLAYING,
+            match["mods"],
+            match["match_name"],
+            match["match_password"],
+            match["beatmap_name"],
+            match["beatmap_id"],
+            match["beatmap_md5"],
+            [s["status"] for s in slots],
+            [s["team"] for s in slots],
+            [s["account_id"] for s in slots if s["status"] & 0b01111100 != 0],
+            match["host_account_id"],
+            vanilla_game_mode,
+            match["win_condition"],
+            match["team_type"],
+            match["freemods_enabled"],
+            [s["mods"] for s in slots] if match["freemods_enabled"] else [],
+            match["random_seed"],
+        )
+
+        match_packet = packets.write_update_match_packet(
+            *packet_params,
+            should_send_password=False,
+        )
+
+        await packet_bundles.enqueue(
+            session_id=session["session_id"],
+            data=match_packet,
+        )
 
 
 # CREATE_MATCH = 31
@@ -1310,6 +1394,12 @@ async def user_leaves_channel_handler(session: "Session", packet_data: bytes):
     if channel is None:
         return
 
+    # NOTE: we ignore #lobby to enqueue the match updates
+    # and we actually remove them from the channel on lobby part
+    presence = session["presence"]
+    if channel["name"] == "#lobby" and presence["receive_match_updates"]:
+        return
+
     current_channel_members = await channel_members.members(channel["channel_id"])
     if session["session_id"] not in current_channel_members:
         logger.warning(
@@ -1363,10 +1453,12 @@ async def set_away_message_handler(session: "Session", packet_data: bytes) -> No
     else:
         away_message = None
 
-    await sessions.partial_update(
+    maybe_session = await sessions.partial_update(
         session["session_id"],
         presence={"away_message": away_message},
     )
+    assert maybe_session is not None
+    session = maybe_session
 
     if away_message is None:
         notification_content = "Your away message has been cleared."
