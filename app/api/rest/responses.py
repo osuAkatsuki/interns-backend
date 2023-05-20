@@ -3,7 +3,6 @@ from typing import Generic
 from typing import Literal
 from typing import TypeVar
 
-from fastapi import Response
 from fastapi import status
 from pydantic import BaseModel
 from pydantic.generics import GenericModel
@@ -17,7 +16,7 @@ T = TypeVar("T")
 class Success(GenericModel, Generic[T]):
     status: Literal["success"]
     data: T
-    meta: dict[str, Any]  # TODO: non-total typeddict?
+    meta: dict[str, Any]
 
 
 def success(

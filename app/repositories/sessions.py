@@ -243,7 +243,8 @@ async def partial_update(session_id: UUID, **kwargs: Any) -> Session | None:
         expires_at = datetime.fromisoformat(expires_at)
         session["expires_at"] = expires_at
 
-    # TODO: can presences be removed from a session? None might be a valid state
+    # TODO: if we generalize sessions to be used for more than osu,
+    # we need to adjust here because `presence=None` could be setting for real
     presence: Presence | None = kwargs.get("presence")
     if presence is not None:
         username = presence.get("username")

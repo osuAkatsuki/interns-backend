@@ -4,7 +4,6 @@ import sys
 import traceback
 from contextvars import ContextVar
 from types import TracebackType
-from typing import Any
 
 import structlog
 from structlog.types import EventDict
@@ -19,7 +18,7 @@ def set_request_id(request_id: str | None) -> None:
     _REQUEST_ID_CONTEXT.set(request_id)
 
 
-def get_request_id() -> Any | None:
+def get_request_id() -> str | None:
     return _REQUEST_ID_CONTEXT.get(None)
 
 

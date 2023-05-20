@@ -1,6 +1,6 @@
 import ipaddress
 from datetime import datetime
-from typing import Any
+from typing import TypedDict
 from uuid import UUID
 from uuid import uuid4
 
@@ -34,7 +34,21 @@ async def bancho_home_page():
     return "Hello, bancho!"
 
 
-def parse_login_data(data: bytes) -> dict[str, Any]:
+class LoginData(TypedDict):
+    username: str  # ,
+    password_md5: str  # ,
+    osu_version: str  # ,
+    utc_offset: int
+    display_city: bool
+    pm_private: bool
+    osu_path_md5: str
+    adapters_str: str
+    adapters_md5: str
+    uninstall_md5: str
+    disk_signature_md5: str
+
+
+def parse_login_data(data: bytes) -> LoginData:
     """Parse data from the body of a login request."""
     (
         username,
