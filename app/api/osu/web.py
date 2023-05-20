@@ -184,6 +184,13 @@ async def get_scores_handler(
     if account is None:
         return
 
+    # check that password is correct
+    if not security.check_password(
+        password=password_md5,
+        hashword=account["password"].encode(),
+    ):
+        return
+
     session = await sessions.fetch_by_username(username)
     if session is None:
         return
@@ -221,12 +228,7 @@ async def get_scores_handler(
                 ),
             )
 
-    if not security.check_password(
-        password=password_md5,
-        hashword=account["password"].encode(),
-    ):
-        return
-
+    # fetch the beatmap with this md5
     beatmap = await beatmaps.fetch_one(beatmap_md5=beatmap_md5)
     if isinstance(beatmap, ServiceError):
         if beatmap is ServiceError.BEATMAPS_NOT_FOUND:
@@ -240,54 +242,41 @@ async def get_scores_handler(
         )
         return
 
-    # TODO: leaderboard type handling
-
-    leaderboard_params = {
+    # create filter parameters for score fetching
+    # based on the leaderboard type
+    filter_params = {
         "beatmap_md5": beatmap_md5,
-        "account_id": None,
-        "country": None,
         "game_mode": game_mode,
         "submission_status": 2,
-        "mods": None,
-        "friends": [],
-        # TODO: score for certain gamemodes?
-        "sort_by": "performance_points",
-        "page_size": 50,
+        "sort_by": "performance_points",  # TODO: score for certain gamemodes?
     }
 
-    if leaderboard_type == LeaderboardType.Global:
-        leaderboard_params["game_mode"] = game_mode
-
-    elif leaderboard_type == LeaderboardType.Mods:
-        leaderboard_params["mods"] = mods
+    if leaderboard_type == LeaderboardType.Mods:
+        filter_params["mods"] = mods
 
     elif leaderboard_type == LeaderboardType.Country:
-        leaderboard_params["country"] = account["country"]
+        filter_params["country"] = account["country"]
 
     elif leaderboard_type == LeaderboardType.Friends:
         friends = await relationships.fetch_all(
             account_id=account["account_id"],
             relationship="friend",
         )
-        friend_account_ids = [friend["account_id"] for friend in friends]
-        leaderboard_params["friends"] = friend_account_ids
+        filter_params["friends"] = [friend["account_id"] for friend in friends]
 
-        # SELECT {READ_PARAMS} FROM scores WHERE account_id IN :friends
+    # fetch our top 50 scores for the leaderboard
+    leaderboard_scores = await scores.fetch_many(**filter_params, page_size=50)
 
-    leaderboard_scores = await scores.fetch_many(**leaderboard_params)
-
-    leaderboard_params["country"] = None
-    leaderboard_params["page_size"] = 1
-    # leaderboard_params["account_id"] = account["account_id"]
-
+    # fetch our personal best score for the beatmap
     personal_best_scores = await scores.fetch_many(
-        **leaderboard_params,
+        **filter_params,
+        account_id=account["account_id"],  # we want our best
+        country=None,  # we want our global best
+        page_size=1,
     )
-    if personal_best_scores:
-        personal_best_score = personal_best_scores[0]
-    else:
-        personal_best_score = None
+    personal_best_score = personal_best_scores[0] if personal_best_scores else None
 
+    # construct and send the leaderboard response
     response = await format_leaderboard_response(
         leaderboard_scores,
         personal_best_score,
