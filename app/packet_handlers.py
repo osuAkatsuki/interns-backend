@@ -342,7 +342,7 @@ async def start_spectating_handler(session: "Session", packet_data: bytes):
         session["session_id"],
     )
 
-    await sessions.partial_update(
+    session = await sessions.partial_update(
         session["session_id"],
         presence={"spectator_host_session_id": host_session["session_id"]},
     )
@@ -394,10 +394,12 @@ async def stop_spectating_handler(session: "Session", packet_data: bytes):
         session["session_id"],
     )
 
-    await sessions.partial_update(
+    maybe_session = await sessions.partial_update(
         session["session_id"],
         presence={"spectator_host_session_id": None},
     )
+    assert maybe_session is not None
+    session = maybe_session
 
     await packet_bundles.enqueue(
         host_session["session_id"],
@@ -536,10 +538,13 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
 
 @bancho_handler(packets.ClientPackets.PART_LOBBY)
 async def part_lobby_handler(session: "Session", packet_data: bytes):
-    await sessions.partial_update(
-        session_id=session["session_id"],
+    maybe_session = await sessions.partial_update(
+        session["session_id"],
         presence={"receive_match_updates": False},
     )
+    assert maybe_session is not None
+    session = maybe_session
+
     channel = await channels.fetch_one_by_name("#lobby")
     assert channel
 
@@ -568,10 +573,12 @@ async def part_lobby_handler(session: "Session", packet_data: bytes):
 
 @bancho_handler(packets.ClientPackets.JOIN_LOBBY)
 async def join_lobby_handler(session: "Session", packet_data: bytes):
-    await sessions.partial_update(
-        session_id=session["session_id"],
+    maybe_session = await sessions.partial_update(
+        session["session_id"],
         presence={"receive_match_updates": True},
     )
+    assert maybe_session is not None
+    session = maybe_session
 
     matches = await multiplayer_matches.fetch_all()
     assert not isinstance(matches, ServiceError)
@@ -1444,10 +1451,12 @@ async def set_away_message_handler(session: "Session", packet_data: bytes) -> No
     else:
         away_message = None
 
-    await sessions.partial_update(
+    maybe_session = await sessions.partial_update(
         session["session_id"],
         presence={"away_message": away_message},
     )
+    assert maybe_session is not None
+    session = maybe_session
 
     if away_message is None:
         notification_content = "Your away message has been cleared."
