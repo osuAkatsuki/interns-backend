@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - INTRN-168-lobbied
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
