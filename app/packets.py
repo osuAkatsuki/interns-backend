@@ -437,7 +437,7 @@ def write_osu_match(
     buffer += struct.pack("<B", team_type)
     buffer += struct.pack("<B", freemods_enabled)
     if freemods_enabled:
-        buffer += struct.pack(f"<I{len(per_slot_mods)}i", *per_slot_mods)
+        buffer += struct.pack(f"<{len(per_slot_mods)}i", *per_slot_mods)
     buffer += struct.pack("<i", random_seed)
     return bytes(buffer)
 
