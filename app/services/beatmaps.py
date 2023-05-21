@@ -28,9 +28,7 @@ def create_beatmap_chat_embed(
     creator: str,
     mode_string: Literal["osu", "taiko", "fruits", "mania"],
 ) -> str:
-    return f"""\
-[https://osu.ppy.sh/beatmapsets/{beatmap_set_id}#{mode_string}/{beatmap_id} {artist} - {title} ({creator}) [{version}]]\
-"""
+    return f"[https://osu.ppy.sh/beatmapsets/{beatmap_set_id}#{mode_string}/{beatmap_id} {artist} - {title} ({creator}) [{version}]]"
 
 
 def _should_get_updates(beatmap: Beatmap) -> bool:
