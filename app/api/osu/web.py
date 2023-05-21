@@ -267,10 +267,7 @@ async def get_scores_handler(
 
     if leaderboard_type == LeaderboardType.Mods:
         filter_params["mods"] = mods
-        filter_params["submission_statuses"] = [
-            SubmissionStatus.BEST,
-            SubmissionStatus.SUBMITTED,
-        ]
+        filter_params["submission_statuses"].append(SubmissionStatus.SUBMITTED)
 
     elif leaderboard_type == LeaderboardType.Country:
         filter_params["country"] = account["country"]
