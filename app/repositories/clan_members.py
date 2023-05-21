@@ -44,15 +44,19 @@ async def create(
     return cast(ClanMember, clan_member)
 
 
-async def fetch_all(
-    page: int | None,
-    page_size: int | None,
+async def fetch_many(
+    clan_id: int | None = None,
+    page: int | None = None,
+    page_size: int | None = None,
 ) -> list[ClanMember]:
     query = f"""\
         SELECT {READ_PARAMS}
         FROM clan_members
+        WHERE clan_id = COALESCE(:clan_id, clan_id)
     """
-    values = {}
+    values = {
+        "clan_id": clan_id,
+    }
     if page is not None and page_size is not None:
         query += """\
             LIMIT :limit
@@ -69,12 +73,12 @@ async def fetch_all(
 async def partial_update(
     clan_id: int,
     account_id: int,
-    privileges: int,
+    privileges: int | None = None,
 ) -> ClanMember | None:
     clan_member = await clients.database.fetch_one(
         query=f"""\
             UPDATE clan_members
-            SET privileges = :privileges
+            SET privileges = COALESSCE(:privileges, privileges)
             WHERE clan_id = :clan_id
             AND account_id = :account_id
         """,
