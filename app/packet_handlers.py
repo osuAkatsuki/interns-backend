@@ -11,6 +11,8 @@ from app import packets
 from app import ranking
 from app.errors import ServiceError
 from app.game_modes import GameMode
+from app.mods import filter_invalid_mod_combinations
+from app.mods import Mods
 from app.privileges import ServerPrivileges
 from app.repositories import channel_members
 from app.repositories import channels
@@ -24,7 +26,6 @@ from app.repositories.multiplayer_matches import MatchStatus
 from app.repositories.multiplayer_matches import MatchTeams
 from app.repositories.multiplayer_matches import MatchTeamTypes
 from app.repositories.multiplayer_slots import SlotStatus
-from app.repositories.scores import Mods
 from app.repositories.sessions import Action
 from app.services import multiplayer_matches
 
@@ -73,27 +74,7 @@ async def change_action_handler(session: "Session", packet_data: bytes):
 
     # XXX: this is a quirk of the osu! client, where it adjusts this value
     # only after it sends the packet to the server; so we need to adjust
-    # TODO: this should grow to filter all invalid mod combinations, similar to
-    # https://github.com/osuAkatsuki/bancho.py/blob/36dc2313ad8d7f62e605519bed7c218d9beae24f/app/constants/mods.py#L65-L126
-    if (
-        # client is attempting to switch to an invalid game mode for relax
-        vanilla_game_mode == GameMode.VN_MANIA
-        and mods & Mods.RELAX
-    ):
-        # remove relax from the mods
-        mods &= ~Mods.RELAX
-    elif (
-        # client is attempting to switch to an invalid game mode for autopilot
-        vanilla_game_mode
-        in (
-            GameMode.VN_TAIKO,
-            GameMode.VN_CATCH,
-            GameMode.VN_MANIA,
-        )
-        and mods & Mods.AUTOPILOT
-    ):
-        # remove autopilot from the mods
-        mods &= ~Mods.AUTOPILOT
+    mods = filter_invalid_mod_combinations(mods, vanilla_game_mode)
 
     game_mode = game_modes.for_server(vanilla_game_mode, mods)
 
@@ -114,6 +95,8 @@ async def change_action_handler(session: "Session", packet_data: bytes):
     own_stats = await stats.fetch_one(session["account_id"], game_mode)
     assert own_stats is not None
 
+    own_global_rank = await ranking.get_global_rank(session["account_id"], game_mode)
+
     # send the stats update to all active osu sessions' packet bundles
     for other_session in await sessions.fetch_all():
         await packet_bundles.enqueue(
@@ -130,7 +113,7 @@ async def change_action_handler(session: "Session", packet_data: bytes):
                 own_stats["accuracy"],
                 own_stats["play_count"],
                 own_stats["total_score"],
-                ranking.get_global_rank(session["account_id"]),
+                own_global_rank,
                 own_stats["performance_points"],
             ),
         )
@@ -287,6 +270,11 @@ async def request_status_update_handler(session: "Session", packet_data: bytes):
 
     vanilla_game_mode = game_modes.for_client(own_presence["game_mode"])
 
+    own_global_rank = await ranking.get_global_rank(
+        session["account_id"],
+        own_presence["game_mode"],
+    )
+
     await packet_bundles.enqueue(
         session["session_id"],
         packets.write_user_stats_packet(
@@ -301,7 +289,7 @@ async def request_status_update_handler(session: "Session", packet_data: bytes):
             own_stats["accuracy"],
             own_stats["play_count"],
             own_stats["total_score"],
-            ranking.get_global_rank(own_stats["account_id"]),
+            own_global_rank,
             own_stats["performance_points"],
         ),
     )
@@ -2118,6 +2106,11 @@ async def user_stats_request_handler(session: "Session", packet_data: bytes) -> 
             other_session["presence"]["game_mode"]
         )
 
+        other_global_rank = await ranking.get_global_rank(
+            other_stats["account_id"],
+            other_stats["game_mode"],
+        )
+
         await packet_bundles.enqueue(
             session["session_id"],
             data=packets.write_user_stats_packet(
@@ -2132,7 +2125,7 @@ async def user_stats_request_handler(session: "Session", packet_data: bytes) -> 
                 other_stats["accuracy"],
                 other_stats["play_count"],
                 other_stats["total_score"],
-                ranking.get_global_rank(other_stats["account_id"]),
+                other_global_rank,
                 other_stats["performance_points"],
             ),
         )
