@@ -16,8 +16,6 @@ logger.configure_logging(
 logger.overwrite_exception_hook()
 atexit.register(logger.restore_exception_hook)
 
-raise Exception("testing stacktrace stuff")
-
 app = FastAPI()
 
 app.host("osu.cmyui.xyz", osu_web_router)

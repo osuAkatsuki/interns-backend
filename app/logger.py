@@ -6,6 +6,7 @@ from contextvars import ContextVar
 from types import TracebackType
 
 import structlog
+from pythonjsonlogger import jsonlogger
 from structlog.types import EventDict
 from structlog.types import WrappedLogger
 
@@ -47,21 +48,34 @@ def add_request_id(_: WrappedLogger, __: str, event_dict: EventDict) -> EventDic
 
 
 def configure_logging(app_env: str, log_level: str | int) -> None:
-    if False:
+    if log_as_text(app_env):
+        # TODO: simplify this or align it more with the json formatter
         renderer = structlog.dev.ConsoleRenderer(colors=log_with_colors(app_env))
+        formatter = structlog.stdlib.ProcessorFormatter(
+            renderer,
+            foreign_pre_chain=[
+                structlog.processors.TimeStamper(fmt="iso", key="timestamp"),
+                structlog.stdlib.add_log_level,
+                structlog.stdlib.add_logger_name,
+                add_process_id,
+                add_request_id,
+            ],
+        )
     else:
-        renderer = structlog.processors.JSONRenderer()
-
-    formatter = structlog.stdlib.ProcessorFormatter(
-        processor=renderer,
-        foreign_pre_chain=[
-            structlog.processors.TimeStamper(fmt="iso", key="timestamp"),
-            structlog.stdlib.add_log_level,
-            structlog.stdlib.add_logger_name,
-            add_process_id,
-            add_request_id,
-        ],
-    )
+        structlog.configure(
+            processors=[
+                structlog.stdlib.filter_by_level,
+                structlog.stdlib.add_logger_name,
+                structlog.stdlib.add_log_level,
+                add_process_id,
+                add_request_id,
+                structlog.processors.format_exc_info,
+                structlog.stdlib.render_to_log_kwargs,
+            ],
+            wrapper_class=structlog.stdlib.BoundLogger,
+            cache_logger_on_first_use=True,
+        )
+        formatter = jsonlogger.JsonFormatter()
 
     handler = stdlib_logging.StreamHandler()
     handler.setFormatter(formatter)
@@ -70,14 +84,14 @@ def configure_logging(app_env: str, log_level: str | int) -> None:
     _ROOT_LOGGER.addHandler(handler)
     _ROOT_LOGGER.setLevel(log_level)
 
-    for name in stdlib_logging.root.manager.loggerDict:
-        logger = stdlib_logging.getLogger(name)
+    # defer logging control of all loggers to our root logger
+    # for name in stdlib_logging.root.manager.loggerDict:
+    #     logger = stdlib_logging.getLogger(name)
 
-        # defer logging control to the root logger
-        logger.propagate = True
-        logger.setLevel(log_level)
-        for logger_handler in logger.handlers:
-            logger.removeHandler(logger_handler)
+    #     logger.propagate = True
+    #     logger.setLevel(log_level)
+    #     for logger_handler in logger.handlers:
+    #         logger.removeHandler(logger_handler)
 
 
 def debug(*args, **kwargs) -> None:
