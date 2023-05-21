@@ -173,7 +173,12 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
         own_presence["account_id"],
     )
 
-    for other_session_id in await channel_members.members(channel["channel_id"]):
+    if message_content.startswith("!help"):
+        target_session_ids = []
+    else:
+        target_session_ids = await channel_members.members(channel["channel_id"])
+
+    for other_session_id in target_session_ids:
         if other_session_id == session["session_id"]:
             continue
 
@@ -193,11 +198,21 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
 
             bancho_bot_message = await command.callback(session, args)
 
+            # send message to everyone else
             if bancho_bot_message is not None:
-                # TODO: send bancho bot message only to those in the channel
-                for other_session_id in await sessions.fetch_all():
+                if message_content.startswith("!help"):
+                    # XXX: the osu! client seems to have a special case for this,
+                    # where it will dm the player. if we don't have this case,
+                    # this message will be DMed to all players in the channel
+                    target_session_ids = [session["session_id"]]
+                else:
+                    target_session_ids = await channel_members.members(
+                        channel["channel_id"]
+                    )
+
+                for other_session_id in target_session_ids:
                     await packet_bundles.enqueue(
-                        other_session_id["session_id"],
+                        other_session_id,
                         data=packets.write_send_message_packet(
                             sender_name="BanchoBot",
                             message_content=bancho_bot_message,
