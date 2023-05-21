@@ -56,20 +56,20 @@ push:
 install:
 	helm install \
 		--atomic \
-		--wait --timeout 120s \
+		--wait --timeout 480s \
 		--values chart/values.yaml \
 		interns-backend-staging \
 		../akatsuki/common-helm-charts/microservice-base/
 
 uninstall:
 	helm uninstall \
-		--wait --timeout 120s \
+		--wait --timeout 480s \
 		interns-backend-staging
 
 upgrade:
 	helm upgrade \
 		--atomic \
-		--wait --timeout 120s \
+		--wait --timeout 480s \
 		--values chart/values.yaml \
 		interns-backend-staging \
 		../akatsuki/common-helm-charts/microservice-base/

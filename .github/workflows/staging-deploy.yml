@@ -64,4 +64,4 @@ jobs:
       run: helm diff upgrade --allow-unreleased --values chart/values.yaml interns-backend-staging common-helm-charts/microservice-base/
 
     - name: Deploy service to staging cluster
-      run: helm upgrade --install --atomic --wait --timeout 120s --values chart/values.yaml interns-backend-staging common-helm-charts/microservice-base/
+      run: helm upgrade --install --atomic --wait --timeout 480s --values chart/values.yaml interns-backend-staging common-helm-charts/microservice-base/
