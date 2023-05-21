@@ -147,7 +147,18 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
             return
 
         channel_name = f"#mp_{multiplayer_match_id}"
-    # TODO: spectator
+
+    elif recipient_name == "#spectator":
+        spectator_host_session_id = session["presence"]["spectator_host_session_id"]
+        if spectator_host_session_id is None:
+            logger.warning(
+                "User tried to send a message in #spectator without spectating anyone",
+                account_id=session["account_id"],
+            )
+            return
+
+        channel_name = f"#spec_{spectator_host_session_id}"
+
     else:
         channel_name = recipient_name
 
