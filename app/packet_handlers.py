@@ -1556,6 +1556,7 @@ async def match_change_settings_handler(session: "Session", packet_data: bytes):
     # inform relevant places of the new match state
     await _broadcast_match_updates(match_id)
 
+    del match_params["match_password"]
     logger.info(
         "User changed match settings.",
         user_id=session["account_id"],
