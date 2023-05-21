@@ -251,18 +251,18 @@ async def fetch_many(
     }
     if submission_statuses is not None:
         query += f"""\
-            AND submission_status = ANY(:submission_statuses)
+                AND submission_status = ANY(:submission_statuses)
         """
         values["submission_statuses"] = submission_statuses
     if friends is not None:
         query += f"""\
-            AND account_id = ANY(:friends)
+                AND account_id = ANY(:friends)
         """
         values["friends"] = friends
     if page is not None and page_size is not None:
         query += f"""\
-            LIMIT :page_size
-            OFFSET :offset
+                LIMIT :page_size
+                OFFSET :offset
         """
         values["page_size"] = page_size
         values["offset"] = page * page_size
