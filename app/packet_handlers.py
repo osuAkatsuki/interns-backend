@@ -1276,10 +1276,7 @@ async def match_change_slot_handler(session: "Session", packet_data: bytes) -> N
     )
 
     # send updated data to those in the multi match, and #lobby
-    await _broadcast_match_updates(
-        match["match_id"],
-        send_to_lobby=False,
-    )
+    await _broadcast_match_updates(match["match_id"])
 
 
 # MATCH_READY = 39
