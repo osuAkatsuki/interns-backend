@@ -62,15 +62,14 @@ async def fetch_many(
         SELECT {READ_PARAMS}
         FROM clan_invites
     """
+    values = {}
     if page is not None and page_size is not None:
         query += """\
             LIMIT :limit
             OFFSET :offset
         """
-        values = {
-            "page": page,
-            "page_size": page_size,
-        }
+        values["offset"] = page
+        values["limit"] = (page - 1) * page_size
 
     clan_invites = await clients.database.fetch_all(query, values)
 

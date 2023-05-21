@@ -1577,7 +1577,7 @@ async def match_start_handler(session: "Session", packet_data: bytes):
             )
             assert new_slot
             slots[i] = new_slot
-    
+
     vanilla_game_mode = game_modes.for_client(match["game_mode"])
 
     packet_params = (
@@ -1640,8 +1640,7 @@ async def match_score_update_handler(session: "Session", packet_data: bytes):
         return
 
     slot = await multiplayer_slots.fetch_one_by_session_id(
-        match_id=match_id,
-        session_id=session["session_id"]
+        match_id=match_id, session_id=session["session_id"]
     )
     if not slot:
         logger.warning(
@@ -1650,11 +1649,7 @@ async def match_score_update_handler(session: "Session", packet_data: bytes):
         )
         return
 
-    new_packet_data = (
-        packet_data[:4] +
-        chr(slot["slot_id"]).encode() +
-        packet_data[5:]
-    )
+    new_packet_data = packet_data[:4] + chr(slot["slot_id"]).encode() + packet_data[5:]
 
     score_update_packet = packets.write_match_score_update_packet(new_packet_data)
     await _broadcast_to_match(
@@ -1688,7 +1683,7 @@ async def match_complete_handler(session: "Session", packet_data: bytes):
             match_id=match_id,
         )
         return
-    
+
     await multiplayer_slots.partial_update(
         match_id=match_id,
         slot_id=slot["slot_id"],
@@ -1698,7 +1693,7 @@ async def match_complete_handler(session: "Session", packet_data: bytes):
     all_done = await multiplayer_slots.all_completed(match_id)
     if not all_done:
         return
-        
+
     done_packet = packets.write_match_complete_packet()
     await _broadcast_to_match(
         match_id=match_id,
@@ -1852,7 +1847,7 @@ async def match_load_complete_handler(session: "Session", packet_data: bytes):
             match_id=match_id,
         )
         return
-    
+
     await multiplayer_slots.partial_update(
         match_id=match_id,
         slot_id=slot["slot_id"],
@@ -1983,7 +1978,7 @@ async def match_failed_handler(session: "Session", packet_data: bytes):
             user_id=session["account_id"],
         )
         return
-    
+
     player_failed_packet = packets.write_match_player_failed_packet(slot["slot_id"])
     await _broadcast_to_match(
         match_id=match_id,
@@ -2060,7 +2055,7 @@ async def match_skip_request(session: "Session", packet_data: bytes):
             match_id=match_id,
         )
         return
-    
+
     await multiplayer_slots.partial_update(
         match_id=match_id,
         slot_id=slot["slot_id"],
@@ -2406,7 +2401,6 @@ async def user_stats_request_handler(session: "Session", packet_data: bytes) -> 
             other_stats["account_id"],
             other_stats["game_mode"],
         )
-
         await packet_bundles.enqueue(
             session["session_id"],
             data=packets.write_user_stats_packet(
@@ -2440,7 +2434,7 @@ async def match_invite_handler(session: "Session", packet_data: bytes):
             user_id=session["account_id"],
         )
         return
-    
+
     match = await multiplayer_matches.fetch_one(match_id)
     if isinstance(match, ServiceError):
         logger.warning(
@@ -2448,7 +2442,7 @@ async def match_invite_handler(session: "Session", packet_data: bytes):
             user_id=session["account_id"],
         )
         return
-    
+
     reader = packets.PacketReader(packet_data)
     target_id = reader.read_i32()
 
@@ -2459,7 +2453,7 @@ async def match_invite_handler(session: "Session", packet_data: bytes):
             user_id=session["account_id"],
         )
         return
-    
+
     invite_msg = (
         "Come join my multiplayer match!\n"
         f"[osump://{match_id}/{match['match_password']} {match['match_name']}]"
@@ -2469,7 +2463,7 @@ async def match_invite_handler(session: "Session", packet_data: bytes):
         sender_name=presence["username"],
         message_content=invite_msg,
         recipient_name=target_session["presence"]["username"],
-        sender_id=session["account_id"]
+        sender_id=session["account_id"],
     )
 
     await packet_bundles.enqueue(
