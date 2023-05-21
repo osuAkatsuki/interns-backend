@@ -1712,6 +1712,8 @@ async def match_complete_handler(session: "Session", packet_data: bytes):
                 match_id=match_id,
                 slot_id=slot["slot_id"],
                 status=SlotStatus.NOT_READY,
+                loaded=False,
+                skipped=False,
             )
 
     await _broadcast_match_updates(match_id)
