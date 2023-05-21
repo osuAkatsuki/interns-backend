@@ -68,6 +68,8 @@ class Mods:
     SCOREV2 = 1 << 29
     MIRROR = 1 << 30
 
+    SPEED_CHANGING = DOUBLETIME | NIGHTCORE | HALFTIME
+
 
 class SubmissionStatus:
     FAILED = 0

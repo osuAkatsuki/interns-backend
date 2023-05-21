@@ -284,10 +284,7 @@ async def request_status_update_handler(session: "Session", packet_data: bytes):
     )
     assert own_stats is not None
 
-    vanilla_game_mode = game_modes.for_client(
-        own_presence["game_mode"],
-        own_presence["mods"],
-    )
+    vanilla_game_mode = game_modes.for_client(own_presence["game_mode"])
 
     await packet_bundles.enqueue(
         session["session_id"],
@@ -592,7 +589,7 @@ async def join_lobby_handler(session: "Session", packet_data: bytes):
     for match in matches:
         slots = await multiplayer_slots.fetch_all(match["match_id"])
 
-        vanilla_game_mode = game_modes.for_client(match["game_mode"], match["mods"])
+        vanilla_game_mode = game_modes.for_client(match["game_mode"])
         packet_params = (
             match["match_id"],
             match["status"] == MatchStatus.PLAYING,
@@ -639,7 +636,7 @@ async def _broadcast_match_updates(
 
     slots = await multiplayer_slots.fetch_all(match["match_id"])
 
-    vanilla_game_mode = game_modes.for_client(match["game_mode"], match["mods"])
+    vanilla_game_mode = game_modes.for_client(match["game_mode"])
 
     packet_params = (
         match["match_id"],
@@ -984,7 +981,7 @@ async def join_match_handler(session: "Session", packet_data: bytes) -> None:
 
     slots = await multiplayer_slots.fetch_all(match["match_id"])
 
-    vanilla_game_mode = game_modes.for_client(match["game_mode"], match["mods"])
+    vanilla_game_mode = game_modes.for_client(match["game_mode"])
 
     # send the match data (with password) to the creator
     match_join_success_packet = packets.write_match_join_success_packet(
@@ -1457,17 +1454,19 @@ async def match_change_settings_handler(session: "Session", packet_data: bytes):
     if osu_match_data["freemods_enabled"] != match["freemods_enabled"]:
         # copy bancho's behaviour
         if osu_match_data["freemods_enabled"]:
-            mods = match["mods"]
+            mods = match["mods"] & (~Mods.SPEED_CHANGING)
+            osu_match_data["mods"] = match["mods"] & Mods.SPEED_CHANGING
         else:
             mods = Mods.NOMOD
 
         slots = await multiplayer_slots.fetch_all(match_id)
         for slot in slots:
-            await multiplayer_slots.partial_update(
-                match_id=match_id,
-                slot_id=slot["slot_id"],
-                mods=mods,
-            )
+            if slot["account_id"] != -1:
+                await multiplayer_slots.partial_update(
+                    match_id=match_id,
+                    slot_id=slot["slot_id"],
+                    mods=mods,
+                )
 
     match_params = {
         "match_name": osu_match_data["match_name"],
@@ -1512,10 +1511,153 @@ async def match_change_settings_handler(session: "Session", packet_data: bytes):
 # MATCH_CHANGE_MODS = 51
 
 
+@bancho_handler(packets.ClientPackets.MATCH_CHANGE_MODS)
+async def match_change_mods_handler(session: "Session", packet_data: bytes):
+    presence = session["presence"]
+    match_id = presence["multiplayer_match_id"]
+    if not match_id:
+        logger.warning(
+            "A user attempted to change mods but they aren't in a match.",
+            user_id=session["account_id"],
+        )
+        return
+
+    match = await multiplayer_matches.fetch_one(match_id)
+    if isinstance(match, ServiceError):
+        logger.warning(
+            "A user attempted to change mods but their match doesn't exist.",
+            user_id=session["account_id"],
+        )
+        return
+
+    is_host = (match["host_account_id"] == session["account_id"])
+
+    reader = packets.PacketReader(packet_data)
+    mods = reader.read_i32()
+
+    clientside_mode = game_modes.for_client(match["game_mode"])
+    serverside_mode = game_modes.for_server(
+        clientside_mode,
+        mods,
+    )
+
+    if match["freemods_enabled"]:
+        # apply the speed changing mods to the match
+        if is_host:
+            speed_changing_mods = mods & Mods.SPEED_CHANGING
+            await multiplayer_matches.partial_update(match_id, mods=speed_changing_mods)
+
+        # and apply the non-speed changing mods to the slot
+        speedless_mods = mods & (~Mods.SPEED_CHANGING)
+
+        slot = await multiplayer_slots.fetch_one_by_session_id(
+            match_id=match_id, session_id=session["session_id"]
+        )
+        if not slot:
+            logger.warning(
+                "A user attempted to change mods but their slot doesn't exist.",
+                user_id=session["account_id"],
+                match_id=match_id,
+            )
+            return
+
+        await multiplayer_slots.partial_update(
+            match_id=match_id,
+            slot_id=slot["slot_id"],
+            mods=speedless_mods,
+        )
+
+        # set the sessions game mode if needed
+        if presence["game_mode"] != serverside_mode:
+            await sessions.partial_update(
+                session_id=session["session_id"],
+                presence={
+                    "game_mode": serverside_mode,
+                    "mods": mods,
+                },
+            )
+    elif is_host:
+        # set all sessions game mode if needed
+        if match["game_mode"] != serverside_mode:
+            slots = await multiplayer_slots.fetch_all(match_id)
+            for slot in slots:
+                if slot["account_id"] != -1:
+                    await sessions.partial_update(
+                        session_id=slot["session_id"],
+                        presence={
+                            "game_mode": serverside_mode,
+                            "mods": mods,
+                        },
+                    )
+
+        await multiplayer_matches.partial_update(
+            match_id=match_id,
+            game_mode=serverside_mode,
+            mods=mods
+        )
+    else:
+        logger.warning(
+            "A user attempted to change the match mods but they aren't allowed to.",
+            user_id=session["account_id"],
+            match_id=match_id,
+        )
+        return
+    
+    await _broadcast_match_updates(match_id)
+
+    logger.info(
+        "User changed match mods.",
+        user_id=session["account_id"],
+        match_id=match_id,
+        mods=mods,
+    )
+
+
 # MATCH_LOAD_COMPLETE = 52
 
 
 # MATCH_NO_BEATMAP = 54
+
+
+@bancho_handler(packets.ClientPackets.MATCH_NO_BEATMAP)
+async def match_no_beatmap_handler(session: "Session", packet_data: bytes):
+    presence = session["presence"]
+    match_id = presence["multiplayer_match_id"]
+    if match_id is None:
+        logger.warning(
+            "A user attempted to tell us they don't have the map but they are not in a match.",
+            user_id=session["account_id"],
+        )
+        return
+
+    slot = await multiplayer_slots.fetch_one_by_session_id(
+        match_id=match_id, session_id=session["session_id"]
+    )
+    if not slot:
+        logger.warning(
+            "A user attempted to tell us they don't have the map but they don't have a slot.",
+            user_id=session["account_id"],
+            match_id=match_id,
+        )
+        return
+
+    if slot["status"] != SlotStatus.NOT_READY:
+        logger.warning(
+            "A user attempted to tell us they don't have the map but they are not allowed to.",
+            user_id=session["account_id"],
+            match_id=match_id,
+            slot_id=slot["slot_id"],
+            slot_status=slot["status"],
+        )
+        return
+
+    await multiplayer_slots.partial_update(
+        match_id=match_id,
+        slot_id=slot["slot_id"],
+        status=SlotStatus.NO_BEATMAP,
+    )
+
+    await _broadcast_match_updates(match_id)
 
 
 # MATCH_NOT_READY = 55
@@ -1566,6 +1708,47 @@ async def match_not_ready_handler(session: "Session", packet_data: bytes):
 
 
 # MATCH_HAS_BEATMAP = 59
+
+
+@bancho_handler(packets.ClientPackets.MATCH_HAS_BEATMAP)
+async def match_has_beatmap_handler(session: "Session", packet_data: bytes):
+    presence = session["presence"]
+    match_id = presence["multiplayer_match_id"]
+    if match_id is None:
+        logger.warning(
+            "A user attempted to tell us they have the map but they are not in a match.",
+            user_id=session["account_id"],
+        )
+        return
+
+    slot = await multiplayer_slots.fetch_one_by_session_id(
+        match_id=match_id, session_id=session["session_id"]
+    )
+    if not slot:
+        logger.warning(
+            "A user attempted to tell us they have the map but they don't have a slot.",
+            user_id=session["account_id"],
+            match_id=match_id,
+        )
+        return
+
+    if slot["status"] != SlotStatus.NO_BEATMAP:
+        logger.warning(
+            "A user attempted to tell us they have the map but they are not allowed to.",
+            user_id=session["account_id"],
+            match_id=match_id,
+            slot_id=slot["slot_id"],
+            slot_status=slot["status"],
+        )
+        return
+
+    await multiplayer_slots.partial_update(
+        match_id=match_id,
+        slot_id=slot["slot_id"],
+        status=SlotStatus.NOT_READY,
+    )
+
+    await _broadcast_match_updates(match_id)
 
 
 # MATCH_SKIP_REQUEST = 60
@@ -1623,6 +1806,62 @@ async def user_joins_channel_handler(session: "Session", packet_data: bytes):
 
 
 # MATCH_TRANSFER_HOST = 70
+
+
+@bancho_handler(packets.ClientPackets.MATCH_TRANSFER_HOST)
+async def match_transfer_host_handler(session: "Session", packet_data: bytes):
+    presence = session["presence"]
+    match_id = presence["multiplayer_match_id"]
+    if match_id is None:
+        logger.warning(
+            "A user attempted to change hosts but they are not in a match.",
+            user_id=session["account_id"],
+        )
+        return
+    
+    match = await multiplayer_matches.fetch_one(match_id)
+    if isinstance(match, ServiceError):
+        logger.warning(
+            "A user attempted to change hosts but their match doesn't exist.",
+            user_id=session["account_id"],
+        )
+        return
+
+    # only the host can transfer the host
+    if match["host_account_id"] != session["account_id"]:
+        logger.warning(
+            "A user attempted to change hosts but they are not the host.",
+            user_id=session["account_id"],
+        )
+        return
+    
+    reader = packets.PacketReader(packet_data)
+    slot_id = reader.read_i32()
+
+    slot = await multiplayer_slots.fetch_one(match_id, slot_id)
+    if not slot:
+        logger.warning(
+            "A user attempted to change hosts but the slot doesn't exist.",
+            user_id=session["account_id"],
+            match_id=match_id,
+        )
+        return
+    
+    new_host_id = slot["account_id"]
+    if new_host_id == -1:
+        logger.warning(
+            "A user attempted to change hosts but the slot doesn't have a user.",
+            user_id=session["account_id"],
+            match_id=match_id,
+        )
+        return
+    
+    await multiplayer_matches.partial_update(
+        match_id=match_id,
+        host_account_id=new_host_id
+    )
+
+    await _broadcast_match_updates(match_id)
 
 
 # FRIEND_ADD = 73
@@ -1771,10 +2010,7 @@ async def user_stats_request_handler(session: "Session", packet_data: bytes) -> 
         if other_stats is None:
             continue
 
-        vanilla_game_mode = game_modes.for_client(
-            other_session["presence"]["game_mode"],
-            other_session["presence"]["mods"],
-        )
+        vanilla_game_mode = game_modes.for_client(other_session["presence"]["game_mode"])
 
         await packet_bundles.enqueue(
             session["session_id"],
