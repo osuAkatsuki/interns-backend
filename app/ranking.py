@@ -32,7 +32,7 @@ async def get_country_rank(
     country: str,
 ) -> int:
     """Get the country rank of an account for a given game mode."""
-    global_rank = await clients.database.fetch_val(
+    country_rank = await clients.database.fetch_val(
         query="""\
             WITH country_rankings AS (
                 SELECT stats.account_id, stats.game_mode, accounts.country, ROW_NUMBER() OVER (
@@ -54,4 +54,5 @@ async def get_country_rank(
             "country": country,
         },
     )
-    return global_rank
+    assert country_rank is not None
+    return country_rank
