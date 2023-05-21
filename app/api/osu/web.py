@@ -663,33 +663,43 @@ async def submit_score_handler(
 
     response_data = bytearray()
 
-    # TODO: fetch real values
-    beatmap_rank_before = 0
-    beatmap_rank_after = 0
-    beatmap_ranked_score_before = 0
-    beatmap_ranked_score_after = 0
-    beatmap_total_score_before = 0
-    beatmap_total_score_after = 0
-    beatmap_max_combo_before = 0
-    beatmap_max_combo_after = 0
-    beatmap_accuracy_before = 0.0
-    beatmap_accuracy_after = 0.0
-    beatmap_pp_before = 0.0
-    beatmap_pp_after = 0.0
+    # build beatmap ranking chart values
+    beatmap_rank_before = 0  # TODO
+    beatmap_rank_after = 0  # TODO
+    beatmap_ranked_score_before = (
+        previous_best_score["score"] if previous_best_score else ""
+    )
+    beatmap_ranked_score_after = score["score"]
+    beatmap_total_score_before = (
+        previous_best_score["score"] if previous_best_score else ""
+    )
+    beatmap_total_score_after = score["score"]
+    beatmap_max_combo_before = (
+        previous_best_score["highest_combo"] if previous_best_score else ""
+    )
+    beatmap_max_combo_after = score["highest_combo"]
+    beatmap_accuracy_before = (
+        previous_best_score["highest_combo"] if previous_best_score else ""
+    )
+    beatmap_accuracy_after = score["accuracy"]
+    beatmap_pp_before = (
+        previous_best_score["performance_points"] if previous_best_score else ""
+    )
+    beatmap_pp_after = score["performance_points"]
 
-    # TODO: fetch real values
-    overall_rank_before = 0
-    overall_rank_after = 0
-    overall_ranked_score_before = 0
-    overall_ranked_score_after = 0
-    overall_total_score_before = 0
-    overall_total_score_after = 0
-    overall_max_combo_before = 0
-    overall_max_combo_after = 0
-    overall_accuracy_before = 0.0
-    overall_accuracy_after = 0.0
-    overall_pp_before = 0.0
-    overall_pp_after = 0.0
+    # build overall ranking chart values
+    overall_rank_before = 0  # TODO
+    overall_rank_after = ranking.get_global_rank(score["account_id"])
+    overall_ranked_score_before = previous_gamemode_stats["ranked_score"]
+    overall_ranked_score_after = gamemode_stats["ranked_score"]
+    overall_total_score_before = previous_gamemode_stats["total_score"]
+    overall_total_score_after = gamemode_stats["total_score"]
+    overall_max_combo_before = previous_gamemode_stats["highest_combo"]
+    overall_max_combo_after = gamemode_stats["highest_combo"]
+    overall_accuracy_before = previous_gamemode_stats["accuracy"]
+    overall_accuracy_after = gamemode_stats["accuracy"]
+    overall_pp_before = previous_gamemode_stats["performance_points"]
+    overall_pp_after = gamemode_stats["performance_points"]
 
     response_data += (
         f"beatmapId:{beatmap['beatmap_id']}|"
