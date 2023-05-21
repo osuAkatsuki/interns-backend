@@ -47,7 +47,7 @@ def add_request_id(_: WrappedLogger, __: str, event_dict: EventDict) -> EventDic
 
 
 def configure_logging(app_env: str, log_level: str | int) -> None:
-    if log_as_text(app_env):
+    if False:
         renderer = structlog.dev.ConsoleRenderer(colors=log_with_colors(app_env))
     else:
         renderer = structlog.processors.JSONRenderer()

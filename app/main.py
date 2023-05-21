@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import atexit
+
 from app import lifecycle
 from app import logger
 from app import settings
@@ -11,7 +13,8 @@ logger.configure_logging(
     app_env=settings.APP_ENV,
     log_level=settings.APP_LOG_LEVEL,
 )
-
+logger.overwrite_exception_hook()
+atexit.register(logger.restore_exception_hook)
 
 raise Exception("testing stacktrace stuff")
 
