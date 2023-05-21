@@ -1,6 +1,7 @@
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
+from typing import Literal
 
 from app.adapters import osu_api_v2
 from app.errors import ServiceError
@@ -9,13 +10,25 @@ from app.repositories import beatmaps
 from app.repositories.beatmaps import Beatmap
 
 
-def _create_beatmap_filename(
+def create_beatmap_filename(
     artist: str,
     title: str,
     version: str,
     creator: str,
 ) -> str:
     return f"{artist} - {title} ({creator}) [{version}].osu"
+
+
+def create_beatmap_chat_embed(
+    beatmap_set_id: int,
+    beatmap_id: int,
+    artist: str,
+    title: str,
+    version: str,
+    creator: str,
+    mode_string: Literal["osu", "taiko", "fruits", "mania"],
+) -> str:
+    return f"[https://osu.ppy.sh/beatmapsets/{beatmap_set_id}#{mode_string}/{beatmap_id} {artist} - {title} ({creator}) [{version}]]"
 
 
 def _should_get_updates(beatmap: Beatmap) -> bool:
@@ -148,7 +161,7 @@ async def fetch_one(
             osu_api_beatmap.beatmapset.title,
             osu_api_beatmap.version,
             osu_api_beatmap.beatmapset.creator_name,
-            _create_beatmap_filename(
+            create_beatmap_filename(
                 artist=osu_api_beatmap.beatmapset.artist,
                 title=osu_api_beatmap.beatmapset.title,
                 version=osu_api_beatmap.version,
@@ -206,7 +219,7 @@ async def fetch_one(
             osu_api_beatmap.beatmapset.title,
             osu_api_beatmap.version,
             osu_api_beatmap.beatmapset.creator_name,
-            _create_beatmap_filename(
+            create_beatmap_filename(
                 artist=osu_api_beatmap.beatmapset.artist,
                 title=osu_api_beatmap.beatmapset.title,
                 version=osu_api_beatmap.version,

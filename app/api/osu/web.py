@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import base64
+import copy
 from datetime import datetime
 
 from fastapi import APIRouter
@@ -31,6 +32,8 @@ from app.errors import ServiceError
 from app.privileges import ServerPrivileges
 from app.repositories import accounts
 from app.repositories import achievements
+from app.repositories import channel_members
+from app.repositories import channels
 from app.repositories import packet_bundles
 from app.repositories import relationships
 from app.repositories import scores
@@ -304,6 +307,19 @@ def calculate_accuracy(
     return accuracy
 
 
+class ScoreSubmissionErrors:
+    HANDLE_PASSWORD_RESET = "reset"
+    REQUIRE_VERIFICATION = "verify"
+    NO_SUCH_USER = "nouser"
+    NEEDS_AUTHENTICATION = "pass"
+    ACCOUNT_INACTIVE = "inactive"
+    ACCOUNT_BANNED = "ban"
+    BEATMAP_UNRANKED = "beatmap"
+    MODE_OR_MODS_DISABLED = "disabled"
+    OLD_OSU_VERSION = "oldver"
+    NO = "no"
+
+
 @osu_web_router.post("/web/osu-submit-modular-selector.php")
 async def submit_score_handler(
     request: Request,
@@ -367,24 +383,24 @@ async def submit_score_handler(
     account = await accounts.fetch_by_username(username)
     if account is None:
         logger.warning(f"Account {username} not found")
-        return
+        return f"error: {ScoreSubmissionErrors.NEEDS_AUTHENTICATION}"
 
     session = await sessions.fetch_by_username(username)
     if session is None:
         logger.warning(f"Session for {username} not found")
-        return
+        return f"error: {ScoreSubmissionErrors.NEEDS_AUTHENTICATION}"
 
     if not security.check_password(
         password=password_md5,
         hashword=account["password"].encode(),
     ):
         logger.warning(f"Invalid password for {username}")
-        return
+        return f"error: {ScoreSubmissionErrors.NEEDS_AUTHENTICATION}"
 
     beatmap = await beatmaps.fetch_one(beatmap_md5=beatmap_md5)
     if isinstance(beatmap, ServiceError):
         logger.warning("Beatmap not found", beatmap_md5=beatmap_md5)
-        return
+        return f"error: {ScoreSubmissionErrors.BEATMAP_UNRANKED}"
 
     # TODO: handle differently depending on beatmap ranked status
 
@@ -407,13 +423,12 @@ async def submit_score_handler(
         )
         assert osu_file_contents is not None
     except Exception as exc:
-        # TODO: JIT .osu files
         osu_file_contents = await osu_api_v2.fetch_osu_file_contents(
             beatmap["beatmap_id"]
         )
         if osu_file_contents is None:
             logger.error("Failed to download file from the osu! api")
-            return
+            return f"error: {ScoreSubmissionErrors.BEATMAP_UNRANKED}"
 
         try:
             await s3.upload(
@@ -423,11 +438,11 @@ async def submit_score_handler(
             )
         except Exception as exc:
             logger.error("Failed to upload file to S3", exc_info=exc)
-            return
+            return f"error: {ScoreSubmissionErrors.BEATMAP_UNRANKED}"
 
     if osu_file_contents is None:
         logger.warning("Beatmap file for not found", beatmap_md5=beatmap_md5)
-        return
+        return f"error: {ScoreSubmissionErrors.BEATMAP_UNRANKED}"
 
     # calculate beatmap difficulty and score performance
     performance_attrs = performance.calculate_performance(
@@ -451,25 +466,26 @@ async def submit_score_handler(
             submission_status=SubmissionStatus.BEST,
             page_size=1,
         )
-        previous_best = previous_bests[0] if previous_bests else None
+        previous_best_score = previous_bests[0] if previous_bests else None
 
         is_new_best = (
             performance_attrs["performance_points"]
-            > previous_best["performance_points"]
-            if previous_best is not None
+            > previous_best_score["performance_points"]
+            if previous_best_score is not None
             else True
         )
 
         if is_new_best:
             submission_status = SubmissionStatus.BEST
-            if previous_best is not None:
+            if previous_best_score is not None:
                 await scores.partial_update(
-                    score_id=previous_best["score_id"],
+                    score_id=previous_best_score["score_id"],
                     submission_status=SubmissionStatus.SUBMITTED,
                 )
         else:
             submission_status = SubmissionStatus.SUBMITTED
     else:
+        previous_best_score = None
         submission_status = SubmissionStatus.FAILED
 
     # persist new score to database
@@ -553,6 +569,11 @@ async def submit_score_handler(
     bonus_pp = 416.6667 * (1 - 0.9994**total_score_count)
     total_pp = round(weighted_pp + bonus_pp)
 
+    # create a copy of the previous gamemode's stats.
+    # we will use this to construct overall ranking charts for the client
+    previous_gamemode_stats = copy.deepcopy(gamemode_stats)
+
+    # update this gamemode's stats with our new score submission
     gamemode_stats = await stats.partial_update(
         account["account_id"],
         game_mode=game_mode,
@@ -602,13 +623,40 @@ async def submit_score_handler(
             packet_data,
         )
 
-    # TODO: send to #announcements if the score is #1
+    score_rank = 1  # TODO
+
+    # if this score is #1, send it to the #announce channel
+    if score["submission_status"] == SubmissionStatus.BEST and score_rank == 1:
+        announce_channel = await channels.fetch_one_by_name("#announce")
+        if announce_channel is not None:
+            beatmap_embed = beatmaps.create_beatmap_chat_embed(
+                beatmap["beatmap_set_id"],
+                beatmap["beatmap_id"],
+                beatmap["artist"],
+                beatmap["title"],
+                beatmap["version"],
+                beatmap["creator"],
+                mode_string="osu",
+            )
+
+            packet_data = packets.write_send_message_packet(
+                sender_name="BanchoBot",
+                message_content=f"{username} achieved a new #1 score on {beatmap_embed}!",
+                recipient_name="#announce",
+                sender_id=0,
+            )
+
+            announce_channel_members = await channel_members.members(
+                announce_channel["channel_id"]
+            )
+            for session_id in announce_channel_members:
+                await packet_bundles.enqueue(session_id, packet_data)
 
     # unlock achievements
     own_achievements = await user_achievements.fetch_many(
         account_id=account["account_id"]
     )
-    own_achievement_ids = [a["achievement_id"] for a in own_achievements]
+    own_achievement_ids = [ach["achievement_id"] for ach in own_achievements]
 
     new_achievements = []
     for achievement in await achievements.fetch_many():
@@ -641,11 +689,94 @@ async def submit_score_handler(
 
         new_achievements.append(new_achievement)
 
-    # TODO: send achievements unlocked to client
+    # build beatmap ranking chart values
+    if previous_best_score:
+        beatmap_rank_before = 0  # TODO
+        beatmap_ranked_score_before = previous_best_score["score"]
+        beatmap_total_score_before = previous_best_score["score"]
+        beatmap_max_combo_before = previous_best_score["highest_combo"]
+        beatmap_accuracy_before = previous_best_score["accuracy"]
+        beatmap_pp_before = previous_best_score["performance_points"]
+    else:
+        beatmap_rank_before = ""
+        beatmap_ranked_score_before = ""
+        beatmap_total_score_before = ""
+        beatmap_max_combo_before = ""
+        beatmap_accuracy_before = ""
+        beatmap_pp_before = ""
+    beatmap_rank_after = 0  # TODO
+    beatmap_ranked_score_after = score["score"]
+    beatmap_total_score_after = score["score"]
+    beatmap_max_combo_after = score["highest_combo"]
+    beatmap_accuracy_after = score["accuracy"]
+    beatmap_pp_after = score["performance_points"]
 
-    # TODO: construct score submission charts
+    # build overall ranking chart values
+    overall_rank_before = 0  # TODO
+    overall_rank_after = ranking.get_global_rank(score["account_id"])
+    overall_ranked_score_before = previous_gamemode_stats["ranked_score"]
+    overall_ranked_score_after = gamemode_stats["ranked_score"]
+    overall_total_score_before = previous_gamemode_stats["total_score"]
+    overall_total_score_after = gamemode_stats["total_score"]
+    overall_max_combo_before = previous_gamemode_stats["highest_combo"]
+    overall_max_combo_after = gamemode_stats["highest_combo"]
+    overall_accuracy_before = previous_gamemode_stats["accuracy"]
+    overall_accuracy_after = gamemode_stats["accuracy"]
+    overall_pp_before = previous_gamemode_stats["performance_points"]
+    overall_pp_after = gamemode_stats["performance_points"]
 
-    return b"error: no"
+    # construct response data
+    response_data = bytearray()
+
+    # add overall and beatmap ranking charts to response data
+    response_data += (
+        f"beatmapId:{beatmap['beatmap_id']}|"
+        f"beatmapSetId:{beatmap['beatmap_set_id']}|"
+        f"beatmapPlaycount:{beatmap['plays']}|"
+        f"beatmapPasscount:{beatmap['passes']}|"
+        f"approvedDate:{beatmap['created_at'].isoformat()}|"
+        "\n"
+        "|chartId:beatmap|"
+        f"chartUrl:https://osu.ppy.sh/beatmapsets/{beatmap['beatmap_set_id']}|"
+        "chartName:Beatmap Ranking|"
+        f"rankBefore:{beatmap_rank_before}|"
+        f"rankAfter:{beatmap_rank_after}|"
+        f"rankedScoreBefore:{beatmap_ranked_score_before}|"
+        f"rankedScoreAfter:{beatmap_ranked_score_after}|"
+        f"totalScoreBefore:{beatmap_total_score_before}|"
+        f"totalScoreAfter:{beatmap_total_score_after}|"
+        f"maxComboBefore:{beatmap_max_combo_before}|"
+        f"maxComboAfter:{beatmap_max_combo_after}|"
+        f"accuracyBefore:{beatmap_accuracy_before}|"
+        f"accuracyAfter:{beatmap_accuracy_after}|"
+        f"ppBefore:{beatmap_pp_before}|"
+        f"ppAfter:{beatmap_pp_after}|"
+        f"onlineScoreId:{score['score_id']}|"
+        "\n"
+        "|chartId:overall|"
+        f"chartUrl:https://osu.ppy.sh/u/{account['account_id']}|"
+        "chartName:Overall Ranking|"
+        f"rankBefore:{overall_rank_before}|"
+        f"rankAfter:{overall_rank_after}|"
+        f"rankedScoreBefore:{overall_ranked_score_before}|"
+        f"rankedScoreAfter:{overall_ranked_score_after}|"
+        f"totalScoreBefore:{overall_total_score_before}|"
+        f"totalScoreAfter:{overall_total_score_after}|"
+        f"maxComboBefore:{overall_max_combo_before}|"
+        f"maxComboAfter:{overall_max_combo_after}|"
+        f"accuracyBefore:{overall_accuracy_before}|"
+        f"accuracyAfter:{overall_accuracy_after}|"
+        f"ppBefore:{overall_pp_before}|"
+        f"ppAfter:{overall_pp_after}|"
+    ).encode()
+
+    # add newly unlocked achievements to response data
+    achievements_string = "/".join(
+        [achievements.to_string(ach) for ach in new_achievements]
+    )
+    response_data += f"achievements-new:{achievements_string}".encode()
+
+    return bytes(response_data)
 
 
 @osu_web_router.post("/difficulty-rating")

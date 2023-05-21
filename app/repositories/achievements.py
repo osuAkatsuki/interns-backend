@@ -19,6 +19,15 @@ class Achievement(TypedDict):
     achievement_description: str
 
 
+def to_string(achievement: Achievement) -> str:
+    attrs = (
+        achievement["file_name"],
+        achievement["achievement_name"],
+        achievement["achievement_description"],
+    )
+    return "+".join(attrs)
+
+
 async def create(
     achievement_id: int,
     file_name: str,
