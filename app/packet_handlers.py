@@ -1354,6 +1354,7 @@ async def match_lock_handler(session: "Session", packet_data: bytes):
             "A user attempted to (un)lock a slot but they are not the host.",
             user_id=session["account_id"],
             match_id=match_id,
+            match_host=match["host_account_id"],
         )
         return
 
@@ -1457,6 +1458,8 @@ async def match_change_settings_handler(session: "Session", packet_data: bytes):
         logger.warning(
             "A user attempted to change match settings but they are not the host.",
             user_id=session["account_id"],
+            match_id=match_id,
+            match_host=match["host_account_id"],
         )
         return
 
@@ -1850,6 +1853,8 @@ async def match_transfer_host_handler(session: "Session", packet_data: bytes):
         logger.warning(
             "A user attempted to change hosts but they are not the host.",
             user_id=session["account_id"],
+            match_id=match_id,
+            match_host=match["host_account_id"],
         )
         return
     
