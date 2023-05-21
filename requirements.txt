@@ -13,7 +13,6 @@ orjson
 pillow
 py3rijndael
 python-dotenv
-python-json-logger
 python-multipart
 redis
 structlog
