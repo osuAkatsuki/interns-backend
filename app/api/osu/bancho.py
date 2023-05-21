@@ -226,6 +226,11 @@ async def handle_login(request: Request) -> Response:
     # notify the client that we're done sending channel info
     response_data += packets.write_channel_listing_complete_packet()
 
+    own_global_rank = await ranking.get_global_rank(
+        own_presence["account_id"],
+        own_presence["game_mode"],
+    )
+
     # user presence
     own_presence_packet_data = packets.write_user_presence_packet(
         own_presence["account_id"],
@@ -236,7 +241,7 @@ async def handle_login(request: Request) -> Response:
         vanilla_game_mode,
         int(own_presence["latitude"]),
         int(own_presence["longitude"]),
-        ranking.get_global_rank(own_presence["account_id"]),
+        own_global_rank,
     )
 
     own_stats = await stats.fetch_one(
@@ -252,6 +257,11 @@ async def handle_login(request: Request) -> Response:
             headers={"cho-token": "no"},
         )
 
+    own_global_rank = await ranking.get_global_rank(
+        own_stats["account_id"],
+        own_stats["game_mode"],
+    )
+
     own_stats_packet_data = packets.write_user_stats_packet(
         own_stats["account_id"],
         own_presence["action"],
@@ -264,7 +274,7 @@ async def handle_login(request: Request) -> Response:
         own_stats["accuracy"],
         own_stats["play_count"],
         own_stats["total_score"],
-        ranking.get_global_rank(own_stats["account_id"]),
+        own_global_rank,
         own_stats["performance_points"],
     )
 
@@ -278,6 +288,11 @@ async def handle_login(request: Request) -> Response:
 
         other_presence = other_session["presence"]
 
+        other_global_rank = await ranking.get_global_rank(
+            other_session["account_id"],
+            own_presence["game_mode"],
+        )
+
         # send other user's presence to us
         response_data += packets.write_user_presence_packet(
             other_presence["account_id"],
@@ -288,7 +303,7 @@ async def handle_login(request: Request) -> Response:
             vanilla_game_mode,
             int(other_presence["latitude"]),
             int(other_presence["longitude"]),
-            ranking.get_global_rank(other_session["account_id"]),
+            other_global_rank,
         )
 
         # send other user's stats to us
@@ -317,7 +332,7 @@ async def handle_login(request: Request) -> Response:
             others_stats["accuracy"],
             others_stats["play_count"],
             others_stats["total_score"],
-            ranking.get_global_rank(others_stats["account_id"]),
+            other_global_rank,
             others_stats["performance_points"],
         )
 

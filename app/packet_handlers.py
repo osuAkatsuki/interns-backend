@@ -114,6 +114,8 @@ async def change_action_handler(session: "Session", packet_data: bytes):
     own_stats = await stats.fetch_one(session["account_id"], game_mode)
     assert own_stats is not None
 
+    own_global_rank = await ranking.get_global_rank(session["account_id"], game_mode)
+
     # send the stats update to all active osu sessions' packet bundles
     for other_session in await sessions.fetch_all():
         await packet_bundles.enqueue(
@@ -130,7 +132,7 @@ async def change_action_handler(session: "Session", packet_data: bytes):
                 own_stats["accuracy"],
                 own_stats["play_count"],
                 own_stats["total_score"],
-                ranking.get_global_rank(session["account_id"]),
+                own_global_rank,
                 own_stats["performance_points"],
             ),
         )
@@ -287,6 +289,11 @@ async def request_status_update_handler(session: "Session", packet_data: bytes):
 
     vanilla_game_mode = game_modes.for_client(own_presence["game_mode"])
 
+    own_global_rank = await ranking.get_global_rank(
+        session["account_id"],
+        own_presence["game_mode"],
+    )
+
     await packet_bundles.enqueue(
         session["session_id"],
         packets.write_user_stats_packet(
@@ -301,7 +308,7 @@ async def request_status_update_handler(session: "Session", packet_data: bytes):
             own_stats["accuracy"],
             own_stats["play_count"],
             own_stats["total_score"],
-            ranking.get_global_rank(own_stats["account_id"]),
+            own_global_rank,
             own_stats["performance_points"],
         ),
     )
@@ -2118,6 +2125,12 @@ async def user_stats_request_handler(session: "Session", packet_data: bytes) -> 
             other_session["presence"]["game_mode"]
         )
 
+
+        other_global_rank = await ranking.get_global_rank(
+            other_stats["account_id"],
+            other_stats["game_mode"],
+        )
+
         await packet_bundles.enqueue(
             session["session_id"],
             data=packets.write_user_stats_packet(
@@ -2132,7 +2145,7 @@ async def user_stats_request_handler(session: "Session", packet_data: bytes) -> 
                 other_stats["accuracy"],
                 other_stats["play_count"],
                 other_stats["total_score"],
-                ranking.get_global_rank(other_stats["account_id"]),
+                other_global_rank,
                 other_stats["performance_points"],
             ),
         )
