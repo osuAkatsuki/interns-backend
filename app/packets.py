@@ -1272,13 +1272,6 @@ def write_match_player_skipped_packet(slot_id: int) -> bytes:
     )
 
 
-def write_match_player_skipped_packet(slot_id: int) -> bytes:
-    return write_packet(
-        packet_id=ServerPackets.MATCH_PLAYER_SKIPPED,
-        packet_data_inputs=[(DataType.I32, slot_id)],
-    )
-
-
 # USER_PRESENCE = 83
 
 
