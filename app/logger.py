@@ -28,7 +28,7 @@ def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger:
 
 
 def log_as_text(app_env: str) -> bool:
-    return False
+    return app_env == "local"
 
 
 def add_process_id(_: WrappedLogger, __: str, event_dict: EventDict) -> EventDict:
