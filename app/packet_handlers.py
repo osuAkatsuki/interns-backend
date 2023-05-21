@@ -166,6 +166,12 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
         message_content = message_content[:2000] + "..."
 
     # send message to everyone else
+    if message_content.startswith("!help"):
+        # XXX: the osu! client seems to have a special case for this,
+        # where it will dm the player. if we don't have this case,
+        # this message will be DMed to all players in the channel
+        recipient_name = sender_name
+
     send_message_packet_data = packets.write_send_message_packet(
         own_presence["username"],
         message_content,
