@@ -536,6 +536,8 @@ async def spectate_frames_handler(session: "Session", packet_data: bytes):
     packet_reader = packets.PacketReader(packet_data)
     replay_frame_bundle = packet_reader.read_replay_frame_bundle()
 
+    logger.info("Received replay frame bundle", replay_frame_bundle=replay_frame_bundle)
+
     # TODO: make assertions on replay_frame_bundle
 
     for spectator_session_id in await spectators.members(session["session_id"]):
