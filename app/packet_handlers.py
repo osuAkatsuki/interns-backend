@@ -22,6 +22,7 @@ from app.repositories import spectators
 from app.repositories import stats
 from app.repositories.multiplayer_matches import MatchStatus
 from app.repositories.multiplayer_matches import MatchTeams
+from app.repositories.multiplayer_matches import MatchTeamTypes
 from app.repositories.multiplayer_slots import SlotStatus
 from app.repositories.scores import Mods
 from app.repositories.sessions import Action
@@ -625,12 +626,52 @@ async def join_lobby_handler(session: "Session", packet_data: bytes):
 # CREATE_MATCH = 31
 
 
+async def _broadcast_to_match(
+    match_id: int,
+    data: bytes,
+    slot_flags: int,
+):
+    match = await multiplayer_matches.fetch_one(match_id)
+    assert not isinstance(match, ServiceError)
+
+    slots = await multiplayer_slots.fetch_all(match["match_id"])
+
+    for slot in slots:
+        if (
+            slot["account_id"] == -1 or
+            (slot["status"] & slot_flags) == 0
+        ):
+            continue
+
+        await packet_bundles.enqueue(
+            slot["session_id"],
+            data,
+        )
+
+
+async def _broadcast_to_lobby(data: bytes):
+    lobby_channel = await channels.fetch_one_by_name("#lobby")
+    if lobby_channel is None:
+        logger.error(
+            "Failed to fetch #lobby channel",
+        )
+        return False
+
+    for session_id in await channel_members.members(
+        lobby_channel["channel_id"]
+    ):
+        await packet_bundles.enqueue(
+            session_id,
+            data,
+        )
+
+
 # XXX: this is a helper for some code that is repeated several times
 # throughout a multiplayer implementation - broadcasting state changes
 async def _broadcast_match_updates(
     match_id: int,
     send_to_lobby: bool = True,
-) -> bool:
+):
     match = await multiplayer_matches.fetch_one(match_id)
     assert not isinstance(match, ServiceError)
 
@@ -665,38 +706,19 @@ async def _broadcast_match_updates(
         should_send_password=True,
     )
 
-    for other_slot in slots:
-        if other_slot["status"] & 0b01111100 == 0:
-            continue
-
-        await packet_bundles.enqueue(
-            other_slot["session_id"],
-            match_packet,
-        )
-
-    # send the match data (without password) to those in #lobby
+    await _broadcast_to_match(
+        match_id=match_id,
+        data=match_packet,
+        slot_flags=SlotStatus.HAS_PLAYER,
+    )
+    
     if send_to_lobby:
-        packet_without_password = packets.write_update_match_packet(
+        match_packet = packets.write_update_match_packet(
             *packet_params,
             should_send_password=False,
         )
-        lobby_channel = await channels.fetch_one_by_name("#lobby")
-        if lobby_channel is None:
-            logger.error(
-                "Failed to fetch #lobby channel",
-                match_id=match["match_id"],
-            )
-            return False
 
-        for other_session_id in await channel_members.members(
-            lobby_channel["channel_id"]
-        ):
-            await packet_bundles.enqueue(
-                other_session_id,
-                packet_without_password,
-            )
-
-    return True
+        await _broadcast_to_lobby(match_packet)
 
 
 @bancho_handler(packets.ClientPackets.CREATE_MATCH)
@@ -1255,10 +1277,7 @@ async def match_change_slot_handler(session: "Session", packet_data: bytes) -> N
     )
 
     # send updated data to those in the multi match, and #lobby
-    await _broadcast_match_updates(
-        match["match_id"],
-        send_to_lobby=False,
-    )
+    await _broadcast_match_updates(match["match_id"])
 
 
 # MATCH_READY = 39
@@ -1336,6 +1355,7 @@ async def match_lock_handler(session: "Session", packet_data: bytes):
             "A user attempted to (un)lock a slot but they are not the host.",
             user_id=session["account_id"],
             match_id=match_id,
+            match_host=match["host_account_id"],
         )
         return
 
@@ -1439,6 +1459,8 @@ async def match_change_settings_handler(session: "Session", packet_data: bytes):
         logger.warning(
             "A user attempted to change match settings but they are not the host.",
             user_id=session["account_id"],
+            match_id=match_id,
+            match_host=match["host_account_id"],
         )
         return
 
@@ -1451,6 +1473,28 @@ async def match_change_settings_handler(session: "Session", packet_data: bytes):
         match["mods"],
     )
 
+    slots = await multiplayer_slots.fetch_all(match_id)
+    need_slot_updates = False
+    # if we switch to a versus mode, split all players into teams
+    if (
+        osu_match_data["team_type"] != match["team_type"] and
+        osu_match_data["team_type"] in (MatchTeamTypes.TEAM_VS, MatchTeamTypes.TAG_TEAM_VS)
+    ):
+        need_slot_updates = True
+        i = 0
+        for slot in slots:
+            if slot["account_id"] == -1:
+                continue
+
+            if i & 1:
+                slot["team"] = MatchTeams.BLUE
+            else:
+                slot["team"] = MatchTeams.RED
+
+            i += 1
+
+    # if freemod is activated the match mods are transferred to the slots
+    # if freemod is disabled the mods will clear
     if osu_match_data["freemods_enabled"] != match["freemods_enabled"]:
         # copy bancho's behaviour
         if osu_match_data["freemods_enabled"]:
@@ -1459,13 +1503,18 @@ async def match_change_settings_handler(session: "Session", packet_data: bytes):
         else:
             mods = Mods.NOMOD
 
-        slots = await multiplayer_slots.fetch_all(match_id)
+        need_slot_updates = True
+        for slot in slots:
+            if slot["account_id"] != -1:
+                slot["mods"] = mods
+
+    # update slots if needed
+    if need_slot_updates:
         for slot in slots:
             if slot["account_id"] != -1:
                 await multiplayer_slots.partial_update(
                     match_id=match_id,
-                    slot_id=slot["slot_id"],
-                    mods=mods,
+                    **slot,
                 )
 
     match_params = {
@@ -1803,6 +1852,7 @@ async def user_joins_channel_handler(session: "Session", packet_data: bytes):
 
 
 # BEATMAP_INFO_REQUEST = 68
+# NOTE: this is deprecated and not used lol
 
 
 # MATCH_TRANSFER_HOST = 70
@@ -1832,6 +1882,8 @@ async def match_transfer_host_handler(session: "Session", packet_data: bytes):
         logger.warning(
             "A user attempted to change hosts but they are not the host.",
             user_id=session["account_id"],
+            match_id=match_id,
+            match_host=match["host_account_id"],
         )
         return
     
@@ -1891,6 +1943,67 @@ async def friend_remove_handler(session: "Session", packet_data: bytes):
 
 
 # MATCH_CHANGE_TEAM = 77
+
+
+@bancho_handler(packets.ClientPackets.MATCH_CHANGE_TEAM)
+async def match_change_team_handler(session: "Session", packet_data: bytes):
+    presence = session["presence"]
+    match_id = presence["multiplayer_match_id"]
+    if not match_id:
+        logger.warning(
+            "A user attempted to change teams but isn't in a match.",
+            user_id=session["account_id"],
+        )
+        return
+
+    match = await multiplayer_matches.fetch_one(match_id)
+    if isinstance(match, ServiceError):
+        logger.warning(
+            "A user attempted to change teams but their match doesn't exist.",
+            user_id=session["account_id"],
+        )
+        return
+    
+    if match["team_type"] not in (MatchTeamTypes.TEAM_VS, MatchTeamTypes.TAG_TEAM_VS):
+        logger.warning(
+            "A user attempted to change teams but the match is not in versus mode.",
+            user_id=session["account_id"],
+            match_id=match_id,
+            match_team_type=match["team_type"],
+        )
+        return
+    
+    slot = await multiplayer_slots.fetch_one_by_session_id(
+        match_id=match_id,
+        session_id=session["session_id"],
+    )
+    if not slot:
+        logger.warning(
+            "A user attempted to change teams but their slot doesn't exist.",
+            user_id=session["account_id"],
+            match_id=match_id,
+        )
+        return
+    
+    if slot["team"] == MatchTeams.BLUE:
+        new_team = MatchTeams.RED
+    else:
+        new_team = MatchTeams.BLUE
+
+    await multiplayer_slots.partial_update(
+        match_id=match_id,
+        slot_id=slot["slot_id"],
+        team=new_team,
+    )
+
+    await _broadcast_match_updates(match_id)
+
+    logger.info(
+        "User changed match teams.",
+        user_id=session["account_id"],
+        match_id=match_id,
+        slot_team=new_team,
+    )
 
 
 # CHANNEL_PART = 78
@@ -2036,6 +2149,49 @@ async def user_stats_request_handler(session: "Session", packet_data: bytes) -> 
 
 
 # MATCH_CHANGE_PASSWORD = 90
+
+
+@bancho_handler(packets.ClientPackets.MATCH_CHANGE_PASSWORD)
+async def match_change_password_handler(session: "Session", packet_data: bytes):
+    presence = session["presence"]
+    match_id = presence["multiplayer_match_id"]
+    if not match_id:
+        logger.warning(
+            "A user attempted to change the match password but isn't in a match.",
+            user_id=session["account_id"],
+        )
+        return
+    
+    match = await multiplayer_matches.fetch_one(match_id)
+    if isinstance(match, ServiceError):
+        logger.warning(
+            "A user attempted to change the match password but their match doesn't exist.",
+            user_id=session["account_id"],
+        )
+        return
+    
+    if match["host_account_id"] != session["account_id"]:
+        logger.warning(
+            "A user attempted to change the match password but they aren't the host.",
+            user_id=session["account_id"],
+            match_id=match_id,
+            match_host=match["host_account_id"],
+        )
+        return
+
+    reader = packets.PacketReader(packet_data)
+    osu_match_data = reader.read_osu_match()
+
+    await multiplayer_matches.partial_update(
+        match_id=match_id,
+        match_password=osu_match_data["match_password"],
+    )
+
+    logger.info(
+        "User updated the match password.",
+        user_id=session["account_id"],
+        match_id=match_id,
+    )
 
 
 # TOURNAMENT_MATCH_INFO_REQUEST = 93

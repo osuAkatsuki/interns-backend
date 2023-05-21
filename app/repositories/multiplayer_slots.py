@@ -31,11 +31,11 @@ class SlotStatus:
     COMPLETE = 64
     QUIT = 128
 
-    # HAS_PLAYER = NOT_READY | READY | NO_BEATMAP | PLAYING | COMPLETE
+    HAS_PLAYER = NOT_READY | READY | NO_BEATMAP | PLAYING | COMPLETE
 
 
 def make_key(match_id: int, slot_id: int | Literal["*"]) -> str:
-    return f"server:matches:{match_id}:slots:{slot_id}"
+    return f"server:match_slots:{match_id}:{slot_id}"
 
 
 def serialize(slot: MultiplayerSlot) -> str:
