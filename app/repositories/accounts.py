@@ -11,9 +11,9 @@ READ_PARAMS = """
     privileges,
     password,
     country,
-    silence_end
+    silence_end,
     created_at,
-    updated_at,
+    updated_at
 """
 
 
