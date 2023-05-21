@@ -930,6 +930,15 @@ def write_match_all_players_loaded_packet() -> bytes:
 # MATCH_PLAYER_FAILED = 57
 
 
+def write_match_player_failed_packet(slot_id: int) -> bytes:
+    return write_packet(
+        packet_id=ServerPackets.MATCH_PLAYER_FAILED,
+        packet_data_inputs=[
+            (DataType.I32, slot_id),
+        ]
+    )
+
+
 # MATCH_COMPLETE = 58
 
 
