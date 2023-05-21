@@ -134,7 +134,7 @@ async def partial_update(
             privileges = COALESCE(:privileges, privileges),
             password = COALESCE(:password, password),
             country = COALESCE(:country, country)
-            WHERE account_id = :account_id  
+            WHERE account_id = :account_id
         """,
         values={
             "account_id": account_id,
