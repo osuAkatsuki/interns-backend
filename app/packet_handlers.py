@@ -284,10 +284,7 @@ async def request_status_update_handler(session: "Session", packet_data: bytes):
     )
     assert own_stats is not None
 
-    vanilla_game_mode = game_modes.for_client(
-        own_presence["game_mode"],
-        own_presence["mods"],
-    )
+    vanilla_game_mode = game_modes.for_client(own_presence["game_mode"])
 
     await packet_bundles.enqueue(
         session["session_id"],
@@ -592,7 +589,7 @@ async def join_lobby_handler(session: "Session", packet_data: bytes):
     for match in matches:
         slots = await multiplayer_slots.fetch_all(match["match_id"])
 
-        vanilla_game_mode = game_modes.for_client(match["game_mode"], match["mods"])
+        vanilla_game_mode = game_modes.for_client(match["game_mode"])
         packet_params = (
             match["match_id"],
             match["status"] == MatchStatus.PLAYING,
@@ -639,7 +636,7 @@ async def _broadcast_match_updates(
 
     slots = await multiplayer_slots.fetch_all(match["match_id"])
 
-    vanilla_game_mode = game_modes.for_client(match["game_mode"], match["mods"])
+    vanilla_game_mode = game_modes.for_client(match["game_mode"])
 
     packet_params = (
         match["match_id"],
@@ -984,7 +981,7 @@ async def join_match_handler(session: "Session", packet_data: bytes) -> None:
 
     slots = await multiplayer_slots.fetch_all(match["match_id"])
 
-    vanilla_game_mode = game_modes.for_client(match["game_mode"], match["mods"])
+    vanilla_game_mode = game_modes.for_client(match["game_mode"])
 
     # send the match data (with password) to the creator
     match_join_success_packet = packets.write_match_join_success_packet(
@@ -1771,10 +1768,7 @@ async def user_stats_request_handler(session: "Session", packet_data: bytes) -> 
         if other_stats is None:
             continue
 
-        vanilla_game_mode = game_modes.for_client(
-            other_session["presence"]["game_mode"],
-            other_session["presence"]["mods"],
-        )
+        vanilla_game_mode = game_modes.for_client(other_session["presence"]["game_mode"])
 
         await packet_bundles.enqueue(
             session["session_id"],
