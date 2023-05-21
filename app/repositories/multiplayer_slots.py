@@ -31,7 +31,7 @@ class SlotStatus:
     COMPLETE = 64
     QUIT = 128
 
-    # HAS_PLAYER = NOT_READY | READY | NO_BEATMAP | PLAYING | COMPLETE
+    HAS_PLAYER = NOT_READY | READY | NO_BEATMAP | PLAYING | COMPLETE
 
 
 def make_key(match_id: int, slot_id: int | Literal["*"]) -> str:
