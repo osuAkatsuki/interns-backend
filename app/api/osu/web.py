@@ -464,25 +464,26 @@ async def submit_score_handler(
             submission_status=SubmissionStatus.BEST,
             page_size=1,
         )
-        previous_best = previous_bests[0] if previous_bests else None
+        previous_best_score = previous_bests[0] if previous_bests else None
 
         is_new_best = (
             performance_attrs["performance_points"]
-            > previous_best["performance_points"]
-            if previous_best is not None
+            > previous_best_score["performance_points"]
+            if previous_best_score is not None
             else True
         )
 
         if is_new_best:
             submission_status = SubmissionStatus.BEST
-            if previous_best is not None:
+            if previous_best_score is not None:
                 await scores.partial_update(
-                    score_id=previous_best["score_id"],
+                    score_id=previous_best_score["score_id"],
                     submission_status=SubmissionStatus.SUBMITTED,
                 )
         else:
             submission_status = SubmissionStatus.SUBMITTED
     else:
+        previous_best_score = None
         submission_status = SubmissionStatus.FAILED
 
     # persist new score to database
