@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import base64
+import copy
 from datetime import datetime
 
 from fastapi import APIRouter
@@ -567,6 +568,7 @@ async def submit_score_handler(
     bonus_pp = 416.6667 * (1 - 0.9994**total_score_count)
     total_pp = round(weighted_pp + bonus_pp)
 
+    previous_gamemode_stats = copy.deepcopy(gamemode_stats)
     gamemode_stats = await stats.partial_update(
         account["account_id"],
         game_mode=game_mode,
