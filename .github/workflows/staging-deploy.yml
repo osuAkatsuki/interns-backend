@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - INTRN-93-spectator-frame-parsing
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
