@@ -88,3 +88,29 @@ async def fetch_one(clan_invite_id: UUID) -> ClanInvite | None:
     )
 
     return cast(ClanInvite, clan_invite) if clan_invite is not None else None
+
+
+async def partial_update(
+    clan_invite_id: UUID,
+    clan_id: int | None,
+    uses: int | None,
+    expires_at: datetime | None,
+) -> ClanInvite | None:
+    clan_invite = await clients.database.fetch_one(
+        query=f"""\
+            UPDATE clan_invites
+            SET clan_id = COALESCE(:clan_id, clan_id),
+            uses = COALESCE(:uses, uses),
+            expires_at = COALESCE(:expires_at, expires_at)
+            WHERE clan_invite_id = :clan_invite_id
+            RETURNING {READ_PARAMS}
+        """,
+        values={
+            "clan_invite_id": clan_invite_id,
+            "clan_id": clan_id,
+            "uses": uses,
+            "expires_at": expires_at,
+        },
+    )
+
+    return cast(ClanInvite, clan_invite) if not None else None
