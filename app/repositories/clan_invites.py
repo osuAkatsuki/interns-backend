@@ -53,8 +53,8 @@ async def create(
 
 
 async def fetch_many(
-    page: int | None,
-    page_size: int | None,
+    page: int | None = None,
+    page_size: int | None = None,
 ) -> list[ClanInvite] | None:
     query = f"""\
         SELECT {READ_PARAMS}
