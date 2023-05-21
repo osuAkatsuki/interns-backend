@@ -8,5 +8,5 @@ CREATE TABLE clan_invites (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE UNIQUE INDEX ON clans (clan_invite_id);
-CREATE UNIQUE INDEX ON clans (clan_id);
+CREATE UNIQUE INDEX ON clan_invites (clan_invite_id);
+CREATE UNIQUE INDEX ON clan_invites (clan_id);
