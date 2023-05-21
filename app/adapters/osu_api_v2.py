@@ -256,7 +256,7 @@ async def lookup_beatmap(
         logger.warning(
             "Beatmap not found",
             checksum=beatmap_md5,
-            filename=file_name,
+            file_name=file_name,
             beatmap_id=beatmap_id,
         )
         return
@@ -267,7 +267,7 @@ async def lookup_beatmap(
         logger.error(
             "Beatmapset is None",
             checksum=beatmap_md5,
-            filename=file_name,
+            file_name=file_name,
             beatmap_id=beatmap_id,
         )
         return

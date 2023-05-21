@@ -4,10 +4,16 @@ import sys
 import traceback
 from contextvars import ContextVar
 from types import TracebackType
+from typing import TextIO
 
 import structlog
+from rich.console import Console
+from rich.traceback import Traceback
 from structlog.types import EventDict
+from structlog.types import ExcInfo
+from structlog.types import Processor
 from structlog.types import WrappedLogger
+
 
 _ROOT_LOGGER = stdlib_logging.getLogger()
 
@@ -27,13 +33,6 @@ def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger:
 
 
 def log_as_text(app_env: str) -> bool:
-    # TODO: fix error with json logger where it does this with stacktraces
-    # https://app.datadoghq.com/logs?query=status%3Aerror%20service%3Ainterns-backend&cols=host%2Cservice&event=AgAAAYg71Zcly_8c2AAAAAAAAAAYAAAAAEFZZzcxYUdLQUFCcHg4RVNkQmlHaGdBTgAAACQAAAAAMDE4ODNiZDUtYzNjMC00OTY1LWFjNWMtZTBiM2Q5YTE5ZTE4&index=%2A&messageDisplay=inline&stream_sort=desc&viz=stream&from_ts=1680750604418&to_ts=1680751504418&live=true
-    # return app_env == "local"
-    return True
-
-
-def log_with_colors(app_env: str) -> bool:
     return app_env == "local"
 
 
@@ -49,38 +48,95 @@ def add_request_id(_: WrappedLogger, __: str, event_dict: EventDict) -> EventDic
     return event_dict
 
 
+# https://github.com/hynek/structlog/issues/35#issuecomment-591321744
+def rename_event_key(_, __, event_dict: EventDict) -> EventDict:
+    """
+    Log entries keep the text message in the `event` field, but Datadog
+    uses the `message` field. This processor moves the value from one field to
+    the other.
+    See https://github.com/hynek/structlog/issues/35#issuecomment-591321744
+    """
+    event_dict["message"] = event_dict.pop("event")
+    return event_dict
+
+
+def drop_color_message_key(_, __, event_dict: EventDict) -> EventDict:
+    """
+    Uvicorn logs the message a second time in the extra `color_message`, but we don't
+    need it. This processor drops the key from the event dict if it exists.
+    """
+    event_dict.pop("color_message", None)
+    return event_dict
+
+
+def rich_traceback(sio: TextIO, exc_info: ExcInfo) -> None:
+    """
+    We overwrite the default version of this in structlog to set the `max_frames` to 10.
+
+    Being an ASGI server, there are a lot of frames that are not relevant to us, and
+    we don't want to clutter the logs with them; especially when pretty printing.
+    """
+    sio.write("\n")
+    Console(file=sio, color_system="truecolor").print(
+        Traceback.from_exception(*exc_info, show_locals=True, max_frames=10)
+    )
+
+
 def configure_logging(app_env: str, log_level: str | int) -> None:
+    shared_processors: list[Processor] = [
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        add_process_id,
+        add_request_id,
+        drop_color_message_key,
+    ]
+
     if log_as_text(app_env):
-        renderer = structlog.dev.ConsoleRenderer(colors=log_with_colors(app_env))
+        log_renderer = structlog.dev.ConsoleRenderer(exception_formatter=rich_traceback)
     else:
-        renderer = structlog.processors.JSONRenderer()
+        log_renderer = structlog.processors.JSONRenderer()
+
+        # we rename `event` to `message` for datadog
+        shared_processors.append(rename_event_key)
+
+        # format the exception only when using the json renderer
+        # we want to pretty-print the exception when logging as text
+        shared_processors.append(structlog.processors.dict_tracebacks)
+
+    structlog.stdlib.ProcessorFormatter.wrap_for_formatter
+    structlog.configure(
+        processors=(
+            shared_processors
+            # prepare for `ProcessorFormatter`
+            + [structlog.stdlib.ProcessorFormatter.wrap_for_formatter]
+        ),
+        wrapper_class=structlog.stdlib.BoundLogger,
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        cache_logger_on_first_use=True,
+    )
 
     formatter = structlog.stdlib.ProcessorFormatter(
-        processor=renderer,
-        foreign_pre_chain=[
-            structlog.processors.TimeStamper(fmt="iso", key="timestamp"),
-            structlog.stdlib.add_log_level,
-            structlog.stdlib.add_logger_name,
-            add_process_id,
-            add_request_id,
+        foreign_pre_chain=shared_processors,
+        processors=[
+            structlog.stdlib.ProcessorFormatter.remove_processors_meta,
+            log_renderer,
         ],
     )
 
     handler = stdlib_logging.StreamHandler()
     handler.setFormatter(formatter)
-    handler.setLevel(log_level)
 
     _ROOT_LOGGER.addHandler(handler)
     _ROOT_LOGGER.setLevel(log_level)
 
-    for name in stdlib_logging.root.manager.loggerDict:
-        logger = stdlib_logging.getLogger(name)
+    for _logger in ("uvicorn", "uvicorn.error"):
+        stdlib_logging.getLogger(_logger).handlers.clear()
+        stdlib_logging.getLogger(_logger).propagate = True
 
-        # defer logging control to the root logger
-        logger.propagate = True
-        logger.setLevel(log_level)
-        for logger_handler in logger.handlers:
-            logger.removeHandler(logger_handler)
+    # effectively disable uvicorn.access
+    # TODO: recreate access logs using middleware
+    stdlib_logging.getLogger("uvicorn.access").handlers.clear()
+    stdlib_logging.getLogger("uvicorn.access").propagate = False
 
 
 def debug(*args, **kwargs) -> None:
@@ -112,6 +168,10 @@ def overwrite_exception_hook() -> None:
         exc_value: BaseException,
         exc_traceback: TracebackType,
     ) -> None:
+        if issubclass(exc_type, KeyboardInterrupt):
+            sys.__excepthook__(exc_type, exc_value, exc_traceback)
+            return
+
         get_logger().error(
             "Uncaught exception",
             traceback=traceback.format_exception(exc_value),
