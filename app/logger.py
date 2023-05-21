@@ -138,9 +138,6 @@ def configure_logging(app_env: str, log_level: str | int) -> None:
     stdlib_logging.getLogger("uvicorn.access").handlers.clear()
     stdlib_logging.getLogger("uvicorn.access").propagate = False
 
-    uvicorn_access_logger = stdlib_logging.getLogger("uvicorn")
-    uvicorn_access_logger.addHandler(handler)
-
 
 def debug(*args, **kwargs) -> None:
     return get_logger().debug(*args, **kwargs)
