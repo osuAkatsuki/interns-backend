@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - INTRN-51-modding
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
