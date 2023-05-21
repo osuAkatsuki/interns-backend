@@ -268,12 +268,11 @@ async def get_scores_handler(
     leaderboard_scores = await scores.fetch_many(**filter_params, page_size=50)
 
     # fetch our personal best score for the beatmap
-    personal_best_scores = await scores.fetch_many(
-        **filter_params,
-        account_id=account["account_id"],  # we want our best
-        country=None,  # we want our global best
-        page_size=1,
-    )
+    filter_params |= {
+        "account_id": account["account_id"],  # we want our best
+        "country": None,  # we want our global best
+    }
+    personal_best_scores = await scores.fetch_many(**filter_params, page_size=1)
     personal_best_score = personal_best_scores[0] if personal_best_scores else None
 
     # construct and send the leaderboard response
