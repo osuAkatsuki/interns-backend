@@ -17,6 +17,7 @@ from app import ranking
 from app import security
 from app.adapters import ip_api
 from app.game_modes import GameMode
+from app.mods import Mods
 from app.privileges import ServerPrivileges
 from app.repositories import accounts
 from app.repositories import channel_members
@@ -24,7 +25,6 @@ from app.repositories import channels
 from app.repositories import packet_bundles
 from app.repositories import sessions
 from app.repositories import stats
-from app.repositories.scores import Mods
 
 bancho_router = APIRouter(default_response_class=Response)
 

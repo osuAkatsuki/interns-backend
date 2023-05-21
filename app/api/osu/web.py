@@ -29,6 +29,7 @@ from app.adapters import mino
 from app.adapters import osu_api_v2
 from app.adapters import s3
 from app.errors import ServiceError
+from app.mods import filter_invalid_mod_combinations
 from app.privileges import ServerPrivileges
 from app.repositories import accounts
 from app.repositories import achievements
@@ -181,6 +182,10 @@ async def get_scores_handler(
     map_package_hash: str = Query(..., alias="h"),
     aqn_files_found: bool = Query(..., alias="a"),
 ):
+    # XXX: this is a quirk of the osu! client, where it adjusts this value
+    # only after it sends the packet to the server; so we need to adjust
+    mods = filter_invalid_mod_combinations(mods, vanilla_game_mode)
+
     game_mode = game_modes.for_server(vanilla_game_mode, mods)
 
     # TODO: fix the responses in the case of an error
