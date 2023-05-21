@@ -14,66 +14,66 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Check out latest commit
-      uses: actions/checkout@v3
+      - name: Check out latest commit
+        uses: actions/checkout@v3
 
-    - name: Install digitalocean command line interface
-      uses: digitalocean/action-doctl@v2
-      with:
-        token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+      - name: Install digitalocean command line interface
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
 
-    - name: Log-in to digitalocean container registry
-      run: doctl registry login --expiry-seconds 600
+      - name: Log-in to digitalocean container registry
+        run: doctl registry login --expiry-seconds 600
 
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v2
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
-    - name: Build and push
-      uses: docker/build-push-action@v4
-      with:
-        context: .
-        push: true
-        tags: registry.digitalocean.com/akatsuki/interns-backend:latest
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+      - name: Build and push
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: registry.digitalocean.com/akatsuki/interns-backend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-    - name: Save kubeconfig from digitalocean
-      run: doctl k8s cluster kubeconfig save --expiry-seconds 600 akatsuki-staging
+      - name: Save kubeconfig from digitalocean
+        run: doctl k8s cluster kubeconfig save --expiry-seconds 600 akatsuki-staging
 
-    - name: Install helm
-      uses: azure/setup-helm@v3
-      with:
-        version: 'latest'
-        token: ${{ secrets.GITHUB_TOKEN }}
-      id: install
+      - name: Install helm
+        uses: azure/setup-helm@v3
+        with:
+          version: "latest"
+          token: ${{ secrets.GITHUB_TOKEN }}
+        id: install
 
-    - name: Install helm-diff
-      run: helm plugin install https://github.com/databus23/helm-diff
+      - name: Install helm-diff
+        run: helm plugin install https://github.com/databus23/helm-diff
 
-    - name: Checkout common-helm-charts repo
-      uses: actions/checkout@v3
-      with:
-        repository: osuAkatsuki/common-helm-charts
-        token: ${{ secrets.COMMON_HELM_CHARTS_PAT }}
-        path: common-helm-charts
+      - name: Checkout common-helm-charts repo
+        uses: actions/checkout@v3
+        with:
+          repository: osuAkatsuki/common-helm-charts
+          token: ${{ secrets.COMMON_HELM_CHARTS_PAT }}
+          path: common-helm-charts
 
-    - name: Show manifest diff since previous release
-      run: |
-        helm diff upgrade \
-        --allow-unreleased \
-        --values chart/values.yaml \
-        interns-backend-staging \
-        common-helm-charts/microservice-base/
-
-    - name: Deploy service to staging cluster
-      run: |
-        helm upgrade \
-          --install \
-          --atomic \
-          --wait --timeout 480s \
+      - name: Show manifest diff since previous release
+        run: |
+          helm diff upgrade \
+          --allow-unreleased \
           --values chart/values.yaml \
           interns-backend-staging \
           common-helm-charts/microservice-base/
+
+      - name: Deploy service to staging cluster
+        run: |
+          helm upgrade \
+            --install \
+            --atomic \
+            --wait --timeout 480s \
+            --values chart/values.yaml \
+            interns-backend-staging \
+            common-helm-charts/microservice-base/
