@@ -83,7 +83,7 @@ def configure_logging(app_env: str, log_level: str | int) -> None:
 
         # format the exception only when using the json renderer
         # we want to pretty-print the exception when logging as text
-        shared_processors.append(structlog.processors.format_exc_info)
+        shared_processors.append(structlog.processors.dict_tracebacks)
 
     structlog.stdlib.ProcessorFormatter.wrap_for_formatter
     structlog.configure(
