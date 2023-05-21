@@ -26,9 +26,10 @@ READ_PARAMS = """\
     od,
     hp,
     star_rating,
-    updated_at,
     bancho_ranked_status,
-    bancho_updated_at
+    bancho_updated_at,
+    created_at,
+    updated_at
 """
 
 
