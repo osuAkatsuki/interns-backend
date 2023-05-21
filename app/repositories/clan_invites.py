@@ -92,9 +92,9 @@ async def fetch_one(clan_invite_id: UUID) -> ClanInvite | None:
 
 async def partial_update(
     clan_invite_id: UUID,
-    clan_id: int | None,
-    uses: int | None,
-    expires_at: datetime | None,
+    clan_id: int | None = None,
+    uses: int | None = None,
+    expires_at: datetime | None = None,
 ) -> ClanInvite | None:
     clan_invite = await clients.database.fetch_one(
         query=f"""\
