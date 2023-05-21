@@ -33,14 +33,10 @@ async def create(
     max_uses: int,
     expires_at: datetime,
 ) -> ClanInvite:
-    now = datetime.now()
-    created_at = now
-    updated_at = now
-
     clan_invite = await clients.database.fetch_one(
         query=f"""\
-            INSERT INTO clan_invites (clan_invite_id, clan_id, uses, max_uses, expires_at, created_at, updated_at)
-            VALUES (:clan_invite_id, :clan_id, :uses, :max_uses, :expires_at, :created_at, :updated_at)
+            INSERT INTO clan_invites (clan_invite_id, clan_id, uses, max_uses, expires_at)
+            VALUES (:clan_invite_id, :clan_id, :uses, :max_uses, :expires_at)
             RETURNING {READ_PARAMS}
         """,
         values={
@@ -49,8 +45,6 @@ async def create(
             uses: uses,
             max_uses: max_uses,
             expires_at: expires_at,
-            created_at: created_at,
-            updated_at: updated_at,
         },
     )
 
