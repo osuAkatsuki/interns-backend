@@ -40,6 +40,7 @@ from app.repositories import user_achievements
 from app.repositories.accounts import Account
 from app.repositories.beatmaps import Beatmap
 from app.repositories.scores import Score
+from app.repositories.scores import SubmissionStatus
 from app.services import beatmaps
 from app.services import screenshots
 
@@ -247,7 +248,7 @@ async def get_scores_handler(
     filter_params = {
         "beatmap_md5": beatmap_md5,
         "game_mode": game_mode,
-        "submission_status": 2,
+        "submission_status": SubmissionStatus.BEST,
         "sort_by": "performance_points",  # TODO: score for certain gamemodes?
     }
 
@@ -390,18 +391,6 @@ async def submit_score_handler(
     # TODO: does this account for DT/HT?
     time_elapsed = score_time if passed else fail_time
 
-    # TODO: set submission status based on performance vs. old scores
-    # 2 = best score
-    # 1 = passed
-    # 0 = failed
-    if passed:
-        if "TODO: is best score":
-            submission_status = 2
-        else:
-            submission_status = 1
-    else:
-        submission_status = 0
-
     accuracy = calculate_accuracy(
         num_300s,
         num_100s,
@@ -440,6 +429,7 @@ async def submit_score_handler(
         logger.warning("Beatmap file for not found", beatmap_md5=beatmap_md5)
         return
 
+    # calculate beatmap difficulty and score performance
     performance_attrs = performance.calculate_performance(
         osu_file_contents,
         vanilla_game_mode,
@@ -454,6 +444,35 @@ async def submit_score_handler(
         highest_combo,
     )
 
+    # determine score submission status
+    if passed:
+        previous_bests = await scores.fetch_many(
+            beatmap_md5=beatmap["beatmap_md5"],
+            submission_status=SubmissionStatus.BEST,
+            page_size=1,
+        )
+        previous_best = previous_bests[0] if previous_bests else None
+
+        is_new_best = (
+            performance_attrs["performance_points"]
+            > previous_best["performance_points"]
+            if previous_best is not None
+            else True
+        )
+
+        if is_new_best:
+            submission_status = SubmissionStatus.BEST
+            if previous_best is not None:
+                await scores.partial_update(
+                    score_id=previous_best["score_id"],
+                    submission_status=SubmissionStatus.SUBMITTED,
+                )
+        else:
+            submission_status = SubmissionStatus.SUBMITTED
+    else:
+        submission_status = SubmissionStatus.FAILED
+
+    # persist new score to database
     score = await scores.create(
         account["account_id"],
         online_checksum,
@@ -479,6 +498,7 @@ async def submit_score_handler(
         client_anticheat_token,
     )
 
+    # upload replay file to S3
     await s3.upload(
         body=await replay_file.read(),
         filename=f"{score['score_id']}.osr",
@@ -504,13 +524,13 @@ async def submit_score_handler(
         account_id=account["account_id"],
         game_mode=game_mode,
         sort_by="performance_points",
-        submission_status=2,
+        submission_status=SubmissionStatus.BEST,
         page_size=100,
     )
 
     total_score_count = await scores.fetch_count(
         account_id=account["account_id"],
-        submission_status=2,
+        submission_status=SubmissionStatus.BEST,
         game_mode=game_mode,
     )
 
