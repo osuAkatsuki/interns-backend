@@ -1455,16 +1455,18 @@ async def match_change_settings_handler(session: "Session", packet_data: bytes):
         # copy bancho's behaviour
         if osu_match_data["freemods_enabled"]:
             mods = match["mods"]
+            osu_match_data["mods"] = Mods.NOMOD
         else:
             mods = Mods.NOMOD
 
         slots = await multiplayer_slots.fetch_all(match_id)
         for slot in slots:
-            await multiplayer_slots.partial_update(
-                match_id=match_id,
-                slot_id=slot["slot_id"],
-                mods=mods,
-            )
+            if slot["account_id"] != -1:
+                await multiplayer_slots.partial_update(
+                    match_id=match_id,
+                    slot_id=slot["slot_id"],
+                    mods=mods,
+                )
 
     match_params = {
         "match_name": osu_match_data["match_name"],
