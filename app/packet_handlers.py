@@ -493,7 +493,14 @@ async def stop_spectating_handler(session: "Session", packet_data: bytes):
             ),
         )
 
-    if len(current_channel_members) == 1:  # only the host
+    if len(current_channel_members) == 1:  # only the host remains
+        # remove the host from the channel
+        await channel_members.remove(
+            spectator_channel["channel_id"],
+            host_session["session_id"],
+        )
+
+        # delete the channel
         await channels.delete(spectator_channel["channel_id"])
 
         # inform the host that the channel was deleted
