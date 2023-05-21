@@ -188,12 +188,12 @@ class OsuMatch(TypedDict):
 class OsuScoreFrame(TypedDict):
     time: int
     id: int
-    num300: int
-    num100: int
-    num50: int
-    num_geki: int
-    num_katu: int
-    num_miss: int
+    num_300s: int
+    num_100s: int
+    num_50s: int
+    num_gekis: int
+    num_katus: int
+    num_misses: int
     total_score: int
     current_combo: int
     max_combo: int
@@ -375,12 +375,12 @@ class PacketReader:
         rec: OsuScoreFrame = {
             "time": self.read_i32(),
             "id": self.read_u8(),
-            "num300": self.read_u16(),
-            "num100": self.read_u16(),
-            "num50": self.read_u16(),
-            "num_geki": self.read_u16(),
-            "num_katu": self.read_u16(),
-            "num_miss": self.read_u16(),
+            "num_300s": self.read_u16(),
+            "num_100s": self.read_u16(),
+            "num_50s": self.read_u16(),
+            "num_gekis": self.read_u16(),
+            "num_katus": self.read_u16(),
+            "num_misses": self.read_u16(),
             "total_score": self.read_i32(),
             "current_combo": self.read_u16(),
             "max_combo": self.read_u16(),
@@ -541,6 +541,114 @@ def write_osu_match(
     if freemods_enabled:
         buffer += struct.pack(f"<{len(per_slot_mods)}i", *per_slot_mods)
     buffer += struct.pack("<i", random_seed)
+    return bytes(buffer)
+
+
+def write_osu_score_frame(
+    time: int,
+    id: int,
+    num_300s: int,
+    num_100s: int,
+    num_50s: int,
+    num_gekis: int,
+    num_katus: int,
+    num_misses: int,
+    total_score: int,
+    current_combo: int,
+    max_combo: int,
+    perfect: bool,
+    current_hp: int,
+    tag_byte: int,
+    score_v2: bool,
+    combo_portion: float | None = None,
+    bonus_portion: float | None = None,
+) -> bytes:
+    buffer = bytearray()
+    buffer += struct.pack("<i", time)
+    buffer += struct.pack("<B", id)
+    buffer += struct.pack("<H", num_300s)
+    buffer += struct.pack("<H", num_100s)
+    buffer += struct.pack("<H", num_50s)
+    buffer += struct.pack("<H", num_gekis)
+    buffer += struct.pack("<H", num_katus)
+    buffer += struct.pack("<H", num_misses)
+    buffer += struct.pack("<i", total_score)
+    buffer += struct.pack("<H", current_combo)
+    buffer += struct.pack("<H", max_combo)
+    buffer += struct.pack("<B", perfect)
+    buffer += struct.pack("<B", current_hp)
+    buffer += struct.pack("<B", tag_byte)
+    buffer += struct.pack("<B", score_v2)
+    if score_v2:
+        assert combo_portion is not None
+        assert bonus_portion is not None
+        buffer += struct.pack("<d", combo_portion)
+        buffer += struct.pack("<d", bonus_portion)
+    return bytes(buffer)
+
+
+def write_osu_replay_frame(
+    button_state: int,
+    taiko_byte: int,
+    x: float,
+    y: float,
+    time: int,
+) -> bytes:
+    buffer = bytearray()
+    buffer += struct.pack("<B", button_state)
+    buffer += struct.pack("<B", taiko_byte)
+    buffer += struct.pack("<f", x)
+    buffer += struct.pack("<f", y)
+    buffer += struct.pack("<i", time)
+    return bytes(buffer)
+
+
+def write_replay_frame_bundle(
+    replay_frames: list[OsuReplayFrame],
+    score_frame: OsuScoreFrame,
+    replay_action: int,
+    sequence_number: int,
+) -> bytes:
+    buffer = bytearray()
+    buffer += struct.pack("<i", 0)  # extra
+    buffer += struct.pack("<H", len(replay_frames))
+    for frame in replay_frames:
+        buffer += write_osu_replay_frame(
+            frame["button_state"],
+            frame["taiko_byte"],
+            frame["x"],
+            frame["y"],
+            frame["time"],
+        )
+    buffer += struct.pack("<B", replay_action)
+    buffer += write_osu_score_frame(
+        score_frame["time"],
+        score_frame["id"],
+        score_frame["num_300s"],
+        score_frame["num_100s"],
+        score_frame["num_50s"],
+        score_frame["num_gekis"],
+        score_frame["num_katus"],
+        score_frame["num_misses"],
+        score_frame["total_score"],
+        score_frame["current_combo"],
+        score_frame["max_combo"],
+        score_frame["perfect"],
+        score_frame["current_hp"],
+        score_frame["tag_byte"],
+        score_frame["score_v2"],
+        *(
+            [
+                score_frame["combo_portion"],
+                score_frame["bonus_portion"],
+            ]
+            if score_frame["score_v2"]
+            and "combo_portion" in score_frame
+            and "bonus_portion" in score_frame
+            else []
+        ),
+    )
+    buffer += struct.pack("<H", sequence_number)  # sequence number
     return bytes(buffer)
 
 
