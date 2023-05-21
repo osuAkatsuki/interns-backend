@@ -654,6 +654,7 @@ async def _broadcast_to_lobby(data: bytes):
 async def _broadcast_match_updates(
     match_id: int,
     send_to_lobby: bool = True,
+    extra_session_ids: list[UUID] = [],
 ):
     match = await multiplayer_matches.fetch_one(match_id)
     assert not isinstance(match, ServiceError)
@@ -688,6 +689,9 @@ async def _broadcast_match_updates(
         *packet_params,
         should_send_password=True,
     )
+
+    for session_id in extra_session_ids:
+        await packet_bundles.enqueue(session_id, match_packet)
 
     await _broadcast_to_match(
         match_id=match_id,
@@ -1354,6 +1358,7 @@ async def match_lock_handler(session: "Session", packet_data: bytes):
         )
         return
 
+    slot_session = None
     if slot["account_id"] != -1:
         if slot["account_id"] == session["account_id"]:
             logger.warning(
@@ -1374,9 +1379,7 @@ async def match_lock_handler(session: "Session", packet_data: bytes):
             session_id=slot_session["session_id"],
         )
 
-        kick_packet = (packets.write_channel_kick_packet("#multiplayer") + 
-                       packets.write_match_join_fail_packet())
-
+        kick_packet = packets.write_channel_kick_packet("#multiplayer")
         await packet_bundles.enqueue(
             session_id=slot_session["session_id"],
             data=kick_packet,
@@ -1408,7 +1411,9 @@ async def match_lock_handler(session: "Session", packet_data: bytes):
     )
 
     # inform relevant places of the new match state
-    await _broadcast_match_updates(match_id)
+    # extra_session_ids = [slot_session["session_id"] for _ in range(1) if slot_session]
+    extra_session_ids = [slot_session["session_id"]] if slot_session else []
+    await _broadcast_match_updates(match_id, extra_session_ids=extra_session_ids)
 
     logger.info(
         "User (un)locked match slot.",
