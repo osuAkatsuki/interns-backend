@@ -165,6 +165,7 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
     if len(message_content) > 2000:
         message_content = message_content[:2000] + "..."
 
+    # send message to everyone else
     send_message_packet_data = packets.write_send_message_packet(
         own_presence["username"],
         message_content,
@@ -172,7 +173,6 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
         own_presence["account_id"],
     )
 
-    # send message to everyone else
     if message_content.startswith("!help"):
         target_session_ids = []
     else:
