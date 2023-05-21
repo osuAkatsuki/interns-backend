@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - INTRN-44-skipping
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
