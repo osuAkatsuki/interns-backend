@@ -276,7 +276,9 @@ async def get_scores_handler(
             account_id=account["account_id"],
             relationship="friend",
         )
-        filter_params["friends"] = [friend["account_id"] for friend in friends]
+        filter_params["friends"] = [session["account_id"]] + [
+            friend["account_id"] for friend in friends
+        ]
 
     # fetch our top 50 scores for the leaderboard
     leaderboard_scores = await scores.fetch_many(**filter_params, page_size=50)
