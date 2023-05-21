@@ -262,19 +262,20 @@ async def fetch_many(
             ORDER BY account_id, {sort_by} DESC
     """
 
-    if page is not None and page_size is not None:
-        query += f"""\
-                LIMIT :page_size
-                OFFSET :offset
-        """
-        values["page_size"] = page_size
-        values["offset"] = page * page_size
-
     query += f"""\
         )
         SELECT {READ_PARAMS} FROM selected_scores
         ORDER BY {sort_by} DESC
     """
+
+    if page is not None and page_size is not None:
+        query += f"""\
+            LIMIT :page_size
+            OFFSET :offset
+        """
+        values["page_size"] = page_size
+        values["offset"] = page * page_size
+
     scores = await clients.database.fetch_all(query, values)
     return [deserialize(score) for score in scores]
 
