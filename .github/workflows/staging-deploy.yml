@@ -38,8 +38,9 @@ jobs:
         context: .
         platforms: linux/amd64
         push: true
-        tags: |
-          registry.digitalocean.com/akatsuki/interns-backend:latest
+        tags: registry.digitalocean.com/akatsuki/interns-backend:latest
+        cache-from: type=registry,ref=registry.digitalocean.com/akatsuki/interns-backend:latest
+        cache-to: type=inline
 
     - name: Save kubeconfig from digitalocean
       run: doctl k8s cluster kubeconfig save --expiry-seconds 600 akatsuki-staging
