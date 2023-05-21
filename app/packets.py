@@ -101,7 +101,7 @@ class ServerPackets(IntEnum):
     MATCH_JOIN_FAIL = 37
     FELLOW_SPECTATOR_JOINED = 42
     FELLOW_SPECTATOR_LEFT = 43
-    ALL_PLAYERS_LOADED = 45
+    ALL_PLAYERS_LOADED = 45  # unused
     MATCH_START = 46
     MATCH_SCORE_UPDATE = 48
     MATCH_TRANSFER_HOST = 50
@@ -846,7 +846,65 @@ def write_fellow_spectator_left_packet(user_id: int) -> bytes:
 # MATCH_START = 46
 
 
+def write_match_start_packet(
+    match_id: int,
+    match_in_progress: bool,
+    mods: int,
+    match_name: str,
+    match_password: str,
+    beatmap_name: str,
+    beatmap_id: int,
+    beatmap_md5: str,
+    slot_statuses: list[int],
+    slot_teams: list[int],
+    per_slot_account_ids: list[int],
+    host_account_id: int,
+    game_mode: int,
+    win_condition: int,
+    team_type: int,
+    freemods_enabled: bool,
+    per_slot_mods: list[int],
+    random_seed: int,
+) -> bytes:
+    match_data = {
+        "match_id": match_id,
+        "match_in_progress": match_in_progress,
+        "mods": mods,
+        "match_name": match_name,
+        "match_password": match_password,
+        "beatmap_name": beatmap_name,
+        "beatmap_id": beatmap_id,
+        "beatmap_md5": beatmap_md5,
+        "slot_statuses": slot_statuses,
+        "slot_teams": slot_teams,
+        "per_slot_account_ids": per_slot_account_ids,
+        "host_account_id": host_account_id,
+        "game_mode": game_mode,
+        "win_condition": win_condition,
+        "team_type": team_type,
+        "freemods_enabled": freemods_enabled,
+        "per_slot_mods": per_slot_mods,
+        "random_seed": random_seed,
+        "should_send_password": False,
+    }
+    return write_packet(
+        packet_id=ServerPackets.MATCH_START,
+        packet_data_inputs=[
+            (DataType.OSU_MATCH, match_data),
+        ],
+    )
+
+
 # MATCH_SCORE_UPDATE = 48
+
+
+def write_match_score_update_packet(data: bytes) -> bytes:
+    return write_packet(
+        packet_id=ServerPackets.MATCH_SCORE_UPDATE,
+        packet_data_inputs=[
+            (DataType.RAW_DATA, data),
+        ]
+    )
 
 
 # MATCH_TRANSFER_HOST = 50
@@ -862,13 +920,43 @@ def write_match_transfer_host_packet() -> bytes:
 # MATCH_ALL_PLAYERS_LOADED = 53
 
 
+def write_match_all_players_loaded_packet() -> bytes:
+    return write_packet(
+        packet_id=ServerPackets.MATCH_ALL_PLAYERS_LOADED,
+        packet_data_inputs=[],
+    )
+
+
 # MATCH_PLAYER_FAILED = 57
+
+
+def write_match_player_failed_packet(slot_id: int) -> bytes:
+    return write_packet(
+        packet_id=ServerPackets.MATCH_PLAYER_FAILED,
+        packet_data_inputs=[
+            (DataType.I32, slot_id),
+        ]
+    )
 
 
 # MATCH_COMPLETE = 58
 
 
+def write_match_complete_packet() -> bytes:
+    return write_packet(
+        packet_id=ServerPackets.MATCH_COMPLETE,
+        packet_data_inputs=[],
+    )
+
+
 # MATCH_SKIP = 61
+
+
+def write_match_skip_packet() -> bytes:
+    return write_packet(
+        packet_id=ServerPackets.MATCH_SKIP,
+        packet_data_inputs=[],
+    )
 
 
 # UNAUTHORIZED = 62  # unused
