@@ -662,27 +662,25 @@ async def submit_score_handler(
         new_achievements.append(new_achievement)
 
     # build beatmap ranking chart values
-    beatmap_rank_before = 0  # TODO
+    if previous_best_score:
+        beatmap_rank_before = 0  # TODO
+        beatmap_ranked_score_before = previous_best_score["score"]
+        beatmap_total_score_before = previous_best_score["score"]
+        beatmap_max_combo_before = previous_best_score["highest_combo"]
+        beatmap_accuracy_before = previous_best_score["accuracy"]
+        beatmap_pp_before = previous_best_score["performance_points"]
+    else:
+        beatmap_rank_before = ""
+        beatmap_ranked_score_before = ""
+        beatmap_total_score_before = ""
+        beatmap_max_combo_before = ""
+        beatmap_accuracy_before = ""
+        beatmap_pp_before = ""
     beatmap_rank_after = 0  # TODO
-    beatmap_ranked_score_before = (
-        previous_best_score["score"] if previous_best_score else ""
-    )
     beatmap_ranked_score_after = score["score"]
-    beatmap_total_score_before = (
-        previous_best_score["score"] if previous_best_score else ""
-    )
     beatmap_total_score_after = score["score"]
-    beatmap_max_combo_before = (
-        previous_best_score["highest_combo"] if previous_best_score else ""
-    )
     beatmap_max_combo_after = score["highest_combo"]
-    beatmap_accuracy_before = (
-        previous_best_score["highest_combo"] if previous_best_score else ""
-    )
     beatmap_accuracy_after = score["accuracy"]
-    beatmap_pp_before = (
-        previous_best_score["performance_points"] if previous_best_score else ""
-    )
     beatmap_pp_after = score["performance_points"]
 
     # build overall ranking chart values
