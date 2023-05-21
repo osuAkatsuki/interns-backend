@@ -1630,7 +1630,7 @@ async def match_score_update_handler(session: "Session", packet_data: bytes):
             user_id=session["account_id"],
         )
         return
-    
+
     match = await multiplayer_matches.fetch_one(match_id)
     if isinstance(match, ServiceError):
         logger.warning(
@@ -1638,8 +1638,25 @@ async def match_score_update_handler(session: "Session", packet_data: bytes):
             user_id=session["account_id"],
         )
         return
-    
-    score_update_packet = packets.write_match_score_update_packet(packet_data)
+
+    slot = await multiplayer_slots.fetch_one_by_session_id(
+        match_id=match_id,
+        session_id=session["session_id"]
+    )
+    if not slot:
+        logger.warning(
+            "A user sent a match score frame but they don't have a slot.",
+            user_id=session["account_id"],
+        )
+        return
+
+    new_packet_data = (
+        packet_data[:4] +
+        chr(slot["slot_id"]).encode() +
+        packet_data[5:]
+    )
+
+    score_update_packet = packets.write_match_score_update_packet(new_packet_data)
     await _broadcast_to_match(
         match_id=match_id,
         data=score_update_packet,
