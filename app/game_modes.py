@@ -18,7 +18,7 @@ def for_client(server_game_mode: int) -> int:
     if game_mode == GameMode.AP_OSU:
         return GameMode.VN_OSU
     elif game_mode >= GameMode.RX_OSU:
-        return (game_mode - GameMode.RX_OSU)
+        return game_mode - GameMode.RX_OSU
     else:
         return game_mode
 
