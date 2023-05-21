@@ -15,7 +15,6 @@ READ_PARAMS = """
     created_at,
     updated_at
 """
-print(123)
 
 
 class Channel(TypedDict):
