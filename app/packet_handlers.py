@@ -1374,9 +1374,12 @@ async def match_lock_handler(session: "Session", packet_data: bytes):
             session_id=slot_session["session_id"],
         )
 
+        kick_packet = (packets.write_channel_kick_packet("#multiplayer") + 
+                       packets.write_match_join_fail_packet())
+
         await packet_bundles.enqueue(
             session_id=slot_session["session_id"],
-            data=packets.write_channel_kick_packet("#multiplayer"),
+            data=kick_packet,
         )
 
         logger.info(
