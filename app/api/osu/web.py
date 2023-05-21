@@ -568,7 +568,10 @@ async def submit_score_handler(
     bonus_pp = 416.6667 * (1 - 0.9994**total_score_count)
     total_pp = round(weighted_pp + bonus_pp)
 
+    # create a copy of the previous gamemode's stats.
+    # we will use this to construct overall ranking charts for the client
     previous_gamemode_stats = copy.deepcopy(gamemode_stats)
+
     gamemode_stats = await stats.partial_update(
         account["account_id"],
         game_mode=game_mode,
