@@ -1533,10 +1533,175 @@ async def match_change_settings_handler(session: "Session", packet_data: bytes):
 # MATCH_START = 44
 
 
+@bancho_handler(packets.ClientPackets.MATCH_START)
+async def match_start_handler(session: "Session", packet_data: bytes):
+    presence = session["presence"]
+    match_id = presence["multiplayer_match_id"]
+    if not match_id:
+        logger.warning(
+            "A user attempted to start a match but they aren't in a match.",
+            user_id=session["account_id"],
+        )
+        return
+
+    match = await multiplayer_matches.fetch_one(match_id)
+    if isinstance(match, ServiceError):
+        logger.warning(
+            "A user attempted to start a match but their match doesn't exist.",
+            user_id=session["account_id"],
+        )
+        return
+
+    if match["host_account_id"] != session["account_id"]:
+        logger.warning(
+            "A user attempted to start a match but they aren't the host.",
+            user_id=session["account_id"],
+            match_id=match_id,
+            match_host=match["host_account_id"],
+        )
+        return
+
+    match = await multiplayer_matches.partial_update(
+        match_id=match_id,
+        status=MatchStatus.PLAYING,
+    )
+    assert not isinstance(match, ServiceError)
+
+    slots = await multiplayer_slots.fetch_all(match_id)
+    for slot in slots:
+        if slot["status"] & SlotStatus.CAN_START:
+            await multiplayer_slots.partial_update(
+                match_id=match_id,
+                slot_id=slot["slot_id"],
+                status=SlotStatus.PLAYING,
+            )
+    
+    vanilla_game_mode = game_modes.for_client(match["game_mode"])
+
+    packet_params = (
+        match["match_id"],
+        match["status"] == MatchStatus.PLAYING,
+        match["mods"],
+        match["match_name"],
+        match["match_password"],
+        match["beatmap_name"],
+        match["beatmap_id"],
+        match["beatmap_md5"],
+        [s["status"] for s in slots],
+        [s["team"] for s in slots],
+        [s["account_id"] for s in slots if s["status"] & 0b01111100 != 0],
+        match["host_account_id"],
+        vanilla_game_mode,
+        match["win_condition"],
+        match["team_type"],
+        match["freemods_enabled"],
+        [s["mods"] for s in slots] if match["freemods_enabled"] else [],
+        match["random_seed"],
+    )
+
+    match_started_packet = packets.write_match_start_packet(*packet_params)
+    await _broadcast_to_match(
+        match_id=match_id,
+        data=match_started_packet,
+        slot_flags=SlotStatus.PLAYING,
+    )
+
+    await _broadcast_to_lobby(match_started_packet)
+
+    logger.info(
+        "User started a multiplayer match.",
+        user_id=session["account_id"],
+        match_id=match_id,
+    )
+
+
 # MATCH_SCORE_UPDATE = 47
 
 
+@bancho_handler(packets.ClientPackets.MATCH_SCORE_UPDATE)
+async def match_score_update_handler(session: "Session", packet_data: bytes):
+    presence = session["presence"]
+    match_id = presence["multiplayer_match_id"]
+    if match_id is None:
+        logger.warning(
+            "A user sent a match score frame but they are not in a match.",
+            user_id=session["account_id"],
+        )
+        return
+    
+    match = await multiplayer_matches.fetch_one(match_id)
+    if isinstance(match, ServiceError):
+        logger.warning(
+            "A user sent a match score frame but their match doesn't exist.",
+            user_id=session["account_id"],
+        )
+        return
+    
+    score_update_packet = packets.write_match_score_update_packet(packet_data)
+    await _broadcast_to_match(
+        match_id=match_id,
+        data=score_update_packet,
+        slot_flags=SlotStatus.PLAYING,
+    )
+
+
 # MATCH_COMPLETE = 49
+
+
+@bancho_handler(packets.ClientPackets.MATCH_COMPLETE)
+async def match_complete_handler(session: "Session", packet_data: bytes):
+    presence = session["presence"]
+    match_id = presence["multiplayer_match_id"]
+    if match_id is None:
+        logger.warning(
+            "A user attempted to tell us they completed but they are not in a match.",
+            user_id=session["account_id"],
+        )
+        return
+
+    slot = await multiplayer_slots.fetch_one_by_session_id(
+        match_id=match_id, session_id=session["session_id"]
+    )
+    if not slot:
+        logger.warning(
+            "A user attempted to tell us they completed but they don't have a slot.",
+            user_id=session["account_id"],
+            match_id=match_id,
+        )
+        return
+    
+    await multiplayer_slots.partial_update(
+        match_id=match_id,
+        slot_id=slot["slot_id"],
+        status=SlotStatus.WAITING_FOR_END,
+    )
+
+    all_done = await multiplayer_slots.all_completed(match_id)
+    if not all_done:
+        return
+        
+    done_packet = packets.write_match_complete_packet()
+    await _broadcast_to_match(
+        match_id=match_id,
+        data=done_packet,
+        slot_flags=SlotStatus.COMPLETE,
+    )
+
+    slots = await multiplayer_slots.fetch_all(match_id)
+    for slot in slots:
+        if slot["status"] == SlotStatus.WAITING_FOR_END:
+            await multiplayer_slots.partial_update(
+                match_id=match_id,
+                slot_id=slot["slot_id"],
+                status=SlotStatus.NOT_READY,
+            )
+
+    await _broadcast_match_updates(match_id)
+
+    logger.info(
+        "Match has completed.",
+        match_id=match_id,
+    )
 
 
 # MATCH_CHANGE_MODS = 51
@@ -1643,6 +1808,46 @@ async def match_change_mods_handler(session: "Session", packet_data: bytes):
 
 
 # MATCH_LOAD_COMPLETE = 52
+
+
+@bancho_handler(packets.ClientPackets.MATCH_LOAD_COMPLETE)
+async def match_load_complete_handler(session: "Session", packet_data: bytes):
+    presence = session["presence"]
+    match_id = presence["multiplayer_match_id"]
+    if match_id is None:
+        logger.warning(
+            "A user attempted to tell us they have loaded but they are not in a match.",
+            user_id=session["account_id"],
+        )
+        return
+
+    slot = await multiplayer_slots.fetch_one_by_session_id(
+        match_id=match_id, session_id=session["session_id"]
+    )
+    if not slot:
+        logger.warning(
+            "A user attempted to tell us they have loaded but they don't have a slot.",
+            user_id=session["account_id"],
+            match_id=match_id,
+        )
+        return
+    
+    await multiplayer_slots.partial_update(
+        match_id=match_id,
+        slot_id=slot["slot_id"],
+        loaded=True,
+    )
+
+    all_loaded = await multiplayer_slots.all_loaded(match_id)
+    if not all_loaded:
+        return
+
+    all_loaded_packet = packets.write_match_all_players_loaded_packet()
+    await _broadcast_to_match(
+        match_id=match_id,
+        data=all_loaded_packet,
+        slot_flags=SlotStatus.PLAYING,
+    )
 
 
 # MATCH_NO_BEATMAP = 54
@@ -1781,6 +1986,46 @@ async def match_has_beatmap_handler(session: "Session", packet_data: bytes):
 
 
 # MATCH_SKIP_REQUEST = 60
+
+
+@bancho_handler(packets.ClientPackets.MATCH_SKIP_REQUEST)
+async def match_skip_request(session: "Session", packet_data: bytes):
+    presence = session["presence"]
+    match_id = presence["multiplayer_match_id"]
+    if match_id is None:
+        logger.warning(
+            "A user attempted to skip but they are not in a match.",
+            user_id=session["account_id"],
+        )
+        return
+
+    slot = await multiplayer_slots.fetch_one_by_session_id(
+        match_id=match_id, session_id=session["session_id"]
+    )
+    if not slot:
+        logger.warning(
+            "A user attempted to skip but they don't have a slot.",
+            user_id=session["account_id"],
+            match_id=match_id,
+        )
+        return
+    
+    await multiplayer_slots.partial_update(
+        match_id=match_id,
+        slot_id=slot["slot_id"],
+        skipped=True,
+    )
+
+    all_skipped = await multiplayer_slots.all_skipped(match_id)
+    if not all_skipped:
+        return
+
+    skip_packet = packets.write_match_skip_packet()
+    await _broadcast_to_match(
+        match_id=match_id,
+        data=skip_packet,
+        slot_flags=SlotStatus.PLAYING,
+    )
 
 
 # CHANNEL_JOIN = 63
@@ -2132,6 +2377,61 @@ async def user_stats_request_handler(session: "Session", packet_data: bytes) -> 
 
 
 # MATCH_INVITE = 87
+
+
+@bancho_handler(packets.ClientPackets.MATCH_INVITE)
+async def match_invite_handler(session: "Session", packet_data: bytes):
+    presence = session["presence"]
+    match_id = presence["multiplayer_match_id"]
+    if not match_id:
+        logger.warning(
+            "A user attempted to invite someone to a match but isn't in a match.",
+            user_id=session["account_id"],
+        )
+        return
+    
+    match = await multiplayer_matches.fetch_one(match_id)
+    if isinstance(match, ServiceError):
+        logger.warning(
+            "A user attempted to invite someone to a match but their match doesn't exist.",
+            user_id=session["account_id"],
+        )
+        return
+    
+    reader = packets.PacketReader(packet_data)
+    target_id = reader.read_i32()
+
+    target_session = await sessions.fetch_by_account_id(target_id)
+    if not target_session:
+        logger.warning(
+            "A user attempted to invite someone to a match who is offline.",
+            user_id=session["account_id"],
+        )
+        return
+    
+    invite_msg = (
+        "Come join my multiplayer match!\n"
+        f"[osump://{match_id}/{match['match_password']} {match['match_name']}]"
+    )
+
+    invite_msg_packet = packets.write_send_message_packet(
+        sender_name=presence["username"],
+        message_content=invite_msg,
+        recipient_name=target_session["presence"]["username"],
+        sender_id=session["account_id"]
+    )
+
+    await packet_bundles.enqueue(
+        session_id=target_session["session_id"],
+        data=invite_msg_packet,
+    )
+
+    logger.info(
+        "User has invited another user to a match.",
+        user_id=session["account_id"],
+        target_user_id=target_session["account_id"],
+        match_id=match_id,
+    )
 
 
 # MATCH_CHANGE_PASSWORD = 90
