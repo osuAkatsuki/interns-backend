@@ -228,7 +228,9 @@ async def fetch_many(
 
     query = f"""\
         WITH selected_scores AS (
-            SELECT DISTINCT ON (account_id) {READ_PARAMS}
+            SELECT
+            {READ_PARAMS},
+            ROW_NUMBER() OVER (PARTITION BY account_id ORDER BY {sort_by} DESC) as row_num
             FROM scores
             WHERE beatmap_md5 = COALESCE(:beatmap_md5, beatmap_md5)
             AND account_id = COALESCE(:account_id, account_id)
@@ -257,9 +259,6 @@ async def fetch_many(
             AND account_id = ANY(:friends)
         """
         values["friends"] = friends
-    query += f"""\
-        ORDER BY account_id, {sort_by} DESC
-    """
     if page is not None and page_size is not None:
         query += f"""\
             LIMIT :page_size
@@ -270,7 +269,8 @@ async def fetch_many(
 
     query += f"""\
         )
-        SELECT * FROM selected_scores
+        SELECT {READ_PARAMS} FROM selected_scores
+        WHERE row_num = 1
         ORDER BY {sort_by} DESC
     """
     scores = await clients.database.fetch_all(query, values)
