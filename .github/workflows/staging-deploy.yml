@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - INTRN-216-staging-deploy-performance
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
