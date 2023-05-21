@@ -1,2 +1,2 @@
 ALTER TABLE accounts
-ADD silence_end TIMESTAMPTZ DEFAULT NOW() NULL;
+ADD silence_end TIMESTAMPTZ NULL;
