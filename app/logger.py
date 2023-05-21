@@ -85,13 +85,13 @@ def configure_logging(app_env: str, log_level: str | int) -> None:
     _ROOT_LOGGER.setLevel(log_level)
 
     # defer logging control of all loggers to our root logger
-    # for name in stdlib_logging.root.manager.loggerDict:
-    #     logger = stdlib_logging.getLogger(name)
+    for name in stdlib_logging.root.manager.loggerDict:
+        logger = stdlib_logging.getLogger(name)
 
-    #     logger.propagate = True
-    #     logger.setLevel(log_level)
-    #     for logger_handler in logger.handlers:
-    #         logger.removeHandler(logger_handler)
+        logger.propagate = True
+        logger.setLevel(log_level)
+        for logger_handler in logger.handlers:
+            logger.removeHandler(logger_handler)
 
 
 def debug(*args, **kwargs) -> None:
