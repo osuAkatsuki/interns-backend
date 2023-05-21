@@ -1473,6 +1473,28 @@ async def match_change_settings_handler(session: "Session", packet_data: bytes):
         match["mods"],
     )
 
+    slots = await multiplayer_slots.fetch_all(match_id)
+    need_slot_updates = False
+    # if we switch to a versus mode, split all players into teams
+    if (
+        osu_match_data["team_type"] != match["team_type"] and
+        osu_match_data["team_type"] in (MatchTeamTypes.TEAM_VS, MatchTeamTypes.TAG_TEAM_VS)
+    ):
+        need_slot_updates = True
+        i = 0
+        for slot in slots:
+            if slot["account_id"] == -1:
+                continue
+
+            if i & 1:
+                slot["team"] = MatchTeams.BLUE
+            else:
+                slot["team"] = MatchTeams.RED
+
+            i += 1
+
+    # if freemod is activated the match mods are transferred to the slots
+    # if freemod is disabled the mods will clear
     if osu_match_data["freemods_enabled"] != match["freemods_enabled"]:
         # copy bancho's behaviour
         if osu_match_data["freemods_enabled"]:
@@ -1481,13 +1503,18 @@ async def match_change_settings_handler(session: "Session", packet_data: bytes):
         else:
             mods = Mods.NOMOD
 
-        slots = await multiplayer_slots.fetch_all(match_id)
+        need_slot_updates = True
+        for slot in slots:
+            if slot["account_id"] != -1:
+                slot["mods"] = mods
+
+    # update slots if needed
+    if need_slot_updates:
         for slot in slots:
             if slot["account_id"] != -1:
                 await multiplayer_slots.partial_update(
                     match_id=match_id,
-                    slot_id=slot["slot_id"],
-                    mods=mods,
+                    **slot,
                 )
 
     match_params = {
