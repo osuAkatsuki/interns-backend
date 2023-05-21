@@ -22,6 +22,7 @@ from app.repositories import spectators
 from app.repositories import stats
 from app.repositories.multiplayer_matches import MatchStatus
 from app.repositories.multiplayer_matches import MatchTeams
+from app.repositories.multiplayer_matches import MatchTeamTypes
 from app.repositories.multiplayer_slots import SlotStatus
 from app.repositories.scores import Mods
 from app.repositories.sessions import Action
@@ -1915,6 +1916,67 @@ async def friend_remove_handler(session: "Session", packet_data: bytes):
 
 
 # MATCH_CHANGE_TEAM = 77
+
+
+@bancho_handler(packets.ClientPackets.MATCH_CHANGE_TEAM)
+async def match_change_team_handler(session: "Session", packet_data: bytes):
+    presence = session["presence"]
+    match_id = presence["multiplayer_match_id"]
+    if not match_id:
+        logger.warning(
+            "A user attempted to change teams but isn't in a match.",
+            user_id=session["account_id"],
+        )
+        return
+
+    match = await multiplayer_matches.fetch_one(match_id)
+    if isinstance(match, ServiceError):
+        logger.warning(
+            "A user attempted to change teams but their match doesn't exist.",
+            user_id=session["account_id"],
+        )
+        return
+    
+    if match["team_type"] < MatchTeamTypes.TEAM_VS:
+        logger.warning(
+            "A user attempted to change teams but the match is not in versus mode.",
+            user_id=session["account_id"],
+            match_id=match_id,
+            match_team_type=match["team_type"],
+        )
+        return
+    
+    slot = await multiplayer_slots.fetch_one_by_session_id(
+        match_id=match_id,
+        session_id=session["session_id"]
+    )
+    if not slot:
+        logger.warning(
+            "A user attempted to change teams but their slot doesn't exist.",
+            user_id=session["account_id"],
+            match_id=match_id,
+        )
+        return
+    
+    if slot["team"] == MatchTeams.BLUE:
+        new_team = MatchTeams.RED
+    else:
+        new_team = MatchTeams.BLUE
+
+    await multiplayer_slots.partial_update(
+        match_id=match_id,
+        slot_id=slot["slot_id"],
+        team=new_team,
+    )
+
+    await _broadcast_match_updates(match_id)
+
+    logger.info(
+        "User changed match teams.",
+        user_id=session["account_id"],
+        match_id=match_id,
+        slot_team=new_team,
+    )
 
 
 # CHANNEL_PART = 78
