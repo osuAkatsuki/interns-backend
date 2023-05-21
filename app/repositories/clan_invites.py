@@ -81,3 +81,18 @@ async def fetch_many(
     clan_invites = await clients.database.fetch_all(query, values)
 
     return [cast(ClanInvite, clan_invite) for clan_invite in clan_invites]
+
+
+async def fetch_one(clan_invite_id: UUID) -> ClanInvite | None:
+    clan_invite = await clients.database.fetch_one(
+        query=f"""\
+            SELECT {READ_PARAMS}
+            FROM clan_invites
+            WHERE clan_invite_id = :clan_invite_id
+        """,
+        values={
+            "clan_invite_id": clan_invite_id,
+        },
+    )
+
+    return cast(ClanInvite, clan_invite) if clan_invite is not None else None
