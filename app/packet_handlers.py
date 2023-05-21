@@ -1568,13 +1568,15 @@ async def match_start_handler(session: "Session", packet_data: bytes):
     assert not isinstance(match, ServiceError)
 
     slots = await multiplayer_slots.fetch_all(match_id)
-    for slot in slots:
+    for i, slot in enumerate(slots):
         if slot["status"] & SlotStatus.CAN_START:
-            await multiplayer_slots.partial_update(
+            new_slot = await multiplayer_slots.partial_update(
                 match_id=match_id,
                 slot_id=slot["slot_id"],
                 status=SlotStatus.PLAYING,
             )
+            assert new_slot
+            slots[i] = new_slot
     
     vanilla_game_mode = game_modes.for_client(match["game_mode"])
 
