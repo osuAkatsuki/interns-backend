@@ -133,7 +133,8 @@ def configure_logging(app_env: str, log_level: str | int) -> None:
         stdlib_logging.getLogger(_logger).handlers.clear()
         stdlib_logging.getLogger(_logger).propagate = True
 
-    # effectively disable uvicorn.access; we will recreate this via middleware
+    # effectively disable uvicorn.access
+    # TODO: recreate access logs using middleware
     stdlib_logging.getLogger("uvicorn.access").handlers.clear()
     stdlib_logging.getLogger("uvicorn.access").propagate = False
 
