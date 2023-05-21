@@ -304,6 +304,19 @@ def calculate_accuracy(
     return accuracy
 
 
+class ScoreSubmissionErrors:
+    HANDLE_PASSWORD_RESET = "reset"
+    REQUIRE_VERIFICATION = "verify"
+    NO_SUCH_USER = "nouser"
+    NEEDS_AUTHENTICATION = "pass"
+    ACCOUNT_INACTIVE = "inactive"
+    ACCOUNT_BANNED = "ban"
+    BEATMAP_UNRANKED = "beatmap"
+    MODE_OR_MODS_DISABLED = "disabled"
+    OLD_OSU_VERSION = "oldver"
+    NO = "no"
+
+
 @osu_web_router.post("/web/osu-submit-modular-selector.php")
 async def submit_score_handler(
     request: Request,
@@ -367,24 +380,24 @@ async def submit_score_handler(
     account = await accounts.fetch_by_username(username)
     if account is None:
         logger.warning(f"Account {username} not found")
-        return
+        return f"error: {ScoreSubmissionErrors.NEEDS_AUTHENTICATION}"
 
     session = await sessions.fetch_by_username(username)
     if session is None:
         logger.warning(f"Session for {username} not found")
-        return
+        return f"error: {ScoreSubmissionErrors.NEEDS_AUTHENTICATION}"
 
     if not security.check_password(
         password=password_md5,
         hashword=account["password"].encode(),
     ):
         logger.warning(f"Invalid password for {username}")
-        return
+        return f"error: {ScoreSubmissionErrors.NEEDS_AUTHENTICATION}"
 
     beatmap = await beatmaps.fetch_one(beatmap_md5=beatmap_md5)
     if isinstance(beatmap, ServiceError):
         logger.warning("Beatmap not found", beatmap_md5=beatmap_md5)
-        return
+        return f"error: {ScoreSubmissionErrors.BEATMAP_UNRANKED}"
 
     # TODO: handle differently depending on beatmap ranked status
 
@@ -413,7 +426,7 @@ async def submit_score_handler(
         )
         if osu_file_contents is None:
             logger.error("Failed to download file from the osu! api")
-            return
+            return f"error: {ScoreSubmissionErrors.BEATMAP_UNRANKED}"
 
         try:
             await s3.upload(
@@ -423,11 +436,11 @@ async def submit_score_handler(
             )
         except Exception as exc:
             logger.error("Failed to upload file to S3", exc_info=exc)
-            return
+            return f"error: {ScoreSubmissionErrors.BEATMAP_UNRANKED}"
 
     if osu_file_contents is None:
         logger.warning("Beatmap file for not found", beatmap_md5=beatmap_md5)
-        return
+        return f"error: {ScoreSubmissionErrors.BEATMAP_UNRANKED}"
 
     # calculate beatmap difficulty and score performance
     performance_attrs = performance.calculate_performance(
