@@ -25,11 +25,20 @@ jobs:
     - name: Log-in to digitalocean container registry
       run: doctl registry login --expiry-seconds 600
 
-    - name: Build container image
-      run: docker build -t registry.digitalocean.com/akatsuki/interns-backend:latest .
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v2
 
-    - name: Push image to digitalocean container registry
-      run: docker push registry.digitalocean.com/akatsuki/interns-backend:latest
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Build and push
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        push: true
+        tags: registry.digitalocean.com/akatsuki/interns-backend:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
 
     - name: Save kubeconfig from digitalocean
       run: doctl k8s cluster kubeconfig save --expiry-seconds 600 akatsuki-staging
