@@ -1824,6 +1824,7 @@ async def user_joins_channel_handler(session: "Session", packet_data: bytes):
 
 
 # BEATMAP_INFO_REQUEST = 68
+# NOTE: this is deprecated and not used lol
 
 
 # MATCH_TRANSFER_HOST = 70
