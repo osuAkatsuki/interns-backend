@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - INTRN-42-teaming
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
