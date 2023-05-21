@@ -21,6 +21,7 @@ from app import game_modes
 from app import logger
 from app import packets
 from app import performance
+from app import ranked_statuses
 from app import ranking
 from app import security
 from app.adapters import mino
@@ -140,7 +141,12 @@ async def format_leaderboard_response(
     return buffer.encode()
 
 
-from app import ranked_statuses
+class LeaderboardType:
+    Local = 0
+    Global = 1
+    Mods = 2
+    Friends = 3
+    Country = 4
 
 
 # GET /web/osu-osz2-getscores.php
@@ -176,6 +182,13 @@ async def get_scores_handler(
     # TODO: fix the responses in the case of an error
     account = await accounts.fetch_by_username(username)
     if account is None:
+        return
+
+    # check that password is correct
+    if not security.check_password(
+        password=password_md5,
+        hashword=account["password"].encode(),
+    ):
         return
 
     session = await sessions.fetch_by_username(username)
@@ -215,12 +228,7 @@ async def get_scores_handler(
                 ),
             )
 
-    if not security.check_password(
-        password=password_md5,
-        hashword=account["password"].encode(),
-    ):
-        return
-
+    # fetch the beatmap with this md5
     beatmap = await beatmaps.fetch_one(beatmap_md5=beatmap_md5)
     if isinstance(beatmap, ServiceError):
         if beatmap is ServiceError.BEATMAPS_NOT_FOUND:
@@ -234,29 +242,40 @@ async def get_scores_handler(
         )
         return
 
-    # TODO: leaderboard type handling
+    # create filter parameters for score fetching
+    # based on the leaderboard type
+    filter_params = {
+        "beatmap_md5": beatmap_md5,
+        "game_mode": game_mode,
+        "submission_status": 2,
+        "sort_by": "performance_points",  # TODO: score for certain gamemodes?
+    }
 
-    leaderboard_scores = await scores.fetch_many(
-        beatmap_md5=beatmap_md5,
-        submission_status=2,  # TODO?
-        game_mode=game_mode,
-        sort_by="performance_points",  # TODO: score for certain gamemodes?
-        page_size=50,
-    )
+    if leaderboard_type == LeaderboardType.Mods:
+        filter_params["mods"] = mods
 
-    personal_best_scores = await scores.fetch_many(
-        account_id=account["account_id"],
-        beatmap_md5=beatmap_md5,
-        submission_status=2,  # TODO?
-        game_mode=game_mode,
-        sort_by="performance_points",  # TODO: score for certain gamemodes?
-        page_size=1,
-    )
-    if personal_best_scores:
-        personal_best_score = personal_best_scores[0]
-    else:
-        personal_best_score = None
+    elif leaderboard_type == LeaderboardType.Country:
+        filter_params["country"] = account["country"]
 
+    elif leaderboard_type == LeaderboardType.Friends:
+        friends = await relationships.fetch_all(
+            account_id=account["account_id"],
+            relationship="friend",
+        )
+        filter_params["friends"] = [friend["account_id"] for friend in friends]
+
+    # fetch our top 50 scores for the leaderboard
+    leaderboard_scores = await scores.fetch_many(**filter_params, page_size=50)
+
+    # fetch our personal best score for the beatmap
+    filter_params |= {
+        "account_id": account["account_id"],  # we want our best
+        "country": None,  # we want our global best
+    }
+    personal_best_scores = await scores.fetch_many(**filter_params, page_size=1)
+    personal_best_score = personal_best_scores[0] if personal_best_scores else None
+
+    # construct and send the leaderboard response
     response = await format_leaderboard_response(
         leaderboard_scores,
         personal_best_score,
