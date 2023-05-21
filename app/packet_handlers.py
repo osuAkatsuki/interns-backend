@@ -149,13 +149,11 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
         channel_name = f"#mp_{multiplayer_match_id}"
 
     elif recipient_name == "#spectator":
-        spectator_host_session_id = session["presence"]["spectator_host_session_id"]
-        if spectator_host_session_id is None:
-            logger.warning(
-                "User tried to send a message in #spectator without spectating anyone",
-                account_id=session["account_id"],
-            )
-            return
+        # we may be spectating someone, or may be the host of spectators
+        if own_presence["spectator_host_session_id"] is not None:
+            spectator_host_session_id = own_presence["spectator_host_session_id"]
+        else:
+            spectator_host_session_id = session["session_id"]
 
         channel_name = f"#spec_{spectator_host_session_id}"
 
