@@ -657,12 +657,6 @@ async def submit_score_handler(
 
         new_achievements.append(new_achievement)
 
-    # TODO: send achievements unlocked to client
-
-    # TODO: construct score submission charts
-
-    response_data = bytearray()
-
     # build beatmap ranking chart values
     beatmap_rank_before = 0  # TODO
     beatmap_rank_after = 0  # TODO
@@ -701,6 +695,10 @@ async def submit_score_handler(
     overall_pp_before = previous_gamemode_stats["performance_points"]
     overall_pp_after = gamemode_stats["performance_points"]
 
+    # construct response data
+    response_data = bytearray()
+
+    # add overall and beatmap ranking charts to response data
     response_data += (
         f"beatmapId:{beatmap['beatmap_id']}|"
         f"beatmapSetId:{beatmap['beatmap_set_id']}|"
@@ -742,6 +740,7 @@ async def submit_score_handler(
         f"ppAfter:{overall_pp_after}|"
     ).encode()
 
+    # add newly unlocked achievements to response data
     achievements_string = "/".join(map(achievements.to_string, new_achievements))
     response_data += f"achievements-new:{achievements_string}".encode()
 
