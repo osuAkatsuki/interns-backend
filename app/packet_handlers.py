@@ -411,7 +411,7 @@ async def start_spectating_handler(session: "Session", packet_data: bytes):
             await packet_bundles.enqueue(
                 session_id,
                 packets.write_channel_info_packet(
-                    spectator_channel["name"],
+                    "#spectator",
                     spectator_channel["topic"],
                     len(current_channel_members),
                 ),
