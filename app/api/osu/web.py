@@ -628,7 +628,7 @@ async def submit_score_handler(
     own_achievements = await user_achievements.fetch_many(
         account_id=account["account_id"]
     )
-    own_achievement_ids = [a["achievement_id"] for a in own_achievements]
+    own_achievement_ids = [ach["achievement_id"] for ach in own_achievements]
 
     new_achievements = []
     for achievement in await achievements.fetch_many():
