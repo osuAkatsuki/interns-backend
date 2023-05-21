@@ -572,6 +572,7 @@ async def submit_score_handler(
     # we will use this to construct overall ranking charts for the client
     previous_gamemode_stats = copy.deepcopy(gamemode_stats)
 
+    # update this gamemode's stats with our new score submission
     gamemode_stats = await stats.partial_update(
         account["account_id"],
         game_mode=game_mode,
