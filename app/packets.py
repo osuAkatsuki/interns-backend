@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from enum import Enum
 from enum import IntEnum
 from typing import Any
+from typing import NotRequired
 from typing import TypedDict
 
 # packets are comprised of 3 parts:
@@ -184,6 +185,56 @@ class OsuMatch(TypedDict):
     random_seed: int
 
 
+class OsuScoreFrame(TypedDict):
+    time: int
+    id: int
+    num300: int
+    num100: int
+    num50: int
+    num_geki: int
+    num_katu: int
+    num_miss: int
+    total_score: int
+    current_combo: int
+    max_combo: int
+    perfect: bool
+    current_hp: int
+    tag_byte: int
+    score_v2: bool
+
+    # only required for scorev2
+    combo_portion: NotRequired[float]
+    bonus_portion: NotRequired[float]
+
+
+class OsuReplayFrame(TypedDict):
+    button_state: int
+    taiko_byte: int  # pre-taiko support (<=2008)
+    x: float
+    y: float
+    time: int
+
+
+class ReplayAction:
+    STANDARD = 0
+    NEW_SONG = 1
+    SKIP = 2
+    COMPLETION = 3
+    FAIL = 4
+    PAUSE = 5
+    UNPAUSE = 6
+    SONG_SELECT = 7
+    WATCHING_OTHER = 8
+
+
+class OsuReplayFrameBundle(TypedDict):
+    replay_frames: list[OsuReplayFrame]
+    score_frame: OsuScoreFrame
+    replay_action: int  # ReplayAction
+    extra: int
+    sequence_number: int
+
+
 class PacketReader:
     def __init__(self, data: bytes) -> None:
         self.data_view = memoryview(data)
@@ -318,6 +369,57 @@ class PacketReader:
             "freemods_enabled": freemods_enabled,
             "per_slot_mods": per_slot_mods,
             "random_seed": random_seed,
+        }
+
+    def read_osu_score_frame(self) -> OsuScoreFrame:
+        rec: OsuScoreFrame = {
+            "time": self.read_i32(),
+            "id": self.read_u8(),
+            "num300": self.read_u16(),
+            "num100": self.read_u16(),
+            "num50": self.read_u16(),
+            "num_geki": self.read_u16(),
+            "num_katu": self.read_u16(),
+            "num_miss": self.read_u16(),
+            "total_score": self.read_i32(),
+            "current_combo": self.read_u16(),
+            "max_combo": self.read_u16(),
+            "perfect": self.read_u8() == 1,
+            "current_hp": self.read_u8(),
+            "tag_byte": self.read_u8(),
+            "score_v2": self.read_u8() == 1,
+        }
+        if rec["score_v2"]:
+            rec["combo_portion"] = self.read_f64()
+            rec["bonus_portion"] = self.read_f64()
+
+        return rec
+
+    def read_osu_replay_frame(self) -> OsuReplayFrame:
+        return {
+            "button_state": self.read_u8(),
+            "taiko_byte": self.read_u8(),  # pre-taiko support (<=2008)
+            "x": self.read_f32(),
+            "y": self.read_f32(),
+            "time": self.read_i32(),
+        }
+
+    def read_replay_frame_bundle(self) -> OsuReplayFrameBundle:
+        extra = self.read_i32()  # bancho proto >= 18
+        replay_frame_count = self.read_u16()
+        replay_frames = [
+            self.read_osu_replay_frame() for _ in range(replay_frame_count)
+        ]
+        replay_action = self.read_u8()
+        score_frame = self.read_osu_score_frame()
+        sequence_number = self.read_u16()
+
+        return {
+            "replay_frames": replay_frames,
+            "score_frame": score_frame,
+            "replay_action": replay_action,
+            "extra": extra,
+            "sequence_number": sequence_number,
         }
 
 
@@ -1053,6 +1155,13 @@ def write_protocol_version_packet(version: int) -> bytes:
 
 
 # MATCH_PLAYER_SKIPPED = 81
+
+
+def write_match_player_skipped_packet(slot_id: int) -> bytes:
+    return write_packet(
+        packet_id=ServerPackets.MATCH_PLAYER_SKIPPED,
+        packet_data_inputs=[(DataType.I32, slot_id)],
+    )
 
 
 def write_match_player_skipped_packet(slot_id: int) -> bytes:
