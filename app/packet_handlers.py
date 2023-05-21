@@ -1943,6 +1943,36 @@ async def match_not_ready_handler(session: "Session", packet_data: bytes):
 # MATCH_FAILED = 56
 
 
+@bancho_handler(packets.ClientPackets.MATCH_FAILED)
+async def match_failed_handler(session: "Session", packet_data: bytes):
+    presence = session["presence"]
+    match_id = presence["multiplayer_match_id"]
+    if match_id is None:
+        logger.warning(
+            "A user attempted to fail in a match but they are not in a match.",
+            user_id=session["account_id"],
+        )
+        return
+
+    slot = await multiplayer_slots.fetch_one_by_session_id(
+        match_id=match_id,
+        session_id=session["session_id"],
+    )
+    if not slot:
+        logger.warning(
+            "A user attempted to fail in a match but they don't have a slot.",
+            user_id=session["account_id"],
+        )
+        return
+    
+    player_failed_packet = packets.write_match_player_failed_packet(slot["slot_id"])
+    await _broadcast_to_match(
+        match_id=match_id,
+        data=player_failed_packet,
+        slot_flags=SlotStatus.PLAYING,
+    )
+
+
 # MATCH_HAS_BEATMAP = 59
 
 
