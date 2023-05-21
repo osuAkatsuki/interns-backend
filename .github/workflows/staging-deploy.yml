@@ -39,7 +39,7 @@ jobs:
         push: true
         tags: registry.digitalocean.com/akatsuki/interns-backend:latest
         cache-from: type=gha
-        cache-to: type-sha,mode=max
+        cache-to: type=gha,mode=max
 
     - name: Save kubeconfig from digitalocean
       run: doctl k8s cluster kubeconfig save --expiry-seconds 600 akatsuki-staging
