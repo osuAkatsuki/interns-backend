@@ -677,7 +677,7 @@ async def submit_score_handler(
     )
     own_achievement_ids = [ach["achievement_id"] for ach in own_achievements]
 
-    new_achievements = []
+    new_achievements: list[achievements.Achievement] = []
     for achievement in await achievements.fetch_many():
         # user may have already unlocked this achievement
         if achievement["achievement_id"] in own_achievement_ids:
@@ -701,12 +701,12 @@ async def submit_score_handler(
         if not unlocked:
             continue
 
-        new_achievement = await user_achievements.create(
+        await user_achievements.create(
             achievement["achievement_id"],
             account["account_id"],
         )
 
-        new_achievements.append(new_achievement)
+        new_achievements.append(achievement)
 
     # build beatmap ranking chart values
     if previous_best_score:

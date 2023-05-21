@@ -36,7 +36,7 @@ async def create(
 ) -> Achievement:
     achievement = await clients.database.fetch_one(
         query=f"""
-            INSERT INTO achievements (achievement_id, file_name,achievement_name,achievement_description)
+            INSERT INTO achievements (achievement_id, file_name, achievement_name, achievement_description)
             VALUES (:achievement_id, :file_name, :achievement_name, :achievement_description)
             RETURNING {READ_PARAMS}
         """,
