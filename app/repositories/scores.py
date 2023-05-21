@@ -257,6 +257,11 @@ async def fetch_many(
                 AND account_id = ANY(:friends)
         """
         values["friends"] = friends
+
+    query += f"""\
+            ORDER BY account_id, {sort_by} DESC
+    """
+
     if page is not None and page_size is not None:
         query += f"""\
                 LIMIT :page_size
