@@ -1055,6 +1055,13 @@ def write_protocol_version_packet(version: int) -> bytes:
 # MATCH_PLAYER_SKIPPED = 81
 
 
+def write_match_player_skipped_packet(slot_id: int) -> bytes:
+    return write_packet(
+        packet_id=ServerPackets.MATCH_PLAYER_SKIPPED,
+        packet_data_inputs=[(DataType.I32, slot_id)],
+    )
+
+
 # USER_PRESENCE = 83
 
 

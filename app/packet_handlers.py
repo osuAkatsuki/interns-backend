@@ -2062,11 +2062,12 @@ async def match_skip_request(session: "Session", packet_data: bytes):
         skipped=True,
     )
 
-    all_skipped = await multiplayer_slots.all_skipped(match_id)
-    if not all_skipped:
-        return
+    skip_packet = packets.write_match_player_skipped_packet(slot["slot_id"])
 
-    skip_packet = packets.write_match_skip_packet()
+    all_skipped = await multiplayer_slots.all_skipped(match_id)
+    if all_skipped:
+        skip_packet += packets.write_match_skip_packet()
+
     await _broadcast_to_match(
         match_id=match_id,
         data=skip_packet,
