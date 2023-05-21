@@ -228,9 +228,7 @@ async def fetch_many(
 
     query = f"""\
         WITH selected_scores AS (
-            SELECT
-            {READ_PARAMS},
-            ROW_NUMBER() OVER (PARTITION BY account_id ORDER BY {sort_by} DESC) as row_num
+            SELECT DISTINCT ON (account_id) {READ_PARAMS}
             FROM scores
             WHERE beatmap_md5 = COALESCE(:beatmap_md5, beatmap_md5)
             AND account_id = COALESCE(:account_id, account_id)
@@ -270,7 +268,6 @@ async def fetch_many(
     query += f"""\
         )
         SELECT {READ_PARAMS} FROM selected_scores
-        WHERE row_num = 1
         ORDER BY {sort_by} DESC
     """
     scores = await clients.database.fetch_all(query, values)
