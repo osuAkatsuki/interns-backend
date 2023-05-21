@@ -662,7 +662,7 @@ async def _broadcast_to_lobby(data: bytes):
     ):
         await packet_bundles.enqueue(
             session_id,
-            data
+            data,
         )
 
 
