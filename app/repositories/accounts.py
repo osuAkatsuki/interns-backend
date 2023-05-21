@@ -11,9 +11,9 @@ READ_PARAMS = """
     privileges,
     password,
     country,
+    silence_end
     created_at,
     updated_at,
-    silence_end
 """
 
 
@@ -24,9 +24,9 @@ class Account(TypedDict):
     privileges: int
     password: str
     country: str
+    silence_end: datetime | None
     created_at: datetime
     updated_at: datetime
-    silence_end: datetime | None
 
 
 async def create(
@@ -125,6 +125,7 @@ async def partial_update(
     privileges: int | None,
     password: str | None,
     country: str | None,
+    silence_end: datetime | None = None,
 ) -> Account | None:
     account = await clients.database.fetch_one(
         query=f"""\
@@ -133,7 +134,8 @@ async def partial_update(
             email_address = COALESCE(:email_address, email_address),
             privileges = COALESCE(:privileges, privileges),
             password = COALESCE(:password, password),
-            country = COALESCE(:country, country)
+            country = COALESCE(:country, country),
+            silence_end = COALESCE(:silence_end, silence_end)
             WHERE account_id = :account_id
         """,
         values={
@@ -143,6 +145,7 @@ async def partial_update(
             "privileges": privileges,
             "password": password,
             "country": country,
+            "silence_end": silence_end,
         },
     )
 
