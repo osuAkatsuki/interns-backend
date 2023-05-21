@@ -611,7 +611,11 @@ def write_packet(
         elif type == DataType.STRING:
             packet_body += write_string(value)
         elif type == DataType.OSU_MATCH:
-            packet_body += write_osu_match(**value)
+            packet_body += write_osu_match(*value)
+        elif type == DataType.OSU_SCOREFRAME:
+            packet_body += write_osu_score_frame(value)
+        elif type == DataType.OSU_REPLAY_FRAME_BUNDLE:
+            packet_body += write_replay_frame_bundle(value)
         elif type == DataType.RAW_DATA:
             packet_body += value
         else:

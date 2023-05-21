@@ -533,10 +533,15 @@ async def spectate_frames_handler(session: "Session", packet_data: bytes):
     if not own_presence["privileges"] & ServerPrivileges.UNRESTRICTED:
         return
 
+    packet_reader = packets.PacketReader(packet_data)
+    replay_frame_bundle = packet_reader.read_replay_frame_bundle()
+
+    # TODO: make assertions on replay_frame_bundle
+
     for spectator_session_id in await spectators.members(session["session_id"]):
         await packet_bundles.enqueue(
             spectator_session_id,
-            packets.write_spectate_frames_packet(packet_data),
+            packets.write_spectate_frames_packet(replay_frame_bundle),
         )
 
 
