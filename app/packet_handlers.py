@@ -264,7 +264,7 @@ async def logout_handler(session: "Session", packet_data: bytes) -> None:
     # TODO: channels
 
     # tell everyone else we logged out
-    if not own_presence["privileges"] & ServerPrivileges.UNRESTRICTED:
+    if own_presence["privileges"] & ServerPrivileges.UNRESTRICTED:
         logout_packet_data = packets.write_logout_packet(session["account_id"])
         for other_session in await sessions.fetch_all():
             await packet_bundles.enqueue(
