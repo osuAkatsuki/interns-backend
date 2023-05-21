@@ -2124,6 +2124,49 @@ async def user_stats_request_handler(session: "Session", packet_data: bytes) -> 
 # MATCH_CHANGE_PASSWORD = 90
 
 
+@bancho_handler(packets.ClientPackets.MATCH_CHANGE_PASSWORD)
+async def match_change_password_handler(session: "Session", packet_data: bytes):
+    presence = session["presence"]
+    match_id = presence["multiplayer_match_id"]
+    if not match_id:
+        logger.warning(
+            "A user attempted to change the match password but isn't in a match.",
+            user_id=session["account_id"],
+        )
+        return
+    
+    match = await multiplayer_matches.fetch_one(match_id)
+    if isinstance(match, ServiceError):
+        logger.warning(
+            "A user attempted to change the match password but their match doesn't exist.",
+            user_id=session["account_id"],
+        )
+        return
+    
+    if match["host_account_id"] != session["account_id"]:
+        logger.warning(
+            "A user attempted to change the match password but they aren't the host.",
+            user_id=session["account_id"],
+            match_id=match_id,
+            match_host=match["host_account_id"],
+        )
+        return
+
+    reader = packets.PacketReader(packet_data)
+    osu_match_data = reader.read_osu_match()
+
+    await multiplayer_matches.partial_update(
+        match_id=match_id,
+        match_password=osu_match_data["match_password"],
+    )
+
+    logger.info(
+        "User updated the match password.",
+        user_id=session["account_id"],
+        match_id=match_id,
+    )
+
+
 # TOURNAMENT_MATCH_INFO_REQUEST = 93
 
 
