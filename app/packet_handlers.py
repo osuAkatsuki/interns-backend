@@ -1509,6 +1509,110 @@ async def match_change_settings_handler(session: "Session", packet_data: bytes):
 # MATCH_CHANGE_MODS = 51
 
 
+@bancho_handler(packets.ClientPackets.MATCH_CHANGE_MODS)
+async def match_change_mods_handler(session: "Session", packet_data: bytes):
+    presence = session["presence"]
+    match_id = presence["multiplayer_match_id"]
+    if not match_id:
+        logger.warning(
+            "A user attempted to change mods but they aren't in a match.",
+            user_id=session["account_id"],
+        )
+        return
+
+    match = await multiplayer_matches.fetch_one(match_id)
+    if isinstance(match, ServiceError):
+        logger.warning(
+            "A user attempted to change mods but their match doesn't exist.",
+            user_id=session["account_id"],
+        )
+        return
+
+    is_host = (match["host_account_id"] == session["account_id"])
+
+    reader = packets.PacketReader(packet_data)
+    mods = reader.read_i32()
+
+    clientside_mode = game_modes.for_client(match["game_mode"])
+    serverside_mode = game_modes.for_server(
+        clientside_mode,
+        mods,
+    )
+
+    if match["freemods_enabled"]:
+        # apply the speed changing mods to the match
+        if (
+            is_host and
+            (speed_changing_mods := mods & Mods.SPEED_CHANGING)
+        ):
+            await multiplayer_matches.partial_update(match_id, mods=speed_changing_mods)
+
+        # and apply the non-speed changing mods to the slot
+        speedless_mods = mods & (~Mods.SPEED_CHANGING)
+
+        slot = await multiplayer_slots.fetch_one_by_session_id(
+            match_id=match_id, session_id=session["session_id"]
+        )
+        if not slot:
+            logger.warning(
+                "A user attempted to change mods but their slot doesn't exist.",
+                user_id=session["account_id"],
+                match_id=match_id,
+            )
+            return
+
+        await multiplayer_slots.partial_update(
+            match_id=match_id,
+            slot_id=slot["slot_id"],
+            mods=speedless_mods,
+        )
+
+        # set the sessions game mode if needed
+        if presence["game_mode"] != serverside_mode:
+            await sessions.partial_update(
+                session_id=session["session_id"],
+                presence={
+                    "game_mode": serverside_mode,
+                    "mods": mods,
+                },
+            )
+    elif is_host:
+        # set all sessions game mode if needed
+        if match["game_mode"] != serverside_mode:
+            slots = await multiplayer_slots.fetch_all(match_id)
+            for slot in slots:
+                if slot["account_id"] != -1:
+                    await sessions.partial_update(
+                        session_id=slot["session_id"],
+                        presence={
+                            "game_mode": serverside_mode,
+                            "mods": mods,
+                        },
+                    )
+
+        await multiplayer_matches.partial_update(
+            match_id=match_id,
+            game_mode=serverside_mode,
+            mods=mods
+        )
+    else:
+        logger.warning(
+            "A user attempted to change the match mods but they aren't allowed to.",
+            user_id=session["account_id"],
+            match_id=match_id,
+        )
+        return
+    
+    await _broadcast_match_updates(match_id)
+
+    logger.info(
+        "User changed match mods.",
+        user_id=session["account_id"],
+        match_id=match_id,
+        mods=mods,
+    )
+
+
 # MATCH_LOAD_COMPLETE = 52
 
 
