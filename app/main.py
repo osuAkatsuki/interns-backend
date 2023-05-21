@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-from fastapi import FastAPI
-
 from app import lifecycle
 from app import logger
 from app import settings
 from app.api.osu.bancho import bancho_router
 from app.api.osu.web import osu_web_router
 from app.api.rest import rest_api_router
+from app.fastapi_utils import FastAPI
 
 logger.configure_logging(
     app_env=settings.APP_ENV,
@@ -14,10 +13,6 @@ logger.configure_logging(
 )
 
 app = FastAPI()
-
-# XXX: app.host is directly from starlette, and is not fully supported
-# by the fastapi wrapper; for example, it cannot be found in the docs.
-# we will probably want to try finding a better solution for this.
 
 app.host("osu.cmyui.xyz", osu_web_router)
 
