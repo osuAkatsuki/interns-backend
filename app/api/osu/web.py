@@ -473,6 +473,7 @@ async def submit_score_handler(
     if passed:
         previous_bests = await scores.fetch_many(
             beatmap_md5=beatmap["beatmap_md5"],
+            account_id=account["account_id"],
             submission_status=SubmissionStatus.BEST,
             page_size=1,
         )
