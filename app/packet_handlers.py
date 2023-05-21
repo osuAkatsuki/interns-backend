@@ -370,23 +370,22 @@ async def start_spectating_handler(session: "Session", packet_data: bytes):
             temporary=True,
         )
 
-        # join the #spectator channel
-        await channel_members.add(
-            spectator_channel["channel_id"], session["session_id"]
-        )
-
-        # inform our user of the #spectator channel
-        await packet_bundles.enqueue(
-            session["session_id"],
-            data=(
-                packets.write_channel_auto_join_packet(
-                    name="#spectator",
-                    topic=spectator_channel["topic"],
-                    num_sessions=1,
-                )
-                + packets.write_channel_join_success_packet(channel_name="#spectator")
-            ),
-        )
+        # add to & inform both host and spectator of the #spectator channel
+        for session_id in [session["session_id"], host_session["session_id"]]:
+            await channel_members.add(spectator_channel["channel_id"], session_id)
+            await packet_bundles.enqueue(
+                session_id,
+                data=(
+                    packets.write_channel_auto_join_packet(
+                        name="#spectator",
+                        topic=spectator_channel["topic"],
+                        num_sessions=2,
+                    )
+                    + packets.write_channel_join_success_packet(
+                        channel_name="#spectator"
+                    )
+                ),
+            )
     else:
         # join the #spectator channel
         await channel_members.add(
