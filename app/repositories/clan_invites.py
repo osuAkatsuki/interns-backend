@@ -4,8 +4,6 @@ from uuid import UUID
 from app import clients
 from datetime import datetime
 
-# C R U
-
 
 class ClanInvite(TypedDict):
     clan_invite_id: UUID
