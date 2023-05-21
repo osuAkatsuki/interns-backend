@@ -27,6 +27,13 @@ def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger:
 
 
 def log_as_text(app_env: str) -> bool:
+    # TODO: fix error with json logger where it does this with stacktraces
+    # https://app.datadoghq.com/logs?query=status%3Aerror%20service%3Ainterns-backend&cols=host%2Cservice&event=AgAAAYg71Zcly_8c2AAAAAAAAAAYAAAAAEFZZzcxYUdLQUFCcHg4RVNkQmlHaGdBTgAAACQAAAAAMDE4ODNiZDUtYzNjMC00OTY1LWFjNWMtZTBiM2Q5YTE5ZTE4&index=%2A&messageDisplay=inline&stream_sort=desc&viz=stream&from_ts=1680750604418&to_ts=1680751504418&live=true
+    # return app_env == "local"
+    return True
+
+
+def log_with_colors(app_env: str) -> bool:
     return app_env == "local"
 
 
@@ -44,7 +51,7 @@ def add_request_id(_: WrappedLogger, __: str, event_dict: EventDict) -> EventDic
 
 def configure_logging(app_env: str, log_level: str | int) -> None:
     if log_as_text(app_env):
-        renderer = structlog.dev.ConsoleRenderer(colors=True)
+        renderer = structlog.dev.ConsoleRenderer(colors=log_with_colors(app_env))
     else:
         renderer = structlog.processors.JSONRenderer()
 
