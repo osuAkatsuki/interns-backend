@@ -361,7 +361,6 @@ async def partial_update(
                 game_mode = COALESCE(:game_mode, game_mode),
                 country = COALESCE(:country, country),
                 time_elapsed = COALESCE(:time_elapsed, time_elapsed),
-                client = COALESCE(:client, client),
                 client_anticheat_flags = COALESCE(:client_anticheat_flags, client_anticheat_flags),
                 client_anticheat_token = COALESCE(:client_anticheat_token, client_anticheat_token)
             WHERE score_id = :score_id
