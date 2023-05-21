@@ -903,7 +903,7 @@ def write_match_score_update_packet(data: bytes) -> bytes:
         packet_id=ServerPackets.MATCH_SCORE_UPDATE,
         packet_data_inputs=[
             (DataType.RAW_DATA, data),
-        ]
+        ],
     )
 
 
@@ -935,7 +935,7 @@ def write_match_player_failed_packet(slot_id: int) -> bytes:
         packet_id=ServerPackets.MATCH_PLAYER_FAILED,
         packet_data_inputs=[
             (DataType.I32, slot_id),
-        ]
+        ],
     )
 
 

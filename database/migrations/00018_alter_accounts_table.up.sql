@@ -1,0 +1,2 @@
+ALTER TABLE accounts
+ADD silence_end TIMESTAMPTZ NULL;

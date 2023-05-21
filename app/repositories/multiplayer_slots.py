@@ -160,7 +160,7 @@ async def all_loaded(match_id: int) -> bool:
     for slot in slots:
         if slot["status"] == SlotStatus.PLAYING and not slot["loaded"]:
             return False
-        
+
     return True
 
 
@@ -169,19 +169,18 @@ async def all_skipped(match_id: int) -> bool:
     for slot in slots:
         if slot["status"] == SlotStatus.PLAYING and not slot["skipped"]:
             return False
-        
+
     return True
 
 
 async def all_completed(match_id: int) -> bool:
     slots = await fetch_all(match_id)
     for slot in slots:
-        if (
-            (slot["status"] & SlotStatus.PLAYING) and
-            not (slot["status"] & SlotStatus.COMPLETE)
+        if (slot["status"] & SlotStatus.PLAYING) and not (
+            slot["status"] & SlotStatus.COMPLETE
         ):
             return False
-        
+
     return True
 
 
