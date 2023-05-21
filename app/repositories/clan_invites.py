@@ -9,7 +9,7 @@ class ClanInvite(TypedDict):
     clan_invite_id: UUID
     clan_id: int
     uses: int
-    max_uses: int
+    max_uses: int | None
     expires_at: datetime
     created_at: datetime
     updated_at: datetime
@@ -30,7 +30,7 @@ async def create(
     clan_invite_id: UUID,
     clan_id: int,
     uses: int,
-    max_uses: int,
+    max_uses: int | None,
     expires_at: datetime,
 ) -> ClanInvite:
     clan_invite = await clients.database.fetch_one(
