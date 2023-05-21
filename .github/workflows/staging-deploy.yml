@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - INTRN-133-stop-spectating-channel
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
