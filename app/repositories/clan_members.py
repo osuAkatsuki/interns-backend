@@ -53,7 +53,7 @@ async def fetch_all(
     """
     values = {}
     if page is not None and page_size is not None:
-        query += """
+        query += """\
             LIMIT :limit
             OFFSET :offset
         """
@@ -64,3 +64,22 @@ async def fetch_all(
 
     return [cast(ClanMember, clan_member) for clan_member in clan_members]
 
+
+async def delete(clan_id: int, account_id: int) -> ClanMember | None:
+    clan_member = await clients.database.fetch_one(
+        query=f"""\
+            DELETE FROM clan_members
+            WHERE clan_id = :clan_id
+            AND account_id = :account_id
+            RETURNING {READ_PARAMS}
+        """,
+        values={
+            "clan_id": clan_id,
+            "account_id": account_id,
+        },
+    )
+
+    return cast(ClanMember, clan_member) if not None else None
+
+
+# Written with <3 by MetalFace
