@@ -46,7 +46,7 @@ async def create(
 async def fetch_all(
     page: int | None,
     page_size: int | None,
-) -> list[ClanMember] | None:
+) -> list[ClanMember]:
     query = f"""\
         SELECT {READ_PARAMS}
         FROM clan_members
@@ -63,6 +63,28 @@ async def fetch_all(
     clan_members = await clients.database.fetch_all(query, values)
 
     return [cast(ClanMember, clan_member) for clan_member in clan_members]
+
+
+async def partial_update(
+    clan_id: int,
+    account_id: int,
+    privileges: int,
+) -> ClanMember | None:
+    clan_member = await clients.database.fetch_one(
+        query=f"""\
+            UPDATE clan_members
+            SET privileges = :privileges
+            WHERE clan_id = :clan_id
+            AND account_id = :account_id
+        """,
+        values={
+            "clan_id": clan_id,
+            "account_id": account_id,
+            "privileges": privileges,
+        },
+    )
+
+    return cast(ClanMember, clan_member) if clan_member is not None else None
 
 
 async def delete(clan_id: int, account_id: int) -> ClanMember | None:
