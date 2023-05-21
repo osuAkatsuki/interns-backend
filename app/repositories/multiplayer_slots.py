@@ -32,6 +32,8 @@ class SlotStatus:
     QUIT = 128
 
     HAS_PLAYER = NOT_READY | READY | NO_BEATMAP | PLAYING | COMPLETE
+    CAN_START = NOT_READY | READY
+    WAITING_FOR_END = PLAYING | COMPLETE
 
 
 def make_key(match_id: int, slot_id: int | Literal["*"]) -> str:
@@ -151,6 +153,36 @@ async def fetch_all(match_id: int) -> list[MultiplayerSlot]:
         slots.append(slot)
 
     return sorted(slots, key=lambda slot: slot["slot_id"])
+
+
+async def all_loaded(match_id: int) -> bool:
+    slots = await fetch_all(match_id)
+    for slot in slots:
+        if slot["status"] == SlotStatus.PLAYING and not slot["loaded"]:
+            return False
+        
+    return True
+
+
+async def all_skipped(match_id: int) -> bool:
+    slots = await fetch_all(match_id)
+    for slot in slots:
+        if slot["status"] == SlotStatus.PLAYING and not slot["skipped"]:
+            return False
+        
+    return True
+
+
+async def all_completed(match_id: int) -> bool:
+    slots = await fetch_all(match_id)
+    for slot in slots:
+        if (
+            (slot["status"] & SlotStatus.PLAYING) and
+            not (slot["status"] & SlotStatus.COMPLETE)
+        ):
+            return False
+        
+    return True
 
 
 async def partial_update(
