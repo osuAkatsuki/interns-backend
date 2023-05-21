@@ -469,6 +469,45 @@ async def stop_spectating_handler(session: "Session", packet_data: bytes):
     assert maybe_session is not None
     session = maybe_session
 
+    spectator_channel = await channels.fetch_one_by_name(
+        f"#spec_{host_session['session_id']}"
+    )
+
+    assert spectator_channel is not None
+
+    await channel_members.remove(
+        spectator_channel["channel_id"],
+        session["session_id"],
+    )
+
+    current_channel_members = await channel_members.members(
+        spectator_channel["channel_id"]
+    )
+    for session_id in current_channel_members:
+        await packet_bundles.enqueue(
+            session_id,
+            packets.write_channel_info_packet(
+                "#spectator",
+                spectator_channel["topic"],
+                len(current_channel_members),
+            ),
+        )
+
+    if len(current_channel_members) == 1:  # only the host
+        await channels.delete(spectator_channel["channel_id"])
+
+        # inform the host that the channel was deleted
+        await packet_bundles.enqueue(
+            host_session["session_id"],
+            packets.write_channel_kick_packet("#spectator"),
+        )
+
+        logger.info(
+            "Spectator channel closed due to no spectators",
+            spectator_id=session["account_id"],
+            host_id=host_session["account_id"],
+        )
+
     await packet_bundles.enqueue(
         host_session["session_id"],
         packets.write_spectator_left_packet(session["account_id"]),
