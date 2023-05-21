@@ -1056,7 +1056,14 @@ async def part_match_handler(session: "Session", packet_data: bytes) -> None:
         match["match_id"],
         session["session_id"],
     )
-    assert current_slot is not None
+    if not current_slot:
+        # NOTE: this typically happens when a session is kicked from a match
+        logger.warning(
+            "A user attempted to leave their match but they don't have a slot.",
+            user_id=session["account_id"],
+            match_id=match["match_id"],
+        )
+        return
 
     # open up old slot
     current_slot = await multiplayer_slots.partial_update(
