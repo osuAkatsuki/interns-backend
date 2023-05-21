@@ -34,7 +34,7 @@ async def create(
     uses: int,
     max_uses: int,
     expires_at: datetime,
-) -> dict[str, Any]:
+) -> ClanInvite:
     now = datetime.now()
     created_at = now
     updated_at = now
@@ -60,3 +60,24 @@ async def create(
     return cast(ClanInvite, clan_invite)
 
 
+async def fetch_many(
+    page: int | None,
+    page_size: int | None,
+) -> list[ClanInvite] | None:
+    query = f"""\
+        SELECT {READ_PARAMS}
+        FROM clan_invites
+    """
+    if page is not None and page_size is not None:
+        query += """\
+            LIMIT :limit
+            OFFSET :offset
+        """
+        values = {
+            "page": page,
+            "page_size": page_size,
+        }
+
+    clan_invites = await clients.database.fetch_all(query, values)
+
+    return [cast(ClanInvite, clan_invite) for clan_invite in clan_invites]
