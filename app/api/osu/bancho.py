@@ -5,8 +5,11 @@ from uuid import UUID
 from uuid import uuid4
 
 from fastapi import APIRouter
+from fastapi import Depends
+from fastapi import HTTPException
 from fastapi import Request
 from fastapi import Response
+from fastapi import status
 
 from app import geolocation
 from app import logger
@@ -26,7 +29,15 @@ from app.repositories import sessions
 from app.repositories import stats
 from app.repositories.scores import Mods
 
-bancho_router = APIRouter(default_response_class=Response)
+
+def ensure_bancho_host(request: Request) -> None:
+    if request.headers["Host"] not in ("c.cmyui.xyz", "ce.cmyui.xyz", "c4.cmyui.xyz"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+
+bancho_router = APIRouter(
+    default_response_class=Response, dependencies=[Depends(ensure_bancho_host)]
+)
 
 
 @bancho_router.get("/")
