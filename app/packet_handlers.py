@@ -345,7 +345,7 @@ async def logout_handler(session: "Session", packet_data: bytes) -> None:
                 new_host_slot = slot
                 break
 
-            # no one if left in the match, close it
+            # no one is left in the match, close it
             if new_host_slot is None:
                 await _broadcast_to_lobby(
                     packets.write_dispose_match_packet(match["match_id"])
