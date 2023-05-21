@@ -12,6 +12,9 @@ logger.configure_logging(
     log_level=settings.APP_LOG_LEVEL,
 )
 
+
+raise Exception("testing stacktrace stuff")
+
 app = FastAPI()
 
 app.host("osu.cmyui.xyz", osu_web_router)
