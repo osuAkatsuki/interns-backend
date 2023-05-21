@@ -605,7 +605,11 @@ async def join_lobby_handler(session: "Session", packet_data: bytes):
             match["beatmap_md5"],
             [s["status"] for s in slots],
             [s["team"] for s in slots],
-            [s["account_id"] for s in slots if s["status"] & 0b01111100 != 0],
+            [
+                s["account_id"]
+                for s in slots
+                if s["status"] & SlotStatus.HAS_PLAYER != 0
+            ],
             match["host_account_id"],
             vanilla_game_mode,
             match["win_condition"],
@@ -689,7 +693,7 @@ async def _broadcast_match_updates(
         match["beatmap_md5"],
         [s["status"] for s in slots],
         [s["team"] for s in slots],
-        [s["account_id"] for s in slots if s["status"] & 0b01111100 != 0],
+        [s["account_id"] for s in slots if s["status"] & SlotStatus.HAS_PLAYER != 0],
         match["host_account_id"],
         vanilla_game_mode,
         match["win_condition"],
@@ -889,7 +893,7 @@ async def create_match_handler(session: "Session", packet_data: bytes):
         match["beatmap_md5"],
         [s["status"] for s in slots],
         [s["team"] for s in slots],
-        [s["account_id"] for s in slots if s["status"] & 0b01111100 != 0],
+        [s["account_id"] for s in slots if s["status"] & SlotStatus.HAS_PLAYER != 0],
         match["host_account_id"],
         vanilla_game_mode,
         match["win_condition"],
@@ -1019,7 +1023,7 @@ async def join_match_handler(session: "Session", packet_data: bytes) -> None:
         match["beatmap_md5"],
         [s["status"] for s in slots],
         [s["team"] for s in slots],
-        [s["account_id"] for s in slots if s["status"] & 0b01111100 != 0],
+        [s["account_id"] for s in slots if s["status"] & SlotStatus.HAS_PLAYER != 0],
         match["host_account_id"],
         vanilla_game_mode,
         match["win_condition"],
@@ -1621,7 +1625,7 @@ async def match_start_handler(session: "Session", packet_data: bytes):
         match["beatmap_md5"],
         [s["status"] for s in slots],
         [s["team"] for s in slots],
-        [s["account_id"] for s in slots if s["status"] & 0b01111100 != 0],
+        [s["account_id"] for s in slots if s["status"] & SlotStatus.HAS_PLAYER != 0],
         match["host_account_id"],
         vanilla_game_mode,
         match["win_condition"],
