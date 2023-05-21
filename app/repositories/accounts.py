@@ -12,7 +12,8 @@ READ_PARAMS = """
     password,
     country,
     created_at,
-    updated_at
+    updated_at,
+    silence_end
 """
 
 
@@ -25,6 +26,7 @@ class Account(TypedDict):
     country: str
     created_at: datetime
     updated_at: datetime
+    silence_end: datetime | None
 
 
 async def create(
@@ -113,4 +115,35 @@ async def fetch_by_username(username: str) -> Account | None:
         """,
         values={"username": username},
     )
+    return cast(Account, account) if account is not None else None
+
+
+async def partial_update(
+    account_id: int,
+    username: str | None,
+    email_address: str | None,
+    privileges: int | None,
+    password: str | None,
+    country: str | None,
+) -> Account | None:
+    account = await clients.database.fetch_one(
+        query=f"""\
+            UPDATE accounts
+            SET username = COALESCE(:username, username),
+            email_address = COALESCE(:email_address, email_address),
+            privileges = COALESCE(:privileges, privileges),
+            password = COALESCE(:password, password),
+            country = COALESCE(:country, country)
+            WHERE account_id = :account_id  
+        """,
+        values={
+            "account_id": account_id,
+            "username": username,
+            "email_address": email_address,
+            "privileges": privileges,
+            "password": password,
+            "country": country,
+        },
+    )
+
     return cast(Account, account) if account is not None else None
