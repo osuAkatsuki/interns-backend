@@ -1948,7 +1948,7 @@ async def match_change_team_handler(session: "Session", packet_data: bytes):
     
     slot = await multiplayer_slots.fetch_one_by_session_id(
         match_id=match_id,
-        session_id=session["session_id"]
+        session_id=session["session_id"],
     )
     if not slot:
         logger.warning(
