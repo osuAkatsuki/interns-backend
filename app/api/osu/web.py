@@ -32,6 +32,8 @@ from app.errors import ServiceError
 from app.privileges import ServerPrivileges
 from app.repositories import accounts
 from app.repositories import achievements
+from app.repositories import channel_members
+from app.repositories import channels
 from app.repositories import packet_bundles
 from app.repositories import relationships
 from app.repositories import scores
@@ -421,7 +423,6 @@ async def submit_score_handler(
         )
         assert osu_file_contents is not None
     except Exception as exc:
-        # TODO: JIT .osu files
         osu_file_contents = await osu_api_v2.fetch_osu_file_contents(
             beatmap["beatmap_id"]
         )
@@ -622,7 +623,34 @@ async def submit_score_handler(
             packet_data,
         )
 
-    # TODO: send to #announcements if the score is #1
+    score_rank = 1  # TODO
+
+    # if this score is #1, send it to the #announce channel
+    if score["submission_status"] == SubmissionStatus.BEST and score_rank == 1:
+        announce_channel = await channels.fetch_one_by_name("#announce")
+        if announce_channel is not None:
+            beatmap_embed = beatmaps.create_beatmap_chat_embed(
+                beatmap["beatmap_set_id"],
+                beatmap["beatmap_id"],
+                beatmap["artist"],
+                beatmap["title"],
+                beatmap["version"],
+                beatmap["creator"],
+                mode_string="osu",
+            )
+
+            packet_data = packets.write_send_message_packet(
+                sender_name="BanchoBot",
+                message_content=f"{username} achieved a new #1 score on {beatmap_embed}!",
+                recipient_name="#announce",
+                sender_id=0,
+            )
+
+            announce_channel_members = await channel_members.members(
+                announce_channel["channel_id"]
+            )
+            for session_id in announce_channel_members:
+                await packet_bundles.enqueue(session_id, packet_data)
 
     # unlock achievements
     own_achievements = await user_achievements.fetch_many(
