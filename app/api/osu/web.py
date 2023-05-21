@@ -745,7 +745,9 @@ async def submit_score_handler(
     ).encode()
 
     # add newly unlocked achievements to response data
-    achievements_string = "/".join(map(achievements.to_string, new_achievements))
+    achievements_string = "/".join(
+        [achievements.to_string(ach) for ach in new_achievements]
+    )
     response_data += f"achievements-new:{achievements_string}".encode()
 
     return bytes(response_data)
