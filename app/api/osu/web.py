@@ -625,6 +625,7 @@ async def submit_score_handler(
 
     score_rank = 1  # TODO
 
+    # if this score is #1, send it to the #announce channel
     if score["submission_status"] == SubmissionStatus.BEST and score_rank == 1:
         announce_channel = await channels.fetch_one_by_name("#announce")
         if announce_channel is not None:
