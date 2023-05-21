@@ -147,7 +147,16 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
             return
 
         channel_name = f"#mp_{multiplayer_match_id}"
-    # TODO: spectator
+
+    elif recipient_name == "#spectator":
+        # we may be spectating someone, or may be the host of spectators
+        if own_presence["spectator_host_session_id"] is not None:
+            spectator_host_session_id = own_presence["spectator_host_session_id"]
+        else:
+            spectator_host_session_id = session["session_id"]
+
+        channel_name = f"#spec_{spectator_host_session_id}"
+
     else:
         channel_name = recipient_name
 
@@ -353,6 +362,58 @@ async def start_spectating_handler(session: "Session", packet_data: bytes):
     )
     assert maybe_session is not None
     session = maybe_session
+
+    # fetch the #spectator channel
+    spectator_channel = await channels.fetch_one_by_name(
+        f"#spec_{host_session['session_id']}"
+    )
+
+    if spectator_channel is None:
+        # create the #spectator channel
+        spectator_channel = await channels.create(
+            name=f"#spec_{host_session['session_id']}",
+            topic=f"Channel for spectator host ID {host_session['session_id']}",
+            read_privileges=ServerPrivileges.UNRESTRICTED,
+            write_privileges=ServerPrivileges.UNRESTRICTED,
+            auto_join=False,
+            temporary=True,
+        )
+
+        # add to & inform both host and spectator of the #spectator channel
+        for session_id in [session["session_id"], host_session["session_id"]]:
+            await channel_members.add(spectator_channel["channel_id"], session_id)
+            await packet_bundles.enqueue(
+                session_id,
+                data=(
+                    packets.write_channel_auto_join_packet(
+                        name="#spectator",
+                        topic=spectator_channel["topic"],
+                        num_sessions=2,
+                    )
+                    + packets.write_channel_join_success_packet(
+                        channel_name="#spectator"
+                    )
+                ),
+            )
+    else:
+        # join the #spectator channel
+        await channel_members.add(
+            spectator_channel["channel_id"], session["session_id"]
+        )
+
+        # inform everyone in the #spectator channel that we joined
+        current_channel_members = await channel_members.members(
+            spectator_channel["channel_id"]
+        )
+        for session_id in current_channel_members:
+            await packet_bundles.enqueue(
+                session_id,
+                packets.write_channel_info_packet(
+                    "#spectator",
+                    spectator_channel["topic"],
+                    len(current_channel_members),
+                ),
+            )
 
     await packet_bundles.enqueue(
         host_session["session_id"],
