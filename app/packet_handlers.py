@@ -1704,6 +1704,62 @@ async def user_joins_channel_handler(session: "Session", packet_data: bytes):
 # MATCH_TRANSFER_HOST = 70
 
 
+@bancho_handler(packets.ClientPackets.MATCH_TRANSFER_HOST)
+async def match_transfer_host_handler(session: "Session", packet_data: bytes):
+    presence = session["presence"]
+    match_id = presence["multiplayer_match_id"]
+    if match_id is None:
+        logger.warning(
+            "A user attempted to change hosts but they are not in a match.",
+            user_id=session["account_id"],
+        )
+        return
+    
+    match = await multiplayer_matches.fetch_one(match_id)
+    if isinstance(match, ServiceError):
+        logger.warning(
+            "A user attempted to change hosts but their match doesn't exist.",
+            user_id=session["account_id"],
+        )
+        return
+
+    # only the host can transfer the host
+    if match["host_account_id"] != session["account_id"]:
+        logger.warning(
+            "A user attempted to change hosts but they are not the host.",
+            user_id=session["account_id"],
+        )
+        return
+    
+    reader = packets.PacketReader(packet_data)
+    slot_id = reader.read_i32()
+
+    slot = await multiplayer_slots.fetch_one(match_id, slot_id)
+    if not slot:
+        logger.warning(
+            "A user attempted to change hosts but the slot doesn't exist.",
+            user_id=session["account_id"],
+            match_id=match_id,
+        )
+        return
+    
+    new_host_id = slot["account_id"]
+    if new_host_id == -1:
+        logger.warning(
+            "A user attempted to change hosts but the slot doesn't have a user.",
+            user_id=session["account_id"],
+            match_id=match_id,
+        )
+        return
+    
+    await multiplayer_matches.partial_update(
+        match_id=match_id,
+        host_account_id=new_host_id
+    )
+
+    await _broadcast_match_updates(match_id)
+
+
 # FRIEND_ADD = 73
 
 
