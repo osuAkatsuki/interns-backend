@@ -6,6 +6,7 @@ from uuid import uuid4
 from PIL import Image
 
 from app import logger
+from app import settings
 from app.adapters import s3
 from app.errors import ServiceError
 from app.repositories import screenshots
@@ -51,7 +52,7 @@ async def create(
         return ServiceError.INTERNAL_SERVER_ERROR
 
     screenshot_download_url = s3.get_s3_public_url(
-        bucket_name="interns-backend",
+        bucket_name=settings.S3_BUCKET_NAME,
         file_path=f"screenshots/{file_name}",
     )
 
