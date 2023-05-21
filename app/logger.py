@@ -22,6 +22,9 @@ def get_request_id() -> str | None:
     return _REQUEST_ID_CONTEXT.get(None)
 
 
+raise Exception("testing stacktrace stuff")
+
+
 def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger:
     return structlog.wrap_logger(_ROOT_LOGGER, logger_name=name or "root")
 
