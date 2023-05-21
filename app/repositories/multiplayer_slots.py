@@ -35,7 +35,7 @@ class SlotStatus:
 
 
 def make_key(match_id: int, slot_id: int | Literal["*"]) -> str:
-    return f"server:matches:{match_id}:slots:{slot_id}"
+    return f"server:match_slots:{match_id}:{slot_id}"
 
 
 def serialize(slot: MultiplayerSlot) -> str:
