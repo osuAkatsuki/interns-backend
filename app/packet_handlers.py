@@ -1623,7 +1623,7 @@ async def match_change_mods_handler(session: "Session", packet_data: bytes):
 async def match_no_beatmap_handler(session: "Session", packet_data: bytes):
     presence = session["presence"]
     match_id = presence["multiplayer_match_id"]
-    if match_id is None:  # TODO: WTF should i log here
+    if match_id is None:
         logger.warning(
             "A user attempted to tell us they don't have the map but they are not in a match.",
             user_id=session["account_id"],
