@@ -1454,8 +1454,8 @@ async def match_change_settings_handler(session: "Session", packet_data: bytes):
     if osu_match_data["freemods_enabled"] != match["freemods_enabled"]:
         # copy bancho's behaviour
         if osu_match_data["freemods_enabled"]:
-            mods = match["mods"]
-            osu_match_data["mods"] = Mods.NOMOD
+            mods = match["mods"] & (~Mods.SPEED_CHANGING)
+            osu_match_data["mods"] = match["mods"] & Mods.SPEED_CHANGING
         else:
             mods = Mods.NOMOD
 
