@@ -1606,6 +1606,47 @@ async def match_not_ready_handler(session: "Session", packet_data: bytes):
 # MATCH_HAS_BEATMAP = 59
 
 
+@bancho_handler(packets.ClientPackets.MATCH_HAS_BEATMAP)
+async def match_has_beatmap_handler(session: "Session", packet_data: bytes):
+    presence = session["presence"]
+    match_id = presence["multiplayer_match_id"]
+    if match_id is None:  # TODO: WTF should i log here
+        logger.warning(
+            "A user attempted to tell us they have the map but they are not in a match.",
+            user_id=session["account_id"],
+        )
+        return
+
+    slot = await multiplayer_slots.fetch_one_by_session_id(
+        match_id=match_id, session_id=session["session_id"]
+    )
+    if not slot:
+        logger.warning(
+            "A user attempted to tell us they have the map but they don't have a slot.",
+            user_id=session["account_id"],
+            match_id=match_id,
+        )
+        return
+
+    if slot["status"] != SlotStatus.NO_BEATMAP:
+        logger.warning(
+            "A user attempted to tell us they have the map but they are not allowed to.",
+            user_id=session["account_id"],
+            match_id=match_id,
+            slot_id=slot["slot_id"],
+            slot_status=slot["status"],
+        )
+        return
+
+    await multiplayer_slots.partial_update(
+        match_id=match_id,
+        slot_id=slot["slot_id"],
+        status=SlotStatus.NOT_READY,
+    )
+
+    await _broadcast_match_updates(match_id)
+
+
 # MATCH_SKIP_REQUEST = 60
 
 
