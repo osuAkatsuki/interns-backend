@@ -1964,7 +1964,7 @@ async def match_change_team_handler(session: "Session", packet_data: bytes):
         )
         return
     
-    if match["team_type"] < MatchTeamTypes.TEAM_VS:
+    if match["team_type"] not in (MatchTeamTypes.TEAM_VS, MatchTeamTypes.TAG_TEAM_VS):
         logger.warning(
             "A user attempted to change teams but the match is not in versus mode.",
             user_id=session["account_id"],
