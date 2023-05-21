@@ -61,7 +61,19 @@ jobs:
         path: common-helm-charts
 
     - name: Show manifest diff since previous release
-      run: helm diff upgrade --allow-unreleased --values chart/values.yaml interns-backend-staging common-helm-charts/microservice-base/
+      run: |
+        helm diff upgrade \
+        --allow-unreleased \
+        --values chart/values.yaml \
+        interns-backend-staging \
+        common-helm-charts/microservice-base/
 
     - name: Deploy service to staging cluster
-      run: helm upgrade --install --atomic --wait --timeout 480s --values chart/values.yaml interns-backend-staging common-helm-charts/microservice-base/
+      run: |
+        helm upgrade \
+          --install \
+          --atomic \
+          --wait --timeout 480s \
+          --values chart/values.yaml \
+          interns-backend-staging \
+          common-helm-charts/microservice-base/
