@@ -2505,6 +2505,11 @@ async def match_change_password_handler(session: "Session", packet_data: bytes):
         match_password=osu_match_data["match_password"],
     )
 
+    await _broadcast_match_updates(
+        match_id=match_id,
+        send_to_lobby=False,
+    )
+
     logger.info(
         "User updated the match password.",
         user_id=session["account_id"],
