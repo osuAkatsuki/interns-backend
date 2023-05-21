@@ -29,6 +29,7 @@ from app.adapters import mino
 from app.adapters import osu_api_v2
 from app.adapters import s3
 from app.errors import ServiceError
+from app.mods import filter_invalid_mod_combinations
 from app.privileges import ServerPrivileges
 from app.repositories import accounts
 from app.repositories import achievements
@@ -181,6 +182,10 @@ async def get_scores_handler(
     map_package_hash: str = Query(..., alias="h"),
     aqn_files_found: bool = Query(..., alias="a"),
 ):
+    # XXX: this is a quirk of the osu! client, where it adjusts this value
+    # only after it sends the packet to the server; so we need to adjust
+    mods = filter_invalid_mod_combinations(mods, vanilla_game_mode)
+
     game_mode = game_modes.for_server(vanilla_game_mode, mods)
 
     # TODO: fix the responses in the case of an error
@@ -212,6 +217,11 @@ async def get_scores_handler(
         own_stats = await stats.fetch_one(session["account_id"], game_mode)
         assert own_stats is not None
 
+        own_global_rank = await ranking.get_global_rank(
+            own_stats["account_id"],
+            own_stats["game_mode"],
+        )
+
         for other_session in await sessions.fetch_all():
             await packet_bundles.enqueue(
                 other_session["session_id"],
@@ -227,7 +237,7 @@ async def get_scores_handler(
                     own_stats["accuracy"],
                     own_stats["play_count"],
                     own_stats["total_score"],
-                    ranking.get_global_rank(session["account_id"]),
+                    own_global_rank,
                     own_stats["performance_points"],
                 ),
             )
@@ -572,6 +582,10 @@ async def submit_score_handler(
     # create a copy of the previous gamemode's stats.
     # we will use this to construct overall ranking charts for the client
     previous_gamemode_stats = copy.deepcopy(gamemode_stats)
+    previous_global_rank = await ranking.get_global_rank(
+        gamemode_stats["account_id"],
+        gamemode_stats["game_mode"],
+    )
 
     # update this gamemode's stats with our new score submission
     gamemode_stats = await stats.partial_update(
@@ -602,6 +616,11 @@ async def submit_score_handler(
     else:
         sessions_to_notify = [session]
 
+    own_global_rank = await ranking.get_global_rank(
+        gamemode_stats["account_id"],
+        gamemode_stats["game_mode"],
+    )
+
     for other_session in sessions_to_notify:
         packet_data = packets.write_user_stats_packet(
             gamemode_stats["account_id"],
@@ -615,7 +634,7 @@ async def submit_score_handler(
             gamemode_stats["accuracy"],
             gamemode_stats["play_count"],
             gamemode_stats["total_score"],
-            ranking.get_global_rank(gamemode_stats["account_id"]),
+            own_global_rank,
             gamemode_stats["performance_points"],
         )
         await packet_bundles.enqueue(
@@ -712,8 +731,8 @@ async def submit_score_handler(
     beatmap_pp_after = score["performance_points"]
 
     # build overall ranking chart values
-    overall_rank_before = 0  # TODO
-    overall_rank_after = ranking.get_global_rank(score["account_id"])
+    overall_rank_before = previous_global_rank
+    overall_rank_after = own_global_rank
     overall_ranked_score_before = previous_gamemode_stats["ranked_score"]
     overall_ranked_score_after = gamemode_stats["ranked_score"]
     overall_total_score_before = previous_gamemode_stats["total_score"]
