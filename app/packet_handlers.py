@@ -1543,10 +1543,8 @@ async def match_change_mods_handler(session: "Session", packet_data: bytes):
 
     if match["freemods_enabled"]:
         # apply the speed changing mods to the match
-        if (
-            is_host and
-            (speed_changing_mods := mods & Mods.SPEED_CHANGING)
-        ):
+        if is_host:
+            speed_changing_mods = mods & Mods.SPEED_CHANGING
             await multiplayer_matches.partial_update(match_id, mods=speed_changing_mods)
 
         # and apply the non-speed changing mods to the slot
