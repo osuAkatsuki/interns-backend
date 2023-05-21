@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - INTRN-220-complete-logout-handling
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
