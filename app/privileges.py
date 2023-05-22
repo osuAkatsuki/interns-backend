@@ -14,6 +14,8 @@ class ServerPrivileges:
 
     UNRESTRICTED = 1 << 0
     SUBMITTED_HARDWARE_IDENTITY = 1 << 1
+    SUPPORTER = 1 << 4
+    PREMIUM = 1 << 5
     BEATMAP_NOMINATOR = 1 << 7
     CHAT_MODERATIOR = 1 << 9
     MULTIPLAYER_STAFF = 1 << 11
