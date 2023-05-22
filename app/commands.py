@@ -3,6 +3,7 @@ from collections.abc import Awaitable
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
+from app import logger
 from app.errors import ServiceError
 from app.privileges import ServerPrivileges
 from app.ranked_statuses import BeatmapRankedStatus
@@ -119,13 +120,32 @@ async def _shared_base_for_edit_map_handlers(
     if last_np_beatmap_id is None:
         return "You must first use /np to send a beatmap"
 
+    beatmap = await beatmaps.fetch_one(beatmap_id=last_np_beatmap_id)
+    if isinstance(beatmap, ServiceError):
+        if beatmap is ServiceError.BEATMAPS_NOT_FOUND:
+            return "Beatmap not found."
+
+        logger.error(
+            "An error occurred while fetching a beatmap.",
+            beatmap_id=last_np_beatmap_id,
+        )
+        return "An error occurred while fetching the beatmap."
+
     beatmap = await beatmaps.partial_update(
         last_np_beatmap_id,
         ranked_status=ranked_status,
         ranked_status_manually_changed=True,
     )
     if isinstance(beatmap, ServiceError):
-        return str(beatmap)
+        if beatmap is ServiceError.BEATMAPS_NOT_FOUND:
+            return "Beatmap not found."
+
+        logger.error(
+            "An error occurred while updating a beatmap.",
+            beatmap_id=last_np_beatmap_id,
+            ranked_status=ranked_status,
+        )
+        return "An error occurred while updating the beatmap."
 
     status_change_verb = {
         BeatmapRankedStatus.PENDING: "unranked",
