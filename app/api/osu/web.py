@@ -31,6 +31,7 @@ from app.adapters import s3
 from app.errors import ServiceError
 from app.mods import filter_invalid_mod_combinations
 from app.privileges import ServerPrivileges
+from app.ranked_statuses import BeatmapWebRankedStatus
 from app.repositories import accounts
 from app.repositories import achievements
 from app.repositories import channel_members
@@ -247,14 +248,14 @@ async def get_scores_handler(
     if isinstance(beatmap, ServiceError):
         if beatmap is ServiceError.BEATMAPS_NOT_FOUND:
             logger.warning("Beatmap not found", beatmap_md5=beatmap_md5)
-            return
+            return f"{BeatmapWebRankedStatus.NOT_SUBMITTED}|false".encode()
 
         logger.error(
             "Failed to fetch beatmap",
             beatmap_md5=beatmap_md5,
             error=beatmap,
         )
-        return
+        return f"{BeatmapWebRankedStatus.NOT_SUBMITTED}|false".encode()
 
     # create filter parameters for score fetching
     # based on the leaderboard type
