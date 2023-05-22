@@ -324,12 +324,7 @@ async def request_status_update_handler(session: "Session", packet_data: bytes):
 
 @bancho_handler(packets.ClientPackets.PING)
 async def ping_handler(session: "Session", packet_data: bytes):
-    maybe_session = await sessions.partial_update(
-        session["session_id"],
-        presence={"last_pinged_at": datetime.now()},
-    )
-    assert maybe_session is not None
-    session = maybe_session
+    pass
 
 
 # START_SPECTATING = 16
