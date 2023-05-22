@@ -184,6 +184,7 @@ async def handle_login(request: Request) -> Response:
             "spectator_host_session_id": None,
             "away_message": None,
             "multiplayer_match_id": None,
+            "last_pinged_at": datetime.now(),
         },
     )
     own_presence = own_session["presence"]
