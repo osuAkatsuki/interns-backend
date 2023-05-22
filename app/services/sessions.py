@@ -13,6 +13,9 @@ from app.repositories.sessions import Session
 async def create(
     username: str,
     password: str,
+    utc_offset: int,
+    latitude: float,
+    longitude: float,
 ) -> Session | ServiceError:
     try:
         account = await accounts.fetch_by_username(username)
@@ -32,12 +35,12 @@ async def create(
             presence={
                 "account_id": account["account_id"],
                 "username": account["username"],
-                "utc_offset": 0,  # TODO?
+                "utc_offset": utc_offset,
                 "country": account["country"],
                 "privileges": account["privileges"],
                 "game_mode": 0,  # TODO?
-                "latitude": 0.0,  # TODO?
-                "longitude": 0.0,  # TODO?
+                "latitude": latitude,
+                "longitude": longitude,
                 "action": 0,
                 "info_text": "",
                 "beatmap_md5": "",
