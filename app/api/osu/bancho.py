@@ -115,10 +115,11 @@ async def handle_login(request: Request) -> Response:
     # TODO: support for this specifically for tournament clients
     other_session = await sessions.fetch_by_username(login_data["username"])
     if other_session is not None:
-        # TODO: store the last time a client pinged the server, and check that instead
-        time_since_last_update = datetime.now() - other_session["updated_at"]
+        time_since_last_communication = (
+            datetime.now() - other_session["presence"]["last_communicated_at"]
+        )
 
-        if time_since_last_update.total_seconds() > 10:  # trust the new user
+        if time_since_last_communication.total_seconds() > 10:  # trust the new user
             await sessions.delete_by_id(other_session["session_id"])
         else:
             return Response(
