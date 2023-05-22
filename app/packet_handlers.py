@@ -294,12 +294,147 @@ async def logout_handler(session: "Session", packet_data: bytes) -> None:
 
     await sessions.delete_by_id(session["session_id"])
 
-    # TODO: spectator
-    # TODO: multiplayer
-    # TODO: channels
+    # handle the user spectating another user
+    if own_presence["spectator_host_session_id"]:
+        spectator_session_id_removed = await spectators.remove(
+            own_presence["spectator_host_session_id"],
+            session["session_id"],
+        )
+        assert spectator_session_id_removed is not None
+
+    # handle some users spectating us
+    else:
+        our_spectators = await spectators.members(session["session_id"])
+
+        if len(our_spectators) != 0:
+            # we have spectators
+
+            spectator_channel = await channels.fetch_one_by_name(
+                f"#spec_{session['session_id']}"
+            )
+            assert spectator_channel is not None
+
+            for spectator_session_id in our_spectators:
+                # remove them from our spectators
+                await spectators.remove(session["session_id"], spectator_session_id)
+
+                # remove them from the #spectator channel
+                await channel_members.remove(
+                    spectator_channel["channel_id"],
+                    spectator_session_id,
+                )
+                await packet_bundles.enqueue(
+                    spectator_session_id,
+                    packets.write_channel_kick_packet("#spectator"),
+                )
+
+            # remove us from the #spectator channel
+            await channel_members.remove(
+                spectator_channel["channel_id"],
+                session["session_id"],
+            )
+
+            # delete the #spectator channel
+            await channels.delete(spectator_channel["channel_id"])
+
+    # handle the player being in a multiplayer match
+    if own_presence["multiplayer_match_id"]:
+        match = await multiplayer_matches.fetch_one(
+            own_presence["multiplayer_match_id"]
+        )
+        assert not isinstance(match, ServiceError)
+
+        # fetch our slot
+        slot = await multiplayer_slots.fetch_one_by_session_id(
+            match["match_id"],
+            session["session_id"],
+        )
+        assert slot is not None
+
+        # remove us from the match
+        await multiplayer_slots.partial_update(
+            match["match_id"],
+            slot["slot_id"],
+            account_id=-1,
+            session_id=UUID(int=0),
+            status=SlotStatus.OPEN,
+            team=MatchTeams.NEUTRAL,
+            mods=0,
+            loaded=False,
+            skipped=False,
+        )
+
+        match_channel = await channels.fetch_one_by_name(f"#mp_{match['match_id']}")
+        assert match_channel is not None
+
+        if match["host_account_id"] == session["account_id"]:
+            # if the host left, pick a new host
+            slots = await multiplayer_slots.fetch_all(match["match_id"])
+
+            new_host_slot = None
+            for slot in slots:
+                # slot doesn't have a user
+                if slot["account_id"] == -1:
+                    continue
+
+                new_host_slot = slot
+                break
+
+            # no one is left in the match, close it
+            if new_host_slot is None:
+                await _broadcast_to_lobby(
+                    packets.write_dispose_match_packet(match["match_id"])
+                )
+
+                await channel_members.remove(
+                    match_channel["channel_id"],
+                    session["session_id"],
+                )
+                await packet_bundles.enqueue(
+                    session["session_id"],
+                    data=(
+                        packets.write_dispose_match_packet(match["match_id"])
+                        + packets.write_channel_kick_packet("#multiplayer")
+                    ),
+                )
+
+                # delete the multiplayer match (and it's slots)
+                match = await multiplayer_matches.delete(match["match_id"])
+                assert not isinstance(match, ServiceError)
+
+                # delete the #multiplayer channel
+                match_channel = await channels.delete(match_channel["channel_id"])
+                assert match_channel is not None
+
+                logger.info(
+                    "Match closed due to no members",
+                    match_id=match["match_id"],
+                )
+
+    # handle the player being in any chat channels
+    for channel in await channels.fetch_many():
+        # ask for foregiveness; not permission
+        left_channel = await channel_members.remove(
+            channel["channel_id"],
+            session["session_id"],
+        )
+        if left_channel is not None:
+            # update the channel info for everyone else
+            current_channel_members = await channel_members.members(
+                channel["channel_id"]
+            )
+            for session_id in current_channel_members:
+                await packet_bundles.enqueue(
+                    session_id,
+                    packets.write_channel_info_packet(
+                        channel["name"],
+                        channel["topic"],
+                        len(current_channel_members),
+                    ),
+                )
 
     # tell everyone else we logged out
-    if not own_presence["privileges"] & ServerPrivileges.UNRESTRICTED:
+    if own_presence["privileges"] & ServerPrivileges.UNRESTRICTED:
         logout_packet_data = packets.write_logout_packet(session["account_id"])
         for other_session in await sessions.fetch_all():
             await packet_bundles.enqueue(
