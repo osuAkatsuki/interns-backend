@@ -251,7 +251,7 @@ async def get_scores_handler(
             if beatmap is not None:
                 return f"{BeatmapWebRankedStatus.UPDATE_AVAILABLE}|false".encode()
 
-            logger.warning("Beatmap not found", beatmap_md5=beatmap_md5)
+            logger.debug("Beatmap not found", beatmap_md5=beatmap_md5)
             return f"{BeatmapWebRankedStatus.NOT_SUBMITTED}|false".encode()
 
         logger.error(
@@ -417,7 +417,7 @@ async def submit_score_handler(
 
     beatmap = await beatmaps.fetch_one(beatmap_md5=beatmap_md5)
     if isinstance(beatmap, ServiceError):
-        logger.warning("Beatmap not found", beatmap_md5=beatmap_md5)
+        logger.debug("Beatmap not found", beatmap_md5=beatmap_md5)
         return f"error: {ScoreSubmissionErrors.BEATMAP_UNRANKED}"
 
     # TODO: handle differently depending on beatmap ranked status

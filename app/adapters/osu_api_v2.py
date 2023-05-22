@@ -253,7 +253,7 @@ async def lookup_beatmap(
         return
 
     if aiosu_beatmap is None:
-        logger.warning(
+        logger.debug(
             "Beatmap not found",
             checksum=beatmap_md5,
             file_name=file_name,
