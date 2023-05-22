@@ -209,6 +209,7 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
         if re_match is not None:
             beatmap_url = re_match.group("beatmap_url")
             result = urllib.parse.urlsplit(beatmap_url)
+
             if result.path.startswith("/beatmapsets"):
                 last_np_beatmap_id = int(result.path.removeprefix("/beatmapsets/"))
             elif result.path.startswith("/beatmaps"):
