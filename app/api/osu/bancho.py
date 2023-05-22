@@ -351,7 +351,11 @@ async def handle_login(request: Request) -> Response:
         "Welcome to the osu!bancho server!"
     )
 
-    # TODO: silence end
+    if account["silence_end"] is not None:
+        seconds_remaining = (datetime.now() - account["silence_end"]).total_seconds()
+        response_data += packets.write_silence_end_packet(
+            seconds_remaining=int(seconds_remaining),
+        )
 
     # whether they're restricted
     if not (account["privileges"] & ServerPrivileges.UNRESTRICTED):
