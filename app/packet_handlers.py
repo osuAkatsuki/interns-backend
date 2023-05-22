@@ -208,12 +208,11 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
         )
         if re_match is not None:
             beatmap_url = re_match.group("beatmap_url")
-            result = urllib.parse.urlsplit(beatmap_url)
-            if result.path.startswith("/beatmapsets"):
-                last_np_beatmap_id = int(result.path.removeprefix("/beatmapsets/"))
-            elif result.path.startswith("/beatmaps"):
-                last_np_beatmap_id = int(result.path.removeprefix("/beatmaps/"))
-            else:
+            split_result = urllib.parse.urlsplit(beatmap_url)
+
+            try:
+                last_np_beatmap_id = int(split_result.fragment.removeprefix("/"))
+            except ValueError:
                 last_np_beatmap_id = None
 
             if last_np_beatmap_id is not None:
