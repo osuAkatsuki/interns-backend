@@ -8,6 +8,8 @@ from app import clients
 from app import json
 from app import logger
 
+WARNING_QUEUE_SIZE_THRESHOLD = 100
+
 
 def make_key(session_id: UUID | Literal["*"]) -> str:
     return f"server:packet-bundles:{session_id}"
@@ -49,9 +51,10 @@ async def enqueue(
     )
 
     # XXX: warn developers if a queue's size becomes very large
-    if queue_size > 50:
+    if queue_size > WARNING_QUEUE_SIZE_THRESHOLD:
         logger.warning(
-            "Packet bundle size exceeded 20 items",
+            f"Packet bundle size exceeded warning threshold",
+            warning_threshold=WARNING_QUEUE_SIZE_THRESHOLD,
             queue_size=queue_size,
             session_id=session_id,
         )
