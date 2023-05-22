@@ -2,7 +2,7 @@ app:
   name: interns-backend
   environment: staging
   group: backend
-  replicaCount: 1
+  replicaCount: 3
   container:
     image:
       repository: registry.digitalocean.com/akatsuki/interns-backend
