@@ -1118,9 +1118,15 @@ def write_channel_listing_complete_packet() -> bytes:
 
 
 # SILENCE_END = 92
+def write_silence_end_packet(seconds_remaining: int) -> bytes:
+    return write_packet(
+        packet_id=ServerPackets.SILENCE_END,
+        packet_data_inputs=[(DataType.I32, seconds_remaining)],
+    )
 
 
 # USER_SILENCED = 94
+
 
 
 # USER_PRESENCE_SINGLE = 95
