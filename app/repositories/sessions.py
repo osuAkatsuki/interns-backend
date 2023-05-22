@@ -63,6 +63,7 @@ class Presence(TypedDict):
     spectator_host_session_id: UUID | None
     away_message: str | None
     multiplayer_match_id: int | None
+    last_communicated_at: datetime
     last_np_beatmap_id: int | None
 
 
@@ -90,6 +91,7 @@ def serialize_presence(presence: Presence) -> str:
             ),
             "away_message": presence["away_message"],
             "multiplayer_match_id": presence["multiplayer_match_id"],
+            "last_communicated_at": presence["last_communicated_at"].isoformat(),
             "last_np_beatmap_id": presence["last_np_beatmap_id"],
         }
     )
@@ -104,6 +106,10 @@ def deserialize_presence(raw_presence: str) -> Presence:
         UUID(untyped_presence["spectator_host_session_id"])
         if untyped_presence["spectator_host_session_id"] is not None
         else None
+    )
+
+    untyped_presence["last_communicated_at"] = datetime.fromisoformat(
+        untyped_presence["last_communicated_at"]
     )
 
     return cast(Presence, untyped_presence)
@@ -300,6 +306,10 @@ async def partial_update(session_id: UUID, **kwargs: Any) -> Session | None:
         multiplayer_match_id = presence.get("multiplayer_match_id")
         if multiplayer_match_id is not None:
             session["presence"]["multiplayer_match_id"] = multiplayer_match_id
+
+        last_communicated_at = presence.get("last_communicated_at")
+        if last_communicated_at is not None:
+            session["presence"]["last_communicated_at"] = last_communicated_at
 
         last_np_beatmap_id = presence.get("last_np_beatmap_id")
         if last_np_beatmap_id is not None:

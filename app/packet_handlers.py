@@ -2,6 +2,7 @@ import re
 import urllib.parse
 from collections.abc import Awaitable
 from collections.abc import Callable
+from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID
 
@@ -351,7 +352,6 @@ async def request_status_update_handler(session: "Session", packet_data: bytes):
 
 @bancho_handler(packets.ClientPackets.PING)
 async def ping_handler(session: "Session", packet_data: bytes):
-    # TODO: keep track of each osu! session's last ping time
     pass
 
 
