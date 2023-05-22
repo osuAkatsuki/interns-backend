@@ -34,7 +34,7 @@ class BeatmapWebRankedStatus:
 def to_web_status(ranked_status: int) -> int:
     match ranked_status:
         case BeatmapRankedStatus.GRAVEYARD:
-            return BeatmapWebRankedStatus.NOT_SUBMITTED
+            return BeatmapWebRankedStatus.PENDING
         case BeatmapRankedStatus.WIP:
             return BeatmapWebRankedStatus.PENDING
         case BeatmapRankedStatus.PENDING:
