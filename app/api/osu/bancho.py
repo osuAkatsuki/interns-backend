@@ -185,6 +185,7 @@ async def handle_login(request: Request) -> Response:
             "away_message": None,
             "multiplayer_match_id": None,
             "last_communicated_at": datetime.now(),
+            "last_np_beatmap_id": None,
         },
     )
     own_presence = own_session["presence"]

@@ -64,6 +64,7 @@ class Presence(TypedDict):
     away_message: str | None
     multiplayer_match_id: int | None
     last_communicated_at: datetime
+    last_np_beatmap_id: int | None
 
 
 def serialize_presence(presence: Presence) -> str:
@@ -91,6 +92,7 @@ def serialize_presence(presence: Presence) -> str:
             "away_message": presence["away_message"],
             "multiplayer_match_id": presence["multiplayer_match_id"],
             "last_communicated_at": presence["last_communicated_at"].isoformat(),
+            "last_np_beatmap_id": presence["last_np_beatmap_id"],
         }
     )
 
@@ -308,6 +310,10 @@ async def partial_update(session_id: UUID, **kwargs: Any) -> Session | None:
         last_communicated_at = presence.get("last_communicated_at")
         if last_communicated_at is not None:
             session["presence"]["last_communicated_at"] = last_communicated_at
+
+        last_np_beatmap_id = presence.get("last_np_beatmap_id")
+        if last_np_beatmap_id is not None:
+            session["presence"]["last_np_beatmap_id"] = last_np_beatmap_id
 
     session["updated_at"] = datetime.now()
 

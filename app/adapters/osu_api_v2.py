@@ -240,7 +240,7 @@ async def lookup_beatmap(
     if file_name is not None:
         kwargs["filename"] = file_name
     if beatmap_id is not None:
-        kwargs["beatmap_id"] = beatmap_id
+        kwargs["id"] = beatmap_id
     try:
         aiosu_beatmap = await clients.osu_api.lookup_beatmap(**kwargs)
     except aiosu.exceptions.APIException as exc:
