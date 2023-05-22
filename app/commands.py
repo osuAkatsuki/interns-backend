@@ -3,9 +3,12 @@ from collections.abc import Awaitable
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
+from app.errors import ServiceError
 from app.privileges import ServerPrivileges
+from app.ranked_statuses import BeatmapRankedStatus
 from app.repositories import accounts
 from app.repositories import relationships
+from app.services import beatmaps
 
 if TYPE_CHECKING:
     from app.repositories.sessions import Session
@@ -109,9 +112,59 @@ async def block_handler(session: "Session", args: list[str]) -> str | None:
     return f"{own_presence['username']} successfully blocked {args[0]}"
 
 
+async def _shared_base_for_edit_map_handlers(
+    last_np_beatmap_id: int | None,
+    ranked_status: int,
+) -> str | None:
+    if last_np_beatmap_id is None:
+        return "You must first use /np to send a beatmap"
+
+    beatmap = await beatmaps.partial_update(
+        last_np_beatmap_id,
+        ranked_status=ranked_status,
+        ranked_status_manually_changed=True,
+    )
+    if isinstance(beatmap, ServiceError):
+        return str(beatmap)
+
+    status_change_verb = {
+        BeatmapRankedStatus.PENDING: "unranked",
+        BeatmapRankedStatus.RANKED: "ranked",
+        BeatmapRankedStatus.APPROVED: "approved",
+        BeatmapRankedStatus.QUALIFIED: "qualified",
+        BeatmapRankedStatus.LOVED: "loved",
+    }[ranked_status]
+
+    # TODO: post to #announce
+
+    return f"Beatmap successfully {status_change_verb}"
+
+
 @command("!rank", privileges=ServerPrivileges.BEATMAP_NOMINATOR)
 async def rank_handler(session: "Session", args: list[str]) -> str | None:
     """Rank the previously /np'ed beatmap."""
-    from app.services import beatmaps
+    return await _shared_base_for_edit_map_handlers(
+        session["presence"]["last_np_beatmap_id"],
+        BeatmapRankedStatus.RANKED,
+    )
 
-    await beatmaps.partial_update(beatmap)
+
+@command("!love", privileges=ServerPrivileges.BEATMAP_NOMINATOR)
+async def love_handler(session: "Session", args: list[str]) -> str | None:
+    """Love the previously /np'ed beatmap."""
+    return await _shared_base_for_edit_map_handlers(
+        session["presence"]["last_np_beatmap_id"],
+        BeatmapRankedStatus.LOVED,
+    )
+
+
+@command("!unrank", privileges=ServerPrivileges.BEATMAP_NOMINATOR)
+async def unrank_handler(session: "Session", args: list[str]) -> str | None:
+    """Unrank the previously /np'ed beatmap."""
+    return await _shared_base_for_edit_map_handlers(
+        session["presence"]["last_np_beatmap_id"],
+        BeatmapRankedStatus.PENDING,
+    )
+
+
+# TODO: qualify & approve commands?
