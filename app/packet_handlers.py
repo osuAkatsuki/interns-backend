@@ -1,3 +1,5 @@
+import re
+import urllib.parse
 from collections.abc import Awaitable
 from collections.abc import Callable
 from typing import TYPE_CHECKING
@@ -10,7 +12,6 @@ from app import logger
 from app import packets
 from app import ranking
 from app.errors import ServiceError
-from app.game_modes import GameMode
 from app.mods import filter_invalid_mod_combinations
 from app.mods import Mods
 from app.privileges import ServerPrivileges
@@ -195,6 +196,33 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
             other_session_id,
             data=send_message_packet_data,
         )
+
+    # keep track of user's last /np'ed beatmaps
+    if message_content.startswith("\x01ACTION"):
+        re_match = re.fullmatch(
+            pattern=(
+                r"\x01ACTION is (playing|editing|watching|listening to) "
+                r"\[(?P<beatmap_url>[^ ]+) (?P<beatmap_>.+)\]\x01"
+            ),
+            string=message_content,
+        )
+        if re_match is not None:
+            beatmap_url = re_match.group("beatmap_url")
+            result = urllib.parse.urlsplit(beatmap_url)
+            if result.path.startswith("/beatmapsets"):
+                last_np_beatmap_id = int(result.path.removeprefix("/beatmapsets/"))
+            elif result.path.startswith("/beatmaps"):
+                last_np_beatmap_id = int(result.path.removeprefix("/beatmaps/"))
+            else:
+                last_np_beatmap_id = None
+
+            if last_np_beatmap_id is not None:
+                maybe_session = await sessions.partial_update(
+                    session["session_id"],
+                    presence={"last_np_beatmap_id": last_np_beatmap_id},
+                )
+                assert maybe_session is not None
+                session = maybe_session
 
     # handle commands
     if message_content.startswith("!"):
