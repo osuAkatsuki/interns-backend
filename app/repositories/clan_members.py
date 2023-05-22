@@ -78,7 +78,7 @@ async def partial_update(
     clan_member = await clients.database.fetch_one(
         query=f"""\
             UPDATE clan_members
-            SET privileges = COALESSCE(:privileges, privileges)
+            SET privileges = COALESCE(:privileges, privileges)
             WHERE clan_id = :clan_id
             AND account_id = :account_id
         """,
