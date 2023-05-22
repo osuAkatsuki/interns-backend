@@ -184,6 +184,7 @@ async def handle_login(request: Request) -> Response:
             "spectator_host_session_id": None,
             "away_message": None,
             "multiplayer_match_id": None,
+            "last_communicated_at": datetime.now(),
         },
     )
     own_presence = own_session["presence"]
@@ -401,6 +402,13 @@ async def handle_bancho_request(request: Request) -> Response:
     own_packet_bundles = await packet_bundles.dequeue_all(session["session_id"])
     for packet_bundle in own_packet_bundles:
         response_content.extend(packet_bundle["data"])
+
+    maybe_session = await sessions.partial_update(
+        session["session_id"],
+        presence={"last_communicated_at": datetime.now()},
+    )
+    assert maybe_session is not None
+    session = maybe_session
 
     return Response(
         content=bytes(response_content),

@@ -1,5 +1,6 @@
 from collections.abc import Awaitable
 from collections.abc import Callable
+from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID
 
@@ -10,7 +11,6 @@ from app import logger
 from app import packets
 from app import ranking
 from app.errors import ServiceError
-from app.game_modes import GameMode
 from app.mods import filter_invalid_mod_combinations
 from app.mods import Mods
 from app.privileges import ServerPrivileges
@@ -324,7 +324,6 @@ async def request_status_update_handler(session: "Session", packet_data: bytes):
 
 @bancho_handler(packets.ClientPackets.PING)
 async def ping_handler(session: "Session", packet_data: bytes):
-    # TODO: keep track of each osu! session's last ping time
     pass
 
 
