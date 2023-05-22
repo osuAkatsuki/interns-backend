@@ -290,7 +290,6 @@ async def logout_handler(session: "Session", packet_data: bytes) -> None:
     # really want to log them out; so we ignore this case if it's
     # been < 1 second since the client's login
     if (datetime.now() - session["created_at"]).total_seconds() < 1:
-        print("ignoring logout attempt")
         return
 
     await sessions.delete_by_id(session["session_id"])
