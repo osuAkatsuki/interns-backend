@@ -247,6 +247,10 @@ async def get_scores_handler(
     beatmap = await beatmaps.fetch_one(beatmap_md5=beatmap_md5)
     if isinstance(beatmap, ServiceError):
         if beatmap is ServiceError.BEATMAPS_NOT_FOUND:
+            beatmap = await beatmaps.fetch_one(file_name=beatmap_filename)
+            if beatmap is not None:
+                return f"{BeatmapWebRankedStatus.UPDATE_AVAILABLE}|false".encode()
+
             logger.warning("Beatmap not found", beatmap_md5=beatmap_md5)
             return f"{BeatmapWebRankedStatus.NOT_SUBMITTED}|false".encode()
 
