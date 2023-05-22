@@ -78,17 +78,6 @@ async def roll_handler(session: "Session", args: list[str]) -> str | None:
     return str(random.randrange(0, random_number_max))
 
 
-@command("!py", privileges=ServerPrivileges.SUPER_ADMIN)
-async def py_handler(session: "Session", args: list[str]) -> str | None:
-    """Execute a Python expression."""
-    try:
-        namespace = {}
-        exec("async def f():\n " + " ".join(args), namespace)
-        return str(await namespace["f"]())
-    except Exception as exc:
-        return str(exc)
-
-
 @command("!block")
 async def block_handler(session: "Session", args: list[str]) -> str | None:
     """Block communications with another user."""
