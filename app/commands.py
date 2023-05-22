@@ -10,6 +10,10 @@ from app.repositories import relationships
 if TYPE_CHECKING:
     from app.repositories.sessions import Session
 
+# TODO: create the concept of an "application", where developers can
+# register to have their own bots running on the server, which can
+# act via interactions with our rest api. re-implement this with that.
+
 CommandHandler = Callable[["Session", list[str]], Awaitable[str | None]]
 
 
@@ -103,3 +107,11 @@ async def block_handler(session: "Session", args: list[str]) -> str | None:
     )
 
     return f"{own_presence['username']} successfully blocked {args[0]}"
+
+
+@command("!rank", privileges=ServerPrivileges.BEATMAP_NOMINATOR)
+async def rank_handler(session: "Session", args: list[str]) -> str | None:
+    """Rank the previously /np'ed beatmap."""
+    from app.services import beatmaps
+
+    await beatmaps.partial_update(beatmap)
