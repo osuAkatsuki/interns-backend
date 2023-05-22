@@ -12,6 +12,9 @@ class LoginForm(BaseModel):
     password: str
 
 
+# TODO: PresenceUpdate, SessionUpdate models
+
+
 # output models
 
 
