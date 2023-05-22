@@ -520,7 +520,14 @@ async def stop_spectating_handler(session: "Session", packet_data: bytes):
             ),
         )
 
-    if len(current_channel_members) == 1:  # only the host
+    if len(current_channel_members) == 1:  # only the host remains
+        # remove the host from the channel
+        await channel_members.remove(
+            spectator_channel["channel_id"],
+            host_session["session_id"],
+        )
+
+        # delete the channel
         await channels.delete(spectator_channel["channel_id"])
 
         # inform the host that the channel was deleted
@@ -560,10 +567,15 @@ async def spectate_frames_handler(session: "Session", packet_data: bytes):
     if not own_presence["privileges"] & ServerPrivileges.UNRESTRICTED:
         return
 
+    packet_reader = packets.PacketReader(packet_data)
+    replay_frame_bundle = packet_reader.read_replay_frame_bundle()
+
+    # TODO: make assertions on replay_frame_bundle
+
     for spectator_session_id in await spectators.members(session["session_id"]):
         await packet_bundles.enqueue(
             spectator_session_id,
-            packets.write_spectate_frames_packet(packet_data),
+            packets.write_spectate_frames_packet(replay_frame_bundle),
         )
 
 
@@ -721,33 +733,35 @@ async def join_lobby_handler(session: "Session", packet_data: bytes):
         slots = await multiplayer_slots.fetch_all(match["match_id"])
 
         vanilla_game_mode = game_modes.for_client(match["game_mode"])
-        packet_params = (
-            match["match_id"],
-            match["status"] == MatchStatus.PLAYING,
-            match["mods"],
-            match["match_name"],
-            match["match_password"],
-            match["beatmap_name"],
-            match["beatmap_id"],
-            match["beatmap_md5"],
-            [s["status"] for s in slots],
-            [s["team"] for s in slots],
-            [
+        osu_match_data: packets.OsuMatch = {
+            "match_id": match["match_id"],
+            "match_in_progress": match["status"] == MatchStatus.PLAYING,
+            "mods": match["mods"],
+            "match_name": match["match_name"],
+            "match_password": match["match_password"],
+            "beatmap_name": match["beatmap_name"],
+            "beatmap_id": match["beatmap_id"],
+            "beatmap_md5": match["beatmap_md5"],
+            "slot_statuses": [s["status"] for s in slots],
+            "slot_teams": [s["team"] for s in slots],
+            "per_slot_account_ids": [
                 s["account_id"]
                 for s in slots
                 if s["status"] & SlotStatus.HAS_PLAYER != 0
             ],
-            match["host_account_id"],
-            vanilla_game_mode,
-            match["win_condition"],
-            match["team_type"],
-            match["freemods_enabled"],
-            [s["mods"] for s in slots] if match["freemods_enabled"] else [],
-            match["random_seed"],
-        )
+            "host_account_id": match["host_account_id"],
+            "game_mode": vanilla_game_mode,
+            "win_condition": match["win_condition"],
+            "team_type": match["team_type"],
+            "freemods_enabled": match["freemods_enabled"],
+            "per_slot_mods": [s["mods"] for s in slots]
+            if match["freemods_enabled"]
+            else [],
+            "random_seed": match["random_seed"],
+        }
 
         match_packet = packets.write_update_match_packet(
-            *packet_params,
+            osu_match_data,
             should_send_password=False,
         )
 
@@ -809,30 +823,34 @@ async def _broadcast_match_updates(
 
     vanilla_game_mode = game_modes.for_client(match["game_mode"])
 
-    packet_params = (
-        match["match_id"],
-        match["status"] == MatchStatus.PLAYING,
-        match["mods"],
-        match["match_name"],
-        match["match_password"],
-        match["beatmap_name"],
-        match["beatmap_id"],
-        match["beatmap_md5"],
-        [s["status"] for s in slots],
-        [s["team"] for s in slots],
-        [s["account_id"] for s in slots if s["status"] & SlotStatus.HAS_PLAYER != 0],
-        match["host_account_id"],
-        vanilla_game_mode,
-        match["win_condition"],
-        match["team_type"],
-        match["freemods_enabled"],
-        [s["mods"] for s in slots] if match["freemods_enabled"] else [],
-        match["random_seed"],
-    )
+    osu_match_data: packets.OsuMatch = {
+        "match_id": match["match_id"],
+        "match_in_progress": match["status"] == MatchStatus.PLAYING,
+        "mods": match["mods"],
+        "match_name": match["match_name"],
+        "match_password": match["match_password"],
+        "beatmap_name": match["beatmap_name"],
+        "beatmap_id": match["beatmap_id"],
+        "beatmap_md5": match["beatmap_md5"],
+        "slot_statuses": [s["status"] for s in slots],
+        "slot_teams": [s["team"] for s in slots],
+        "per_slot_account_ids": [
+            s["account_id"] for s in slots if s["status"] & SlotStatus.HAS_PLAYER != 0
+        ],
+        "host_account_id": match["host_account_id"],
+        "game_mode": vanilla_game_mode,
+        "win_condition": match["win_condition"],
+        "team_type": match["team_type"],
+        "freemods_enabled": match["freemods_enabled"],
+        "per_slot_mods": [s["mods"] for s in slots]
+        if match["freemods_enabled"]
+        else [],
+        "random_seed": match["random_seed"],
+    }
 
     # send the match data (with password) to those in the multiplayer match
     match_packet = packets.write_update_match_packet(
-        *packet_params,
+        osu_match_data,
         should_send_password=True,
     )
 
@@ -847,7 +865,7 @@ async def _broadcast_match_updates(
 
     if send_to_lobby:
         match_packet = packets.write_update_match_packet(
-            *packet_params,
+            osu_match_data,
             should_send_password=False,
         )
 
@@ -1009,25 +1027,32 @@ async def create_match_handler(session: "Session", packet_data: bytes):
     slots = await multiplayer_slots.fetch_all(match["match_id"])
 
     # send the match data (with password) to the creator
+    osu_match_data: packets.OsuMatch = {
+        "match_id": match["match_id"],
+        "match_in_progress": match["status"] == MatchStatus.PLAYING,
+        "mods": match["mods"],
+        "match_name": match["match_name"],
+        "match_password": match["match_password"],
+        "beatmap_name": match["beatmap_name"],
+        "beatmap_id": match["beatmap_id"],
+        "beatmap_md5": match["beatmap_md5"],
+        "slot_statuses": [s["status"] for s in slots],
+        "slot_teams": [s["team"] for s in slots],
+        "per_slot_account_ids": [
+            s["account_id"] for s in slots if s["status"] & SlotStatus.HAS_PLAYER != 0
+        ],
+        "host_account_id": match["host_account_id"],
+        "game_mode": vanilla_game_mode,
+        "win_condition": match["win_condition"],
+        "team_type": match["team_type"],
+        "freemods_enabled": match["freemods_enabled"],
+        "per_slot_mods": [s["mods"] for s in slots]
+        if match["freemods_enabled"]
+        else [],
+        "random_seed": match["random_seed"],
+    }
     match_join_success_packet = packets.write_match_join_success_packet(
-        match["match_id"],
-        match["status"] == MatchStatus.PLAYING,
-        match["mods"],
-        match["match_name"],
-        match["match_password"],
-        match["beatmap_name"],
-        match["beatmap_id"],
-        match["beatmap_md5"],
-        [s["status"] for s in slots],
-        [s["team"] for s in slots],
-        [s["account_id"] for s in slots if s["status"] & SlotStatus.HAS_PLAYER != 0],
-        match["host_account_id"],
-        vanilla_game_mode,
-        match["win_condition"],
-        match["team_type"],
-        match["freemods_enabled"],
-        [s["mods"] for s in slots] if match["freemods_enabled"] else [],
-        match["random_seed"],
+        osu_match_data,
         should_send_password=True,
     )
     await packet_bundles.enqueue(
@@ -1139,25 +1164,33 @@ async def join_match_handler(session: "Session", packet_data: bytes) -> None:
     vanilla_game_mode = game_modes.for_client(match["game_mode"])
 
     # send the match data (with password) to the creator
+    osu_match_data: packets.OsuMatch = {
+        "match_id": match["match_id"],
+        "match_in_progress": match["status"] == MatchStatus.PLAYING,
+        "mods": match["mods"],
+        "match_name": match["match_name"],
+        "match_password": match["match_password"],
+        "beatmap_name": match["beatmap_name"],
+        "beatmap_id": match["beatmap_id"],
+        "beatmap_md5": match["beatmap_md5"],
+        "slot_statuses": [s["status"] for s in slots],
+        "slot_teams": [s["team"] for s in slots],
+        "per_slot_account_ids": [
+            s["account_id"] for s in slots if s["status"] & SlotStatus.HAS_PLAYER != 0
+        ],
+        "host_account_id": match["host_account_id"],
+        "game_mode": vanilla_game_mode,
+        "win_condition": match["win_condition"],
+        "team_type": match["team_type"],
+        "freemods_enabled": match["freemods_enabled"],
+        "per_slot_mods": [s["mods"] for s in slots]
+        if match["freemods_enabled"]
+        else [],
+        "random_seed": match["random_seed"],
+    }
+
     match_join_success_packet = packets.write_match_join_success_packet(
-        match["match_id"],
-        match["status"] == MatchStatus.PLAYING,
-        match["mods"],
-        match["match_name"],
-        match["match_password"],
-        match["beatmap_name"],
-        match["beatmap_id"],
-        match["beatmap_md5"],
-        [s["status"] for s in slots],
-        [s["team"] for s in slots],
-        [s["account_id"] for s in slots if s["status"] & SlotStatus.HAS_PLAYER != 0],
-        match["host_account_id"],
-        vanilla_game_mode,
-        match["win_condition"],
-        match["team_type"],
-        match["freemods_enabled"],
-        [s["mods"] for s in slots] if match["freemods_enabled"] else [],
-        match["random_seed"],
+        osu_match_data,
         should_send_password=True,
     )
     await packet_bundles.enqueue(
@@ -1742,28 +1775,35 @@ async def match_start_handler(session: "Session", packet_data: bytes):
 
     vanilla_game_mode = game_modes.for_client(match["game_mode"])
 
-    packet_params = (
-        match["match_id"],
-        match["status"] == MatchStatus.PLAYING,
-        match["mods"],
-        match["match_name"],
-        match["match_password"],
-        match["beatmap_name"],
-        match["beatmap_id"],
-        match["beatmap_md5"],
-        [s["status"] for s in slots],
-        [s["team"] for s in slots],
-        [s["account_id"] for s in slots if s["status"] & SlotStatus.HAS_PLAYER != 0],
-        match["host_account_id"],
-        vanilla_game_mode,
-        match["win_condition"],
-        match["team_type"],
-        match["freemods_enabled"],
-        [s["mods"] for s in slots] if match["freemods_enabled"] else [],
-        match["random_seed"],
-    )
+    osu_match_data: packets.OsuMatch = {
+        "match_id": match["match_id"],
+        "match_in_progress": match["status"] == MatchStatus.PLAYING,
+        "mods": match["mods"],
+        "match_name": match["match_name"],
+        "match_password": match["match_password"],
+        "beatmap_name": match["beatmap_name"],
+        "beatmap_id": match["beatmap_id"],
+        "beatmap_md5": match["beatmap_md5"],
+        "slot_statuses": [s["status"] for s in slots],
+        "slot_teams": [s["team"] for s in slots],
+        "per_slot_account_ids": [
+            s["account_id"] for s in slots if s["status"] & SlotStatus.HAS_PLAYER != 0
+        ],
+        "host_account_id": match["host_account_id"],
+        "game_mode": vanilla_game_mode,
+        "win_condition": match["win_condition"],
+        "team_type": match["team_type"],
+        "freemods_enabled": match["freemods_enabled"],
+        "per_slot_mods": [s["mods"] for s in slots]
+        if match["freemods_enabled"]
+        else [],
+        "random_seed": match["random_seed"],
+    }
 
-    match_started_packet = packets.write_match_start_packet(*packet_params)
+    match_started_packet = packets.write_match_start_packet(
+        osu_match_data,
+        should_send_password=False,
+    )
     await _broadcast_to_match(
         match_id=match_id,
         data=match_started_packet,

@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from enum import Enum
 from enum import IntEnum
 from typing import Any
+from typing import NotRequired
 from typing import TypedDict
 
 # packets are comprised of 3 parts:
@@ -184,6 +185,56 @@ class OsuMatch(TypedDict):
     random_seed: int
 
 
+class OsuScoreFrame(TypedDict):
+    time: int
+    id: int
+    num_300s: int
+    num_100s: int
+    num_50s: int
+    num_gekis: int
+    num_katus: int
+    num_misses: int
+    total_score: int
+    current_combo: int
+    max_combo: int
+    perfect: bool
+    current_hp: int
+    tag_byte: int
+    score_v2: bool
+
+    # only required for scorev2
+    combo_portion: NotRequired[float]
+    bonus_portion: NotRequired[float]
+
+
+class OsuReplayFrame(TypedDict):
+    button_state: int
+    taiko_byte: int  # pre-taiko support (<=2008)
+    x: float
+    y: float
+    time: int
+
+
+class ReplayAction:
+    STANDARD = 0
+    NEW_SONG = 1
+    SKIP = 2
+    COMPLETION = 3
+    FAIL = 4
+    PAUSE = 5
+    UNPAUSE = 6
+    SONG_SELECT = 7
+    WATCHING_OTHER = 8
+
+
+class OsuReplayFrameBundle(TypedDict):
+    replay_frames: list[OsuReplayFrame]
+    score_frame: OsuScoreFrame
+    replay_action: int  # ReplayAction
+    extra: int
+    sequence_number: int
+
+
 class PacketReader:
     def __init__(self, data: bytes) -> None:
         self.data_view = memoryview(data)
@@ -320,6 +371,57 @@ class PacketReader:
             "random_seed": random_seed,
         }
 
+    def read_osu_score_frame(self) -> OsuScoreFrame:
+        rec: OsuScoreFrame = {
+            "time": self.read_i32(),
+            "id": self.read_u8(),
+            "num_300s": self.read_u16(),
+            "num_100s": self.read_u16(),
+            "num_50s": self.read_u16(),
+            "num_gekis": self.read_u16(),
+            "num_katus": self.read_u16(),
+            "num_misses": self.read_u16(),
+            "total_score": self.read_i32(),
+            "current_combo": self.read_u16(),
+            "max_combo": self.read_u16(),
+            "perfect": self.read_u8() == 1,
+            "current_hp": self.read_u8(),
+            "tag_byte": self.read_u8(),
+            "score_v2": self.read_u8() == 1,
+        }
+        if rec["score_v2"]:
+            rec["combo_portion"] = self.read_f64()
+            rec["bonus_portion"] = self.read_f64()
+
+        return rec
+
+    def read_osu_replay_frame(self) -> OsuReplayFrame:
+        return {
+            "button_state": self.read_u8(),
+            "taiko_byte": self.read_u8(),  # pre-taiko support (<=2008)
+            "x": self.read_f32(),
+            "y": self.read_f32(),
+            "time": self.read_i32(),
+        }
+
+    def read_replay_frame_bundle(self) -> OsuReplayFrameBundle:
+        extra = self.read_i32()  # bancho proto >= 18
+        replay_frame_count = self.read_u16()
+        replay_frames = [
+            self.read_osu_replay_frame() for _ in range(replay_frame_count)
+        ]
+        replay_action = self.read_u8()
+        score_frame = self.read_osu_score_frame()
+        sequence_number = self.read_u16()
+
+        return {
+            "replay_frames": replay_frames,
+            "score_frame": score_frame,
+            "replay_action": replay_action,
+            "extra": extra,
+            "sequence_number": sequence_number,
+        }
+
 
 def read_packets(request_data: bytes) -> list[Packet]:
     packets = []
@@ -390,55 +492,90 @@ def write_string(value: str) -> bytes:
 
 
 def write_osu_match(
-    match_id: int,
-    match_in_progress: bool,
-    mods: int,
-    match_name: str,
-    match_password: str,
-    beatmap_name: str,
-    beatmap_id: int,
-    beatmap_md5: str,
-    slot_statuses: list[int],
-    slot_teams: list[int],
-    per_slot_account_ids: list[int],
-    host_account_id: int,
-    game_mode: int,
-    win_condition: int,
-    team_type: int,
-    freemods_enabled: bool,
-    per_slot_mods: list[int],
-    random_seed: int,
-    should_send_password: bool,
+    match_data: OsuMatch,
+    should_send_password: bool = False,
 ) -> bytes:
     buffer = bytearray()
-    buffer += struct.pack("<H", match_id)
-    buffer += struct.pack("<B", match_in_progress)
+    buffer += struct.pack("<H", match_data["match_id"])
+    buffer += struct.pack("<B", match_data["match_in_progress"])
     buffer += struct.pack("<B", 0)  # powerplay
-    buffer += struct.pack("<I", mods)
-    buffer += write_string(match_name)
-    if match_password:
+    buffer += struct.pack("<I", match_data["mods"])
+    buffer += write_string(match_data["match_name"])
+    if match_data["match_password"]:
         if should_send_password:
-            buffer += write_string(match_password)
+            buffer += write_string(match_data["match_password"])
         else:
             # hidden password: "\x0b\x00"
             buffer += b"\x0b\x00"
     else:
         # no password: "\x00"
         buffer += b"\x00"
-    buffer += write_string(beatmap_name)
-    buffer += struct.pack("<i", beatmap_id)
-    buffer += write_string(beatmap_md5)
-    buffer += struct.pack("<16b", *slot_statuses)
-    buffer += struct.pack("<16b", *slot_teams)
-    buffer += struct.pack(f"<{len(per_slot_account_ids)}I", *per_slot_account_ids)
-    buffer += struct.pack("<I", host_account_id)
-    buffer += struct.pack("<B", game_mode)
-    buffer += struct.pack("<B", win_condition)
-    buffer += struct.pack("<B", team_type)
-    buffer += struct.pack("<B", freemods_enabled)
-    if freemods_enabled:
-        buffer += struct.pack(f"<{len(per_slot_mods)}i", *per_slot_mods)
-    buffer += struct.pack("<i", random_seed)
+    buffer += write_string(match_data["beatmap_name"])
+    buffer += struct.pack("<i", match_data["beatmap_id"])
+    buffer += write_string(match_data["beatmap_md5"])
+    buffer += struct.pack("<16b", *match_data["slot_statuses"])
+    buffer += struct.pack("<16b", *match_data["slot_teams"])
+    buffer += struct.pack(
+        f"<{len(match_data['per_slot_account_ids'])}I",
+        *match_data["per_slot_account_ids"],
+    )
+    buffer += struct.pack("<I", match_data["host_account_id"])
+    buffer += struct.pack("<B", match_data["game_mode"])
+    buffer += struct.pack("<B", match_data["win_condition"])
+    buffer += struct.pack("<B", match_data["team_type"])
+    buffer += struct.pack("<B", match_data["freemods_enabled"])
+    if match_data["freemods_enabled"]:
+        buffer += struct.pack(
+            f"<{len(match_data['per_slot_mods'])}i", *match_data["per_slot_mods"]
+        )
+    buffer += struct.pack("<i", match_data["random_seed"])
+    return bytes(buffer)
+
+
+def write_osu_score_frame(score_frame: OsuScoreFrame) -> bytes:
+    buffer = bytearray()
+    buffer += struct.pack("<i", score_frame["time"])
+    buffer += struct.pack("<B", score_frame["id"])
+    buffer += struct.pack("<H", score_frame["num_300s"])
+    buffer += struct.pack("<H", score_frame["num_100s"])
+    buffer += struct.pack("<H", score_frame["num_50s"])
+    buffer += struct.pack("<H", score_frame["num_gekis"])
+    buffer += struct.pack("<H", score_frame["num_katus"])
+    buffer += struct.pack("<H", score_frame["num_misses"])
+    buffer += struct.pack("<i", score_frame["total_score"])
+    buffer += struct.pack("<H", score_frame["current_combo"])
+    buffer += struct.pack("<H", score_frame["max_combo"])
+    buffer += struct.pack("<B", score_frame["perfect"])
+    buffer += struct.pack("<B", score_frame["current_hp"])
+    buffer += struct.pack("<B", score_frame["tag_byte"])
+    buffer += struct.pack("<B", score_frame["score_v2"])
+    if score_frame["score_v2"]:
+        assert "combo_portion" in score_frame
+        assert "bonus_portion" in score_frame
+        buffer += struct.pack("<d", score_frame["combo_portion"])
+        buffer += struct.pack("<d", score_frame["bonus_portion"])
+    return bytes(buffer)
+
+
+def write_osu_replay_frame(replay_frame: OsuReplayFrame) -> bytes:
+    buffer = bytearray()
+    buffer += struct.pack("<B", replay_frame["button_state"])
+    buffer += struct.pack("<B", replay_frame["taiko_byte"])
+    buffer += struct.pack("<f", replay_frame["x"])
+    buffer += struct.pack("<f", replay_frame["y"])
+    buffer += struct.pack("<i", replay_frame["time"])
+    return bytes(buffer)
+
+
+def write_replay_frame_bundle(replay_frame_bundle: OsuReplayFrameBundle) -> bytes:
+    buffer = bytearray()
+    buffer += struct.pack("<i", 0)  # extra
+    buffer += struct.pack("<H", len(replay_frame_bundle["replay_frames"]))
+    for frame in replay_frame_bundle["replay_frames"]:
+        buffer += write_osu_replay_frame(frame)
+    buffer += struct.pack("<B", replay_frame_bundle["replay_action"])
+    buffer += write_osu_score_frame(replay_frame_bundle["score_frame"])
+    buffer += struct.pack("<H", replay_frame_bundle["sequence_number"])
     return bytes(buffer)
 
 
@@ -474,7 +611,11 @@ def write_packet(
         elif type == DataType.STRING:
             packet_body += write_string(value)
         elif type == DataType.OSU_MATCH:
-            packet_body += write_osu_match(**value)
+            packet_body += write_osu_match(*value)
+        elif type == DataType.OSU_SCOREFRAME:
+            packet_body += write_osu_score_frame(value)
+        elif type == DataType.OSU_REPLAY_FRAME_BUNDLE:
+            packet_body += write_replay_frame_bundle(value)
         elif type == DataType.RAW_DATA:
             packet_body += value
         else:
@@ -599,10 +740,12 @@ def write_spectator_left_packet(user_id: int) -> bytes:
 # SPECTATE_FRAMES = 15
 
 
-def write_spectate_frames_packet(data: bytes) -> bytes:
+def write_spectate_frames_packet(replay_frame_bundle: OsuReplayFrameBundle) -> bytes:
     return write_packet(
         packet_id=ServerPackets.SPECTATE_FRAMES,
-        packet_data_inputs=[(DataType.RAW_DATA, data)],
+        packet_data_inputs=[
+            (DataType.OSU_REPLAY_FRAME_BUNDLE, replay_frame_bundle),
+        ],
     )
 
 
@@ -640,51 +783,13 @@ def write_notification_packet(
 
 
 def write_update_match_packet(
-    match_id: int,
-    match_in_progress: bool,
-    mods: int,
-    match_name: str,
-    match_password: str,
-    beatmap_name: str,
-    beatmap_id: int,
-    beatmap_md5: str,
-    slot_statuses: list[int],
-    slot_teams: list[int],
-    per_slot_account_ids: list[int],
-    host_account_id: int,
-    game_mode: int,
-    win_condition: int,
-    team_type: int,
-    freemods_enabled: bool,
-    per_slot_mods: list[int],
-    random_seed: int,
+    match_data: OsuMatch,
     should_send_password: bool,
 ) -> bytes:
-    match_data = {
-        "match_id": match_id,
-        "match_in_progress": match_in_progress,
-        "mods": mods,
-        "match_name": match_name,
-        "match_password": match_password,
-        "beatmap_name": beatmap_name,
-        "beatmap_id": beatmap_id,
-        "beatmap_md5": beatmap_md5,
-        "slot_statuses": slot_statuses,
-        "slot_teams": slot_teams,
-        "per_slot_account_ids": per_slot_account_ids,
-        "host_account_id": host_account_id,
-        "game_mode": game_mode,
-        "win_condition": win_condition,
-        "team_type": team_type,
-        "freemods_enabled": freemods_enabled,
-        "per_slot_mods": per_slot_mods,
-        "random_seed": random_seed,
-        "should_send_password": should_send_password,
-    }
     return write_packet(
         packet_id=ServerPackets.UPDATE_MATCH,
         packet_data_inputs=[
-            (DataType.OSU_MATCH, match_data),
+            (DataType.OSU_MATCH, (match_data, should_send_password)),
         ],
     )
 
@@ -692,48 +797,7 @@ def write_update_match_packet(
 # NEW_MATCH = 27
 
 
-def write_new_match_packet(
-    match_id: int,
-    match_in_progress: bool,
-    mods: int,
-    match_name: str,
-    match_password: str,
-    beatmap_name: str,
-    beatmap_id: int,
-    beatmap_md5: str,
-    slot_statuses: list[int],
-    slot_teams: list[int],
-    per_slot_account_ids: list[int],
-    host_account_id: int,
-    game_mode: int,
-    win_condition: int,
-    team_type: int,
-    freemods_enabled: bool,
-    per_slot_mods: list[int],
-    random_seed: int,
-    should_send_password: bool,
-) -> bytes:
-    match_data = {
-        "match_id": match_id,
-        "match_in_progress": match_in_progress,
-        "mods": mods,
-        "match_name": match_name,
-        "match_password": match_password,
-        "beatmap_name": beatmap_name,
-        "beatmap_id": beatmap_id,
-        "beatmap_md5": beatmap_md5,
-        "slot_statuses": slot_statuses,
-        "slot_teams": slot_teams,
-        "per_slot_account_ids": per_slot_account_ids,
-        "host_account_id": host_account_id,
-        "game_mode": game_mode,
-        "win_condition": win_condition,
-        "team_type": team_type,
-        "freemods_enabled": freemods_enabled,
-        "per_slot_mods": per_slot_mods,
-        "random_seed": random_seed,
-        "should_send_password": should_send_password,
-    }
+def write_new_match_packet(match_data: OsuMatch) -> bytes:
     return write_packet(
         packet_id=ServerPackets.NEW_MATCH,
         packet_data_inputs=[
@@ -761,51 +825,13 @@ def write_dispose_match_packet(match_id: int) -> bytes:
 
 
 def write_match_join_success_packet(
-    match_id: int,
-    match_in_progress: bool,
-    mods: int,
-    match_name: str,
-    match_password: str,
-    beatmap_name: str,
-    beatmap_id: int,
-    beatmap_md5: str,
-    slot_statuses: list[int],
-    slot_teams: list[int],
-    per_slot_account_ids: list[int],
-    host_account_id: int,
-    game_mode: int,
-    win_condition: int,
-    team_type: int,
-    freemods_enabled: bool,
-    per_slot_mods: list[int],
-    random_seed: int,
+    match_data: OsuMatch,
     should_send_password: bool,
 ) -> bytes:
-    match_data = {
-        "match_id": match_id,
-        "match_in_progress": match_in_progress,
-        "mods": mods,
-        "match_name": match_name,
-        "match_password": match_password,
-        "beatmap_name": beatmap_name,
-        "beatmap_id": beatmap_id,
-        "beatmap_md5": beatmap_md5,
-        "slot_statuses": slot_statuses,
-        "slot_teams": slot_teams,
-        "per_slot_account_ids": per_slot_account_ids,
-        "host_account_id": host_account_id,
-        "game_mode": game_mode,
-        "win_condition": win_condition,
-        "team_type": team_type,
-        "freemods_enabled": freemods_enabled,
-        "per_slot_mods": per_slot_mods,
-        "random_seed": random_seed,
-        "should_send_password": should_send_password,
-    }
     return write_packet(
         packet_id=ServerPackets.MATCH_JOIN_SUCCESS,
         packet_data_inputs=[
-            (DataType.OSU_MATCH, match_data),
+            (DataType.OSU_MATCH, (match_data, should_send_password)),
         ],
     )
 
@@ -847,50 +873,13 @@ def write_fellow_spectator_left_packet(user_id: int) -> bytes:
 
 
 def write_match_start_packet(
-    match_id: int,
-    match_in_progress: bool,
-    mods: int,
-    match_name: str,
-    match_password: str,
-    beatmap_name: str,
-    beatmap_id: int,
-    beatmap_md5: str,
-    slot_statuses: list[int],
-    slot_teams: list[int],
-    per_slot_account_ids: list[int],
-    host_account_id: int,
-    game_mode: int,
-    win_condition: int,
-    team_type: int,
-    freemods_enabled: bool,
-    per_slot_mods: list[int],
-    random_seed: int,
+    match_data: OsuMatch,
+    should_send_password: bool,
 ) -> bytes:
-    match_data = {
-        "match_id": match_id,
-        "match_in_progress": match_in_progress,
-        "mods": mods,
-        "match_name": match_name,
-        "match_password": match_password,
-        "beatmap_name": beatmap_name,
-        "beatmap_id": beatmap_id,
-        "beatmap_md5": beatmap_md5,
-        "slot_statuses": slot_statuses,
-        "slot_teams": slot_teams,
-        "per_slot_account_ids": per_slot_account_ids,
-        "host_account_id": host_account_id,
-        "game_mode": game_mode,
-        "win_condition": win_condition,
-        "team_type": team_type,
-        "freemods_enabled": freemods_enabled,
-        "per_slot_mods": per_slot_mods,
-        "random_seed": random_seed,
-        "should_send_password": False,
-    }
     return write_packet(
         packet_id=ServerPackets.MATCH_START,
         packet_data_inputs=[
-            (DataType.OSU_MATCH, match_data),
+            (DataType.OSU_MATCH, (match_data, should_send_password)),
         ],
     )
 
