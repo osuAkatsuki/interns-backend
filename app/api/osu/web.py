@@ -984,3 +984,11 @@ async def get_replay_handler(
         return Response(status_code=status.HTTP_404_NOT_FOUND)
 
     return Response(replay_data, media_type="application/octet-stream")
+
+
+@osu_web_router.get("/web/maps/{beatmap_filename}")
+async def get_updated_beatmap_handler(beatmap_filename: str):
+    return RedirectResponse(
+        url=f"https://osu.ppy.sh/web/maps/{beatmap_filename}",
+        status_code=status.HTTP_301_MOVED_PERMANENTLY,
+    )
