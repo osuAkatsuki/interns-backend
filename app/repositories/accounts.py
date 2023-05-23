@@ -77,7 +77,7 @@ async def fetch_many(
     return cast(list[Account], accounts)
 
 
-async def fetch_count(
+async def fetch_total_count(
     privileges: int | None = None,
 ) -> int:
     rec = await clients.database.fetch_one(

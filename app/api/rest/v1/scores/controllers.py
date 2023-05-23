@@ -68,7 +68,7 @@ async def fetch_many(
             status_code=status_code,
         )
 
-    total = await scores.fetch_count(
+    total = await scores.fetch_total_count(
         beatmap_md5=beatmap_md5,
         account_id=account_id,
         country=country,

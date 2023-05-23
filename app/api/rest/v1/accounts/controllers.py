@@ -52,7 +52,7 @@ async def fetch_many(
             status_code=status_code,
         )
 
-    total = await accounts.fetch_count(privileges=privileges)
+    total = await accounts.fetch_total_count(privileges=privileges)
     if isinstance(total, ServiceError):
         status_code = determine_status_code(total)
         return responses.failure(
