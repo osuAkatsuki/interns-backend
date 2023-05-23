@@ -12,7 +12,7 @@ repos:
     rev: v3.9.0
     hooks:
       - id: reorder-python-imports
-        args: [--py310-plus]
+        args: [--py311-plus]
   - repo: https://github.com/psf/black
     rev: 23.3.0
     hooks:
@@ -23,4 +23,4 @@ repos:
       - id: blacken-docs
 
 default_language_version:
-  python: python3.10
+  python: python3.11
