@@ -266,13 +266,12 @@ async def get_scores_handler(
     filter_params = {
         "beatmap_md5": beatmap_md5,
         "game_mode": game_mode,
-        "submission_statuses": [SubmissionStatus.BEST],
+        "submission_status": SubmissionStatus.BEST,
         "sort_by": "performance_points",  # TODO: score for certain gamemodes?
     }
 
     if leaderboard_type == LeaderboardType.Mods:
         filter_params["mods"] = mods
-        filter_params["submission_statuses"].append(SubmissionStatus.SUBMITTED)
 
     elif leaderboard_type == LeaderboardType.Country:
         filter_params["country"] = account["country"]
@@ -482,7 +481,7 @@ async def submit_score_handler(
         previous_bests = await scores.fetch_many(
             beatmap_md5=beatmap["beatmap_md5"],
             account_id=account["account_id"],
-            submission_statuses=[SubmissionStatus.BEST],
+            submission_status=SubmissionStatus.BEST,
             page_size=1,
         )
         previous_best_score = previous_bests[0] if previous_bests else None
@@ -559,7 +558,7 @@ async def submit_score_handler(
         account_id=account["account_id"],
         game_mode=game_mode,
         sort_by="performance_points",
-        submission_statuses=[SubmissionStatus.BEST],
+        submission_status=SubmissionStatus.BEST,
         page_size=100,
     )
 

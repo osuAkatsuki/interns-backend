@@ -203,7 +203,7 @@ async def fetch_many(
     country: str | None = None,
     full_combo: bool | None = None,
     grade: str | None = None,
-    submission_statuses: list[int] | None = None,
+    submission_status: int | None = None,
     game_mode: int | None = None,
     mods: int | None = None,
     friends: list[int] | None = None,
@@ -227,16 +227,16 @@ async def fetch_many(
         raise ValueError(f"{sort_by} is not a valid value for sort_by parameter")
 
     query = f"""\
-        WITH selected_scores AS (
-            SELECT DISTINCT ON (account_id) {READ_PARAMS}
-            FROM scores
-            WHERE beatmap_md5 = COALESCE(:beatmap_md5, beatmap_md5)
-            AND account_id = COALESCE(:account_id, account_id)
-            AND country = COALESCE(:country, country)
-            AND full_combo = COALESCE(:full_combo, full_combo)
-            AND grade = COALESCE(:grade, grade)
-            AND game_mode = COALESCE(:game_mode, game_mode)
-            AND mods = COALESCE(:mods, mods)
+        SELECT {READ_PARAMS}
+        FROM scores
+        WHERE beatmap_md5 = COALESCE(:beatmap_md5, beatmap_md5)
+        AND account_id = COALESCE(:account_id, account_id)
+        AND country = COALESCE(:country, country)
+        AND full_combo = COALESCE(:full_combo, full_combo)
+        AND grade = COALESCE(:grade, grade)
+        AND submission_status = COALESCE(:submission_status, submission_status)
+        AND game_mode = COALESCE(:game_mode, game_mode)
+        AND mods = COALESCE(:mods, mods)
     """
     values = {
         "beatmap_md5": beatmap_md5,
@@ -244,27 +244,17 @@ async def fetch_many(
         "country": country,
         "full_combo": full_combo,
         "grade": grade,
+        "submission_status": submission_status,
         "game_mode": game_mode,
         "mods": mods,
     }
-    if submission_statuses is not None:
-        query += f"""\
-                AND submission_status = ANY(:submission_statuses)
-        """
-        values["submission_statuses"] = submission_statuses
     if friends is not None:
         query += f"""\
-                AND account_id = ANY(:friends)
+            AND account_id = ANY(:friends)
         """
         values["friends"] = friends
 
     query += f"""\
-            ORDER BY account_id, {sort_by} DESC
-    """
-
-    query += f"""\
-        )
-        SELECT {READ_PARAMS} FROM selected_scores
         ORDER BY {sort_by} DESC
     """
     if page is not None and page_size is not None:
