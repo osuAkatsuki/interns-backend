@@ -266,7 +266,7 @@ async def get_scores_handler(
     filter_params = {
         "beatmap_md5": beatmap_md5,
         "game_mode": game_mode,
-        "submission_status": SubmissionStatus.BEST,
+        "submission_statuses": [SubmissionStatus.BEST],
         "sort_by": "performance_points",  # TODO: score for certain gamemodes?
     }
 
