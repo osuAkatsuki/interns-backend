@@ -57,11 +57,11 @@ async def fetch_many(
     return _accounts
 
 
-async def fetch_count(
+async def fetch_total_count(
     privileges: int | None = None,
 ) -> int | ServiceError:
     try:
-        count = await accounts.fetch_count(
+        count = await accounts.fetch_total_count(
             privileges=privileges,
         )
     except Exception as exc:  # pragma: no cover

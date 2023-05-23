@@ -270,7 +270,10 @@ async def get_scores_handler(
         "sort_by": "performance_points",  # TODO: score for certain gamemodes?
     }
 
+    fetch_scores = scores.fetch_many
+
     if leaderboard_type == LeaderboardType.Mods:
+        fetch_scores = scores.fetch_best_for_each_account
         filter_params["mods"] = mods
 
     elif leaderboard_type == LeaderboardType.Country:
@@ -286,14 +289,14 @@ async def get_scores_handler(
         ]
 
     # fetch our top 50 scores for the leaderboard
-    leaderboard_scores = await scores.fetch_many(**filter_params, page_size=50)
+    leaderboard_scores = await fetch_scores(**filter_params, page_size=50)
 
     # fetch our personal best score for the beatmap
     filter_params |= {
         "account_id": account["account_id"],  # we want our best
         "country": None,  # we want our global best
     }
-    personal_best_scores = await scores.fetch_many(**filter_params, page_size=1)
+    personal_best_scores = await fetch_scores(**filter_params, page_size=1)
     personal_best_score = personal_best_scores[0] if personal_best_scores else None
 
     # construct and send the leaderboard response
@@ -481,7 +484,7 @@ async def submit_score_handler(
         previous_bests = await scores.fetch_many(
             beatmap_md5=beatmap["beatmap_md5"],
             account_id=account["account_id"],
-            submission_status=SubmissionStatus.BEST,
+            submission_statuses=[SubmissionStatus.BEST],
             page_size=1,
         )
         previous_best_score = previous_bests[0] if previous_bests else None
@@ -558,13 +561,13 @@ async def submit_score_handler(
         account_id=account["account_id"],
         game_mode=game_mode,
         sort_by="performance_points",
-        submission_status=SubmissionStatus.BEST,
+        submission_statuses=[SubmissionStatus.BEST],
         page_size=100,
     )
 
-    total_score_count = await scores.fetch_count(
+    total_score_count = await scores.fetch_total_count(
         account_id=account["account_id"],
-        submission_status=SubmissionStatus.BEST,
+        submission_statuses=[SubmissionStatus.BEST],
         game_mode=game_mode,
     )
 

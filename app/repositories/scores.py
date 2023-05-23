@@ -203,9 +203,9 @@ async def fetch_many(
     country: str | None = None,
     full_combo: bool | None = None,
     grade: str | None = None,
-    submission_status: int | None = None,
     game_mode: int | None = None,
     mods: int | None = None,
+    submission_statuses: list[int] | None = None,
     friends: list[int] | None = None,
     sort_by: Literal[
         "score",
@@ -234,7 +234,6 @@ async def fetch_many(
         AND country = COALESCE(:country, country)
         AND full_combo = COALESCE(:full_combo, full_combo)
         AND grade = COALESCE(:grade, grade)
-        AND submission_status = COALESCE(:submission_status, submission_status)
         AND game_mode = COALESCE(:game_mode, game_mode)
         AND mods = COALESCE(:mods, mods)
     """
@@ -244,10 +243,16 @@ async def fetch_many(
         "country": country,
         "full_combo": full_combo,
         "grade": grade,
-        "submission_status": submission_status,
         "game_mode": game_mode,
         "mods": mods,
     }
+
+    if submission_statuses is not None:
+        query += f"""\
+            AND submission_status = ANY(:submission_statuses)
+        """
+        values["submission_statuses"] = submission_statuses
+
     if friends is not None:
         query += f"""\
             AND account_id = ANY(:friends)
@@ -257,6 +262,7 @@ async def fetch_many(
     query += f"""\
         ORDER BY {sort_by} DESC
     """
+
     if page is not None and page_size is not None:
         query += f"""\
             LIMIT :page_size
@@ -264,19 +270,21 @@ async def fetch_many(
         """
         values["page_size"] = page_size
         values["offset"] = page * page_size
+
     scores = await clients.database.fetch_all(query, values)
     return [deserialize(score) for score in scores]
 
 
-async def fetch_count(
+async def fetch_total_count(
     beatmap_md5: str | None = None,
     account_id: int | None = None,
     country: str | None = None,
     full_combo: bool | None = None,
     grade: str | None = None,
-    submission_status: int | None = None,
     game_mode: int | None = None,
     mods: int | None = None,
+    submission_statuses: list[int] | None = None,
+    friends: list[int] | None = None,
 ) -> int:
     query = f"""\
         SELECT COUNT(*) AS count
@@ -286,7 +294,6 @@ async def fetch_count(
         AND country = COALESCE(:country, country)
         AND full_combo = COALESCE(:full_combo, full_combo)
         AND grade = COALESCE(:grade, grade)
-        AND submission_status = COALESCE(:submission_status, submission_status)
         AND game_mode = COALESCE(:game_mode, game_mode)
         AND mods = COALESCE(:mods, mods)
     """
@@ -296,13 +303,108 @@ async def fetch_count(
         "country": country,
         "full_combo": full_combo,
         "grade": grade,
-        "submission_status": submission_status,
         "game_mode": game_mode,
         "mods": mods,
     }
+
+    if submission_statuses is not None:
+        query += f"""\
+            AND submission_status = ANY(:submission_statuses)
+        """
+        values["submission_statuses"] = submission_statuses
+
+    if friends is not None:
+        query += f"""\
+            AND account_id = ANY(:friends)
+        """
+        values["friends"] = friends
+
     rec = await clients.database.fetch_one(query, values)
     assert rec is not None
     return rec["count"]
+
+
+# TODO: fetch_count for this
+async def fetch_best_for_each_account(
+    beatmap_md5: str | None = None,
+    account_id: int | None = None,
+    country: str | None = None,
+    full_combo: bool | None = None,
+    grade: str | None = None,
+    submission_statuses: list[int] | None = None,
+    game_mode: int | None = None,
+    mods: int | None = None,
+    friends: list[int] | None = None,
+    sort_by: Literal[
+        "score",
+        "performance_points",
+        "accuracy",
+        "highest_combo",
+        "grade",
+    ] = "performance_points",
+    page: int | None = None,
+    page_size: int | None = None,
+) -> list[Score]:
+    if sort_by not in (
+        "score",
+        "performance_points",
+        "accuracy",
+        "highest_combo",
+        "grade",
+    ):
+        raise ValueError(f"{sort_by} is not a valid value for sort_by parameter")
+
+    query = f"""\
+        WITH selected_scores AS (
+            SELECT DISTINCT ON (account_id) {READ_PARAMS}
+            FROM scores
+            WHERE beatmap_md5 = COALESCE(:beatmap_md5, beatmap_md5)
+            AND account_id = COALESCE(:account_id, account_id)
+            AND country = COALESCE(:country, country)
+            AND full_combo = COALESCE(:full_combo, full_combo)
+            AND grade = COALESCE(:grade, grade)
+            AND game_mode = COALESCE(:game_mode, game_mode)
+            AND mods = COALESCE(:mods, mods)
+    """
+    values = {
+        "beatmap_md5": beatmap_md5,
+        "account_id": account_id,
+        "country": country,
+        "full_combo": full_combo,
+        "grade": grade,
+        "game_mode": game_mode,
+        "mods": mods,
+    }
+
+    if submission_statuses is not None:
+        query += f"""\
+            AND submission_status = ANY(:submission_statuses)
+        """
+        values["submission_statuses"] = submission_statuses
+
+    if friends is not None:
+        query += f"""\
+            AND account_id = ANY(:friends)
+        """
+        values["friends"] = friends
+
+    query += f"""\
+            ORDER BY account_id, {sort_by} DESC
+        )
+        SELECT {READ_PARAMS} FROM selected_scores
+        ORDER BY {sort_by} DESC
+    """
+
+    if page is not None and page_size is not None:
+        query += f"""\
+            LIMIT :page_size
+            OFFSET :offset
+        """
+        values["page_size"] = page_size
+        values["offset"] = page * page_size
+
+    scores = await clients.database.fetch_all(query, values)
+    return [deserialize(score) for score in scores]
 
 
 async def fetch_one_by_id(score_id: int) -> Score | None:

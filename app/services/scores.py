@@ -102,7 +102,7 @@ async def fetch_many(
     return _scores
 
 
-async def fetch_count(
+async def fetch_total_count(
     beatmap_md5: str | None = None,
     account_id: int | None = None,
     country: str | None = None,
@@ -113,7 +113,7 @@ async def fetch_count(
     mods: int | None = None,
 ) -> int | ServiceError:
     try:
-        total = await scores.fetch_count(
+        total = await scores.fetch_total_count(
             beatmap_md5=beatmap_md5,
             account_id=account_id,
             country=country,
