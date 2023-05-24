@@ -1,7 +1,6 @@
 import struct
 from dataclasses import dataclass
 from enum import Enum
-from enum import IntEnum
 from typing import Any
 from typing import NotRequired
 from typing import TypedDict
@@ -24,7 +23,7 @@ from typing import TypedDict
 # big endian: [0, 0, 0, 2] == 2
 
 
-class ClientPackets(IntEnum):
+class ClientPackets:
     CHANGE_ACTION = 0
     SEND_PUBLIC_MESSAGE = 1
     OSU_EXIT = 2
@@ -75,11 +74,8 @@ class ClientPackets(IntEnum):
     TOURNAMENT_JOIN_MATCH_CHANNEL = 108
     TOURNAMENT_LEAVE_MATCH_CHANNEL = 109
 
-    def __repr__(self) -> str:
-        return f"<{self.name} ({self.value})>"
 
-
-class ServerPackets(IntEnum):
+class ServerPackets:
     USER_ID = 5
     SEND_MESSAGE = 7
     PONG = 8
@@ -140,13 +136,10 @@ class ServerPackets(IntEnum):
     MATCH_ABORT = 106
     SWITCH_TOURNAMENT_SERVER = 107
 
-    def __repr__(self) -> str:
-        return f"<{self.name} ({self.value})>"
-
 
 @dataclass
 class Packet:
-    packet_id: ClientPackets
+    packet_id: int
     packet_data_length: int
     packet_data: bytes
 
@@ -434,7 +427,7 @@ def read_packets(request_data: bytes) -> list[Packet]:
         assert len(packet_data) == packet_len, "packet data shorter than expected"
         offset += packet_len
 
-        packet = Packet(ClientPackets(packet_id), packet_len, packet_data)
+        packet = Packet(packet_id, packet_len, packet_data)
         packets.append(packet)
 
     return packets
@@ -1115,7 +1108,6 @@ def write_silence_end_packet(seconds_remaining: int) -> bytes:
 
 
 # USER_SILENCED = 94
-
 
 
 # USER_PRESENCE_SINGLE = 95

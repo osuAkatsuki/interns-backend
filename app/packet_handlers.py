@@ -36,16 +36,14 @@ if TYPE_CHECKING:
 
 BanchoHandler = Callable[["Session", bytes], Awaitable[None]]
 
-packet_handlers: dict[packets.ClientPackets, BanchoHandler] = {}
+packet_handlers: dict[int, BanchoHandler] = {}
 
 
-def get_packet_handler(packet_id: packets.ClientPackets):
+def get_packet_handler(packet_id: int):
     return packet_handlers.get(packet_id)
 
 
-def bancho_handler(
-    packet_id: packets.ClientPackets,
-) -> Callable[[BanchoHandler], BanchoHandler]:
+def bancho_handler(packet_id: int) -> Callable[[BanchoHandler], BanchoHandler]:
     def wrapper(f: BanchoHandler) -> BanchoHandler:
         packet_handlers[packet_id] = f
         return f
