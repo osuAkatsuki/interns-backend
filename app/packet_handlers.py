@@ -29,6 +29,7 @@ from app.repositories.multiplayer_matches import MatchTeams
 from app.repositories.multiplayer_matches import MatchTeamTypes
 from app.repositories.multiplayer_slots import SlotStatus
 from app.repositories.sessions import Action
+from app.services import accounts
 from app.services import multiplayer_matches
 
 if TYPE_CHECKING:
@@ -646,6 +647,21 @@ async def cant_spectate_handler(session: "Session", packet_data: bytes):
 
 @bancho_handler(packets.ClientPackets.SEND_PRIVATE_MESSAGE)
 async def send_private_message_handler(session: "Session", packet_data: bytes):
+    account = await accounts.fetch_by_account_id(session["account_id"])
+    assert not isinstance(account, ServiceError)
+    if account["silence_end"] is not None:
+        seconds_remaining = (datetime.now() - account["silence_end"]).total_seconds()
+
+        if seconds_remaining > 0:
+            logger.warning(
+                "A user attempted to send a message but they are silenced.",
+                user_id=session["account_id"],
+                silence_end=account["silence_end"],
+            )
+            return
+
+        await accounts.partial_update(account["account_id"], silence_end=None)
+
     own_presence = session["presence"]
 
     if not own_presence["privileges"] & ServerPrivileges.UNRESTRICTED:
@@ -684,11 +700,10 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
     if recipient_presence["pm_private"] and not relationship_info:
         dms_blocked_packet_data = packets.write_user_dm_blocked_packet(
             recipient_presence["username"],
-            recipient_presence["account_id"],
         )
         await packet_bundles.enqueue(
             session["session_id"],
-            dms_blocked_packet_data
+            dms_blocked_packet_data,
         )
         return
 
@@ -708,6 +723,23 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
             session["session_id"],
             away_message_packet_data,
         )
+
+    recipient = await accounts.fetch_by_account_id(recipient_session["account_id"])
+    assert not isinstance(recipient, ServiceError)
+    if recipient["silence_end"] is not None:
+        seconds_remaining = (datetime.now() - recipient["silence_end"]).total_seconds()
+
+        if seconds_remaining > 0:
+            user_silenced_packet = packets.write_target_is_silenced_packet(
+                recipient_presence["username"],
+            )
+
+            await packet_bundles.enqueue(
+                session["session_id"],
+                user_silenced_packet,
+            )
+        else:
+            await accounts.partial_update(recipient["account_id"], silence_end=None)
 
     send_message_packet_data = packets.write_send_message_packet(
         own_presence["username"],

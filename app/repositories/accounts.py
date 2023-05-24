@@ -3,6 +3,8 @@ from typing import cast
 from typing import TypedDict
 
 from app import clients
+from app.typing import UNSET
+from app.typing import Unset
 
 READ_PARAMS = """
     account_id,
@@ -27,6 +29,15 @@ class Account(TypedDict):
     silence_end: datetime | None
     created_at: datetime
     updated_at: datetime
+
+
+class AccountUpdateFields(TypedDict, total=False):
+    username: str
+    email_address: str
+    privileges: int
+    password: str
+    country: str
+    silence_end: datetime | None
 
 
 async def create(
@@ -120,33 +131,34 @@ async def fetch_by_username(username: str) -> Account | None:
 
 async def partial_update(
     account_id: int,
-    username: str | None,
-    email_address: str | None,
-    privileges: int | None,
-    password: str | None,
-    country: str | None,
-    silence_end: datetime | None = None,
+    username: str | Unset = UNSET,
+    email_address: str | Unset = UNSET,
+    privileges: int | Unset = UNSET,
+    password: str | Unset = UNSET,
+    country: str | Unset = UNSET,
+    silence_end: datetime | None | Unset = UNSET,
 ) -> Account | None:
-    account = await clients.database.fetch_one(
-        query=f"""\
-            UPDATE accounts
-            SET username = COALESCE(:username, username),
-            email_address = COALESCE(:email_address, email_address),
-            privileges = COALESCE(:privileges, privileges),
-            password = COALESCE(:password, password),
-            country = COALESCE(:country, country),
-            silence_end = COALESCE(:silence_end, silence_end)
-            WHERE account_id = :account_id
-        """,
-        values={
-            "account_id": account_id,
-            "username": username,
-            "email_address": email_address,
-            "privileges": privileges,
-            "password": password,
-            "country": country,
-            "silence_end": silence_end,
-        },
-    )
+    update_fields: AccountUpdateFields = {}
+    if not isinstance(username, Unset):
+        update_fields["username"] = username
+    if not isinstance(email_address, Unset):
+        update_fields["email_address"] = email_address
+    if not isinstance(privileges, Unset):
+        update_fields["privileges"] = privileges
+    if not isinstance(password, Unset):
+        update_fields["password"] = password
+    if not isinstance(country, Unset):
+        update_fields["country"] = country
+    if not isinstance(silence_end, Unset):
+        update_fields["silence_end"] = silence_end
 
+    query = f"""\
+        UPDATE accounts
+           SET {",".join(f"{k} = :{k}" for k in update_fields)}
+         WHERE account_id = :account_id
+     RETURNING {READ_PARAMS}
+    """
+    values = {"account_id": account_id} | update_fields
+
+    account = await clients.database.fetch_one(query, values)
     return cast(Account, account) if account is not None else None
