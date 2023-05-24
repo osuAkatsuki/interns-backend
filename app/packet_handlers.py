@@ -2781,8 +2781,6 @@ async def tournament_match_info_request_handler(session: "Session", packet_data:
         return
 
     slots = await multiplayer_slots.fetch_all(match_id)
-    if isinstance(slots, ServiceError):
-        return
 
     clientside_mode = game_modes.for_client(match["game_mode"])
 
@@ -2832,4 +2830,50 @@ async def tournament_match_info_request_handler(session: "Session", packet_data:
 # TOURNAMENT_JOIN_MATCH_CHANNEL = 108
 
 
+@bancho_handler(packets.ClientPackets.TOURNAMENT_JOIN_MATCH_CHANNEL)
+async def tournament_join_match_channel_handler(
+    session: "Session",
+    packet_data: bytes,
+):
+    packet_reader = packets.PacketReader(packet_data)
+
+    match_id = packet_reader.read_i32()
+
+    match = await multiplayer_matches.fetch_one(match_id)
+    if isinstance(match, ServiceError):
+        return
+
+    match_channel = await channels.fetch_one_by_name(f"#mp_{match_id}")
+    if match_channel is None:
+        return
+
+    await channel_members.add(
+        match_channel["channel_id"],
+        session["session_id"],
+    )
+
+
 # TOURNAMENT_LEAVE_MATCH_CHANNEL = 109
+
+
+@bancho_handler(packets.ClientPackets.TOURNAMENT_LEAVE_MATCH_CHANNEL)
+async def tournament_leave_match_channel_handler(
+    session: "Session",
+    packet_data: bytes,
+):
+    packet_reader = packets.PacketReader(packet_data)
+
+    match_id = packet_reader.read_i32()
+
+    match = await multiplayer_matches.fetch_one(match_id)
+    if isinstance(match, ServiceError):
+        return
+
+    match_channel = await channels.fetch_one_by_name(f"#mp_{match_id}")
+    if match_channel is None:
+        return
+
+    await channel_members.remove(
+        match_channel["channel_id"],
+        session["session_id"],
+    )
