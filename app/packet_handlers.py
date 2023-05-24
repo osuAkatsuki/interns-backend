@@ -297,9 +297,28 @@ async def logout_handler(session: "Session", packet_data: bytes) -> None:
     assert maybe_session is not None
     session = maybe_session
 
+    # leave channels the session is in
+    for channel in await channels.fetch_many():
+        await channel_members.remove(
+            channel["channel_id"],
+            session["session_id"],
+        )
+
+        # inform everyone in the channel that we left
+        current_channel_members = await channel_members.members(channel["channel_id"])
+
+        for session_id in current_channel_members:
+            await packet_bundles.enqueue(
+                session_id,
+                packets.write_channel_info_packet(
+                    channel["name"],
+                    channel["topic"],
+                    len(current_channel_members),
+                ),
+            )
+
     # TODO: spectator
     # TODO: multiplayer
-    # TODO: channels
 
     # tell everyone else we logged out
     if own_presence["privileges"] & ServerPrivileges.UNRESTRICTED:
@@ -2751,11 +2770,7 @@ async def match_change_password_handler(session: "Session", packet_data: bytes):
 # TOURNAMENT_MATCH_INFO_REQUEST = 93
 
 
-@bancho_handler(packets.ClientPackets.TOURNAMENT_MATCH_INFO_REQUEST)
-async def tournament_match_info_request_handler(
-    session: "Session",
-    packet_data: bytes,
-):
+async def tournament_match_info_request_handler(session: "Session", packet_data: bytes):
     packet_reader = packets.PacketReader(packet_data)
 
     match_id = packet_reader.read_i32()
@@ -2765,6 +2780,8 @@ async def tournament_match_info_request_handler(
         return
 
     slots = await multiplayer_slots.fetch_all(match_id)
+
+    clientside_mode = game_modes.for_client(match["game_mode"])
 
     osu_match_data: packets.OsuMatch = {
         "match_id": match["match_id"],
@@ -2781,7 +2798,7 @@ async def tournament_match_info_request_handler(
             s["account_id"] for s in slots if s["status"] & SlotStatus.HAS_PLAYER != 0
         ],
         "host_account_id": match["host_account_id"],
-        "game_mode": game_modes.for_client(match["game_mode"]),
+        "game_mode": clientside_mode,
         "win_condition": match["win_condition"],
         "team_type": match["team_type"],
         "freemods_enabled": match["freemods_enabled"],
