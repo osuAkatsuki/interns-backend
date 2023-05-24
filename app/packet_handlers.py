@@ -732,7 +732,6 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
         if seconds_remaining > 0:
             user_silenced_packet = packets.write_target_is_silenced_packet(
                 recipient_presence["username"],
-                recipient_session["account_id"],
             )
 
             await packet_bundles.enqueue(
