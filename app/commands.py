@@ -45,16 +45,54 @@ def command(
     privileges: int | None = None,
 ) -> Callable[[CommandHandler], CommandHandler]:
     def wrapper(callback: CommandHandler) -> CommandHandler:
-        commands[trigger] = Command(trigger, callback, privileges)
+        command = Command(trigger, callback, privileges)
+        commands[trigger] = command
         return callback
 
     return wrapper
+
+
+class CommandSet:
+    def __init__(
+        self,
+        trigger: str,
+        documentation: str,
+    ) -> None:
+        self.trigger = trigger
+        self.documentation = documentation
+        self.subcommands: dict[str, Command] = {}
+
+    def command(
+        self,
+        trigger: str,
+        privileges: int | None = None,
+    ) -> Callable[[CommandHandler], CommandHandler]:
+        trigger = trigger.removeprefix(f"{self.trigger} ")
+
+        def wrapper(callback: CommandHandler) -> CommandHandler:
+            command = Command(trigger, callback, privileges)
+            self.subcommands[trigger] = command
+            return callback
+
+        return wrapper
+
+    def get_command(self, trigger: str) -> Command | None:
+        return self.subcommands.get(trigger)
+
+
+command_sets: dict[str, CommandSet] = {}
+
+
+def get_command_set(trigger: str) -> CommandSet | None:
+    return command_sets.get(trigger)
 
 
 @command("!help")
 async def help_handler(session: "Session", args: list[str]) -> str | None:
     """Display this help message."""
     response_lines = []
+
+    # add regular commands
     for trigger, command in commands.items():
         # don't show commands without documentation
         documentation = command.callback.__doc__
@@ -66,7 +104,31 @@ async def help_handler(session: "Session", args: list[str]) -> str | None:
             if (session["presence"]["privileges"] & command.privileges) == 0:
                 continue
 
-        response_lines.append(f"{trigger} - {documentation}")
+        response_lines.append(f"* {trigger} - {documentation}")
+
+    if command_sets:
+        response_lines.append("")  # \n
+
+    # add command sets
+    for trigger, command_set in command_sets.items():
+        documentation = command_set.documentation
+
+        response_lines.append(f"[ {trigger} ] - {documentation}")
+
+        for trigger, command in command_set.subcommands.items():
+            # don't show commands without documentation
+            documentation = command.callback.__doc__
+            if not documentation:
+                continue
+
+            # don't show commands that the user can't access
+            if command.privileges is not None:
+                if (session["presence"]["privileges"] & command.privileges) == 0:
+                    continue
+
+            response_lines.append(f"* {trigger} - {documentation}")
+
+            # TODO: \n between sets?
 
     return "\n".join(response_lines)
 
