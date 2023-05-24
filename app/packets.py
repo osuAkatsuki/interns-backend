@@ -32,7 +32,7 @@ class ClientPackets:
     START_SPECTATING = 16
     STOP_SPECTATING = 17
     SPECTATE_FRAMES = 18
-    ERROR_REPORT = 20
+    ERROR_REPORT = 20  # unused
     CANT_SPECTATE = 21
     SEND_PRIVATE_MESSAGE = 25
     PART_LOBBY = 29
@@ -55,7 +55,7 @@ class ClientPackets:
     MATCH_HAS_BEATMAP = 59
     MATCH_SKIP_REQUEST = 60
     CHANNEL_JOIN = 63
-    BEATMAP_INFO_REQUEST = 68
+    BEATMAP_INFO_REQUEST = 68  # unused
     MATCH_TRANSFER_HOST = 70
     FRIEND_ADD = 73
     FRIEND_REMOVE = 74
@@ -93,7 +93,7 @@ class ServerPackets:
     UPDATE_MATCH = 26
     NEW_MATCH = 27
     DISPOSE_MATCH = 28
-    TOGGLE_BLOCK_NON_FRIEND_DMS = 34
+    LOBBY_JOIN_UNUSED = 34  # unused
     MATCH_JOIN_SUCCESS = 36
     MATCH_JOIN_FAIL = 37
     FELLOW_SPECTATOR_JOINED = 42
@@ -1117,6 +1117,19 @@ def write_silence_end_packet(seconds_remaining: int) -> bytes:
 
 
 # USER_DM_BLOCKED = 100
+
+
+def write_user_dm_blocked_packet(username: str, user_id: int) -> bytes:
+    message = OsuMessage(
+        sender_name=username,
+        sender_id=user_id,
+        message_content="",
+        recipient_name="",
+    )
+    return write_packet(
+        packet_id=ServerPackets.USER_DM_BLOCKED,
+        packet_data_inputs=[(DataType.OSU_MESSAGE, message)]
+    )
 
 
 # TARGET_IS_SILENCED = 101

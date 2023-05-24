@@ -59,6 +59,7 @@ class Presence(TypedDict):
     beatmap_md5: str
     beatmap_id: int
     mods: int
+    pm_private: bool
     receive_match_updates: bool
     spectator_host_session_id: UUID | None
     away_message: str | None
@@ -84,6 +85,7 @@ def serialize_presence(presence: Presence) -> str:
             "beatmap_md5": presence["beatmap_md5"],
             "beatmap_id": presence["beatmap_id"],
             "mods": presence["mods"],
+            "pm_private": presence["pm_private"],
             "receive_match_updates": presence["receive_match_updates"],
             "spectator_host_session_id": (
                 str(presence["spectator_host_session_id"])
@@ -312,6 +314,10 @@ async def partial_update(session_id: UUID, **kwargs: Any) -> Session | None:
         game_mode = presence.get("game_mode")
         if game_mode is not None:
             session["presence"]["game_mode"] = game_mode
+
+        pm_private = presence.get("pm_private")
+        if pm_private is not None:
+            session["presence"]["pm_private"] = pm_private
 
         receive_match_updates = presence.get("receive_match_updates")
         if receive_match_updates is not None:
