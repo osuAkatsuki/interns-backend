@@ -292,7 +292,10 @@ async def logout_handler(session: "Session", packet_data: bytes) -> None:
     if (datetime.now() - session["created_at"]).total_seconds() < 1:
         return
 
-    await sessions.delete_by_id(session["session_id"])
+    logger.info("User sign out successful", account_id=session["account_id"])
+    maybe_session = await sessions.delete_by_id(session["session_id"])
+    assert maybe_session is not None
+    session = maybe_session
 
     # leave channels the session is in
     for channel in await channels.fetch_many():
@@ -394,7 +397,7 @@ async def start_spectating_handler(session: "Session", packet_data: bytes):
     packet_reader = packets.PacketReader(packet_data)
     host_account_id = packet_reader.read_i32()
 
-    host_session = await sessions.fetch_by_account_id(host_account_id)
+    host_session = await sessions.fetch_primary_by_account_id(host_account_id)
 
     if host_session is None:
         logger.warning(
@@ -661,7 +664,7 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
     if len(message_content) > 2000:
         message_content = message_content[:2000] + "..."
 
-    recipient_session = await sessions.fetch_by_username(recipient_name)
+    recipient_session = await sessions.fetch_primary_by_username(recipient_name)
 
     if recipient_session is None:
         logger.warning(
@@ -671,7 +674,8 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
         return
 
     relationship_info = await relationships.fetch_one(
-        session["account_id"], recipient_session["account_id"]
+        session["account_id"],
+        recipient_session["account_id"],
     )
 
     if relationship_info is not None and relationship_info["relationship"] == "blocked":
@@ -691,7 +695,10 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
             recipient_session["account_id"],
         )
 
-        await packet_bundles.enqueue(session["session_id"], away_message_packet_data)
+        await packet_bundles.enqueue(
+            session["session_id"],
+            away_message_packet_data,
+        )
 
     send_message_packet_data = packets.write_send_message_packet(
         own_presence["username"],
@@ -701,7 +708,8 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
     )
 
     await packet_bundles.enqueue(
-        recipient_session["session_id"], send_message_packet_data
+        recipient_session["session_id"],
+        send_message_packet_data,
     )
 
 
@@ -1580,7 +1588,7 @@ async def match_lock_handler(session: "Session", packet_data: bytes):
             )
             return
 
-        slot_session = await sessions.fetch_by_account_id(slot["account_id"])
+        slot_session = await sessions.fetch_primary_by_account_id(slot["account_id"])
         assert slot_session is not None
 
         match_channel = await channels.fetch_one_by_name(f"#mp_{match_id}")
@@ -2611,7 +2619,7 @@ async def user_stats_request_handler(session: "Session", packet_data: bytes) -> 
         if account_id == session["account_id"]:
             continue
 
-        other_session = await sessions.fetch_by_account_id(account_id)
+        other_session = await sessions.fetch_primary_by_account_id(account_id)
         if other_session is None:
             continue
 
@@ -2675,7 +2683,7 @@ async def match_invite_handler(session: "Session", packet_data: bytes):
     reader = packets.PacketReader(packet_data)
     target_id = reader.read_i32()
 
-    target_session = await sessions.fetch_by_account_id(target_id)
+    target_session = await sessions.fetch_primary_by_account_id(target_id)
     if not target_session:
         logger.warning(
             "A user attempted to invite someone to a match who is offline.",

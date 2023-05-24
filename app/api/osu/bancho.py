@@ -35,9 +35,9 @@ async def bancho_home_page():
 
 
 class LoginData(TypedDict):
-    username: str  # ,
-    password_md5: str  # ,
-    osu_version: str  # ,
+    username: str
+    password_md5: str
+    osu_version: str
     utc_offset: int
     display_city: bool
     pm_private: bool
@@ -112,24 +112,6 @@ async def handle_login(request: Request) -> Response:
             headers={"cho-token": "no"},
         )
 
-    # TODO: support for this specifically for tournament clients
-    other_session = await sessions.fetch_by_username(login_data["username"])
-    if other_session is not None:
-        time_since_last_communication = (
-            datetime.now() - other_session["presence"]["last_communicated_at"]
-        )
-
-        if time_since_last_communication.total_seconds() > 10:  # trust the new user
-            await sessions.delete_by_id(other_session["session_id"])
-        else:
-            return Response(
-                content=(
-                    packets.write_user_id_packet(-1)
-                    + packets.write_notification_packet("User already logged in.")
-                ),
-                headers={"cho-token": "no"},
-            )
-
     raw_ip_address = request.headers.get("X-Real-IP")
     if raw_ip_address is None:
         return Response(
@@ -162,6 +144,8 @@ async def handle_login(request: Request) -> Response:
                 headers={"cho-token": "no"},
             )
 
+    other_session = await sessions.fetch_primary_by_username(login_data["username"])
+
     vanilla_game_mode = GameMode.VN_OSU
 
     own_session = await sessions.create(
@@ -187,6 +171,12 @@ async def handle_login(request: Request) -> Response:
             "multiplayer_match_id": None,
             "last_communicated_at": datetime.now(),
             "last_np_beatmap_id": None,
+            "primary": (
+                # this is either our first session or we're logging in from a tournament spectator client
+                # TODO: limit the number of spectators clients which can connect simultaneously?
+                other_session is None
+                or login_data["osu_version"].endswith("tourney")
+            ),
         },
     )
     own_presence = own_session["presence"]
@@ -409,12 +399,11 @@ async def handle_bancho_request(request: Request) -> Response:
     for packet_bundle in own_packet_bundles:
         response_content.extend(packet_bundle["data"])
 
-    maybe_session = await sessions.partial_update(
+    # (the session may already be signed out, no worries if so)
+    await sessions.partial_update(
         session["session_id"],
         presence={"last_communicated_at": datetime.now()},
     )
-    assert maybe_session is not None
-    session = maybe_session
 
     return Response(
         content=bytes(response_content),
