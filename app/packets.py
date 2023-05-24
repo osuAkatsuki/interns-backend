@@ -483,6 +483,7 @@ def write_string(value: str) -> bytes:
 
 # osu! specific data types
 
+
 def write_i32_list_i16_len(values: list[int]) -> bytes:
     encoded_len = struct.pack("<H", len(values))
     for value in values:
@@ -492,10 +493,10 @@ def write_i32_list_i16_len(values: list[int]) -> bytes:
 
 def write_osu_message(value: OsuMessage) -> bytes:
     return (
-        write_string(value["sender_name"]) +
-        write_string(value["message_content"]) +
-        write_string(value["recipient_name"]) +
-        struct.pack("<i", value["sender_id"])
+        write_string(value["sender_name"])
+        + write_string(value["message_content"])
+        + write_string(value["recipient_name"])
+        + struct.pack("<i", value["sender_id"])
     )
 
 
@@ -1141,7 +1142,7 @@ def write_silence_end_packet(seconds_remaining: int) -> bytes:
 def write_user_silenced_packet(user_id: int) -> bytes:
     return write_packet(
         packet_id=ServerPackets.USER_SILENCED,
-        packet_data_inputs=[(DataType.I32, user_id)]
+        packet_data_inputs=[(DataType.I32, user_id)],
     )
 
 
@@ -1154,28 +1155,28 @@ def write_user_silenced_packet(user_id: int) -> bytes:
 # USER_DM_BLOCKED = 100
 
 
-def write_user_dm_blocked_packet(username: str, user_id: int) -> bytes:
+def write_user_dm_blocked_packet(username: str) -> bytes:
     message = OsuMessage(
-        sender_name=username,
-        sender_id=user_id,
+        sender_name="",
+        sender_id=0,
         message_content="",
-        recipient_name="",
+        recipient_name=username,
     )
     return write_packet(
         packet_id=ServerPackets.USER_DM_BLOCKED,
-        packet_data_inputs=[(DataType.OSU_MESSAGE, message)]
+        packet_data_inputs=[(DataType.OSU_MESSAGE, message)],
     )
 
 
 # TARGET_IS_SILENCED = 101
 
 
-def write_target_is_silenced_packet(username: str, user_id: int) -> bytes:
+def write_target_is_silenced_packet(username: str) -> bytes:
     message = OsuMessage(
-        sender_name=username,
-        sender_id=user_id,
+        sender_name="",
+        sender_id=0,
         message_content="",
-        recipient_name="",
+        recipient_name=username,
     )
     return write_packet(
         packet_id=ServerPackets.TARGET_IS_SILENCED,

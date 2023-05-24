@@ -29,8 +29,8 @@ from app.repositories.multiplayer_matches import MatchTeams
 from app.repositories.multiplayer_matches import MatchTeamTypes
 from app.repositories.multiplayer_slots import SlotStatus
 from app.repositories.sessions import Action
-from app.services import multiplayer_matches
 from app.services import accounts
+from app.services import multiplayer_matches
 
 if TYPE_CHECKING:
     from app.repositories.sessions import Session
@@ -662,7 +662,6 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
 
         await accounts.partial_update(account["account_id"], silence_end=None)
 
-
     own_presence = session["presence"]
 
     if not own_presence["privileges"] & ServerPrivileges.UNRESTRICTED:
@@ -701,11 +700,10 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
     if recipient_presence["pm_private"] and not relationship_info:
         dms_blocked_packet_data = packets.write_user_dm_blocked_packet(
             recipient_presence["username"],
-            recipient_presence["account_id"],
         )
         await packet_bundles.enqueue(
             session["session_id"],
-            dms_blocked_packet_data
+            dms_blocked_packet_data,
         )
         return
 
