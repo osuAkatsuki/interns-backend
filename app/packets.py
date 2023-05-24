@@ -1119,6 +1119,19 @@ def write_silence_end_packet(seconds_remaining: int) -> bytes:
 # USER_DM_BLOCKED = 100
 
 
+def write_user_dm_blocked_packet(username: str, user_id: int) -> bytes:
+    message = OsuMessage(
+        sender_name=username,
+        sender_id=user_id,
+        message_content="",
+        recipient_name="",
+    )
+    return write_packet(
+        packet_id=ServerPackets.USER_DM_BLOCKED,
+        packet_data_inputs=[(DataType.OSU_MESSAGE, message)]
+    )
+
+
 # TARGET_IS_SILENCED = 101
 
 
