@@ -468,7 +468,7 @@ def write_uleb128(value: int) -> bytes:
         data.append(value & 0x7F)
         value >>= 7
         if value != 0:
-            data[-1] = 0x80
+            data[-1] |= 0x80
 
     return data
 
