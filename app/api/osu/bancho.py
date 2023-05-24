@@ -23,9 +23,9 @@ from app.repositories import accounts
 from app.repositories import channel_members
 from app.repositories import channels
 from app.repositories import packet_bundles
+from app.repositories import relationships
 from app.repositories import sessions
 from app.repositories import stats
-from app.repositories import relationships
 
 bancho_router = APIRouter(default_response_class=Response)
 
@@ -358,7 +358,9 @@ async def handle_login(request: Request) -> Response:
         response_data += packets.write_account_restricted_packet()
 
     relations = await relationships.fetch_all(account["account_id"], "friend")
-    response_data += packets.write_friends_list_packet([relation["target_id"] for relation in relations])
+    response_data += packets.write_friends_list_packet(
+        [relation["target_id"] for relation in relations]
+    )
 
     # TODO: main menu icon
 

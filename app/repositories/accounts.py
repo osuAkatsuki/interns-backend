@@ -3,7 +3,8 @@ from typing import cast
 from typing import TypedDict
 
 from app import clients
-from app.undefined import Undefined, UndefinedType
+from app.undefined import UNSET
+from app.undefined import Unset
 
 READ_PARAMS = """
     account_id,
@@ -28,6 +29,15 @@ class Account(TypedDict):
     silence_end: datetime | None
     created_at: datetime
     updated_at: datetime
+
+
+class AccountUpdateFields(TypedDict, total=False):
+    username: str
+    email_address: str
+    privileges: int
+    password: str
+    country: str
+    silence_end: datetime | None
 
 
 async def create(
@@ -121,37 +131,34 @@ async def fetch_by_username(username: str) -> Account | None:
 
 async def partial_update(
     account_id: int,
-    username: str | UndefinedType = Undefined,
-    email_address: str | UndefinedType = Undefined,
-    privileges: int | UndefinedType = Undefined,
-    password: str | UndefinedType = Undefined,
-    country: str | UndefinedType = Undefined,
-    silence_end: datetime | None | UndefinedType = Undefined,
+    username: str | Unset = UNSET,
+    email_address: str | Unset = UNSET,
+    privileges: int | Unset = UNSET,
+    password: str | Unset = UNSET,
+    country: str | Unset = UNSET,
+    silence_end: datetime | None | Unset = UNSET,
 ) -> Account | None:
-    update_fields = {}
-    if username is not Undefined:
+    update_fields: AccountUpdateFields = {}
+    if not isinstance(username, Unset):
         update_fields["username"] = username
-    if email_address is not Undefined:
+    if not isinstance(email_address, Unset):
         update_fields["email_address"] = email_address
-    if privileges is not Undefined:
+    if not isinstance(privileges, Unset):
         update_fields["privileges"] = privileges
-    if password is not Undefined:
+    if not isinstance(password, Unset):
         update_fields["password"] = password
-    if country is not Undefined:
+    if not isinstance(country, Unset):
         update_fields["country"] = country
-    if silence_end is not Undefined:
+    if not isinstance(silence_end, Unset):
         update_fields["silence_end"] = silence_end
 
-    updates = [f"{k} = :{k}" for k in update_fields.keys()]
-    query = (
-        "UPDATE accounts SET " + ','.join(updates) +
-        " WHERE account_id = :account_id "
-        f"RETURNING {READ_PARAMS}"
-    )
+    query = f"""\
+        UPDATE accounts
+           SET {",".join(f"{k} = :{k}" for k in update_fields)}
+         WHERE account_id = :account_id
+     RETURNING {READ_PARAMS}
+    """
+    values = {"account_id": account_id} | update_fields
 
-    account = await clients.database.fetch_one(
-        query=query,
-        values={"account_id": account_id} | update_fields,
-    )
-
+    account = await clients.database.fetch_one(query, values)
     return cast(Account, account) if account is not None else None
