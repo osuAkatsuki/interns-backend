@@ -3,6 +3,7 @@ from typing import cast
 from typing import TypedDict
 
 from app import clients
+from app.undefined import Undefined, UndefinedType
 
 READ_PARAMS = """
     account_id,
@@ -120,33 +121,37 @@ async def fetch_by_username(username: str) -> Account | None:
 
 async def partial_update(
     account_id: int,
-    username: str | None,
-    email_address: str | None,
-    privileges: int | None,
-    password: str | None,
-    country: str | None,
-    silence_end: datetime | None = None,
+    username: str | UndefinedType = Undefined,
+    email_address: str | UndefinedType = Undefined,
+    privileges: int | UndefinedType = Undefined,
+    password: str | UndefinedType = Undefined,
+    country: str | UndefinedType = Undefined,
+    silence_end: datetime | None | UndefinedType = Undefined,
 ) -> Account | None:
+    update_fields = {}
+    if username is not Undefined:
+        update_fields["username"] = username
+    if email_address is not Undefined:
+        update_fields["email_address"] = email_address
+    if privileges is not Undefined:
+        update_fields["privileges"] = privileges
+    if password is not Undefined:
+        update_fields["password"] = password
+    if country is not Undefined:
+        update_fields["country"] = country
+    if silence_end is not Undefined:
+        update_fields["silence_end"] = silence_end
+
+    updates = [f"{k} = :{k}" for k in update_fields.keys()]
+    query = (
+        "UPDATE accounts SET " + ','.join(updates) +
+        " WHERE account_id = :account_id "
+        f"RETURNING {READ_PARAMS}"
+    )
+
     account = await clients.database.fetch_one(
-        query=f"""\
-            UPDATE accounts
-            SET username = COALESCE(:username, username),
-            email_address = COALESCE(:email_address, email_address),
-            privileges = COALESCE(:privileges, privileges),
-            password = COALESCE(:password, password),
-            country = COALESCE(:country, country),
-            silence_end = COALESCE(:silence_end, silence_end)
-            WHERE account_id = :account_id
-        """,
-        values={
-            "account_id": account_id,
-            "username": username,
-            "email_address": email_address,
-            "privileges": privileges,
-            "password": password,
-            "country": country,
-            "silence_end": silence_end,
-        },
+        query=query,
+        values={"account_id": account_id} | update_fields,
     )
 
     return cast(Account, account) if account is not None else None
