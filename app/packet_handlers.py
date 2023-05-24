@@ -2770,6 +2770,7 @@ async def match_change_password_handler(session: "Session", packet_data: bytes):
 # TOURNAMENT_MATCH_INFO_REQUEST = 93
 
 
+@bancho_handler(packets.ClientPackets.TOURNAMENT_MATCH_INFO_REQUEST)
 async def tournament_match_info_request_handler(session: "Session", packet_data: bytes):
     packet_reader = packets.PacketReader(packet_data)
 
