@@ -224,7 +224,17 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
     # handle commands
     if message_content.startswith("!"):
         trigger, *args = message_content.split(" ")
+
+        # search for regular commands
         command = commands.get_command(trigger)
+        if command is None:
+            command_set = commands.get_command_set(trigger)
+            if command_set is not None:
+                trigger, *args = args
+
+                # search for commands in a command set
+                command = command_set.get_command(trigger)
+
         if command is not None:
             if command.privileges is not None:
                 if not own_presence["privileges"] & command.privileges:
