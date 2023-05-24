@@ -32,7 +32,7 @@ from app.repositories.sessions import Action
 from app.services import multiplayer_matches
 
 if TYPE_CHECKING:
-    from app.repositories.sessions import Presence, Session
+    from app.repositories.sessions import Session
 
 BanchoHandler = Callable[["Session", bytes], Awaitable[None]]
 
@@ -299,23 +299,25 @@ async def logout_handler(session: "Session", packet_data: bytes) -> None:
 
     # leave channels the session is in
     for channel in await channels.fetch_many():
-        await channel_members.remove(
+        member_who_left = await channel_members.remove(
             channel["channel_id"],
             session["session_id"],
         )
-
-        # inform everyone in the channel that we left
-        current_channel_members = await channel_members.members(channel["channel_id"])
-
-        for session_id in current_channel_members:
-            await packet_bundles.enqueue(
-                session_id,
-                packets.write_channel_info_packet(
-                    channel["name"],
-                    channel["topic"],
-                    len(current_channel_members),
-                ),
+        if member_who_left is not None:
+            # inform everyone in the channel that we left
+            current_channel_members = await channel_members.members(
+                channel["channel_id"]
             )
+
+            for session_id in current_channel_members:
+                await packet_bundles.enqueue(
+                    session_id,
+                    packets.write_channel_info_packet(
+                        channel["name"],
+                        channel["topic"],
+                        len(current_channel_members),
+                    ),
+                )
 
     # TODO: spectator
     # TODO: multiplayer
