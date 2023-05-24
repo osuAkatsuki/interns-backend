@@ -128,3 +128,15 @@ async def partial_update(
         return ServiceError.ACCOUNTS_NOT_FOUND
 
     return account
+
+
+# TODO: PARTIAL UPDATE w/ silence end integration
+async def partial_update(
+    account_id: int,
+    username: str | None,
+    email_address: str | None,
+    privileges: int | None,
+    password: str | None,
+    country: str | None,
+) -> Account | ServiceError:
+    ...
