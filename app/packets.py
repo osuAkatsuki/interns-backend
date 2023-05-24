@@ -483,6 +483,12 @@ def write_string(value: str) -> bytes:
 
 # osu! specific data types
 
+def write_i32_list_i16_len(values: list[int]) -> bytes:
+    encoded_len = struct.pack("<H", len(values))
+    for value in values:
+        encoded_len += struct.pack("<i", value)
+    return encoded_len
+
 
 def write_osu_match(
     match_data: OsuMatch,
@@ -603,6 +609,8 @@ def write_packet(
             packet_body += struct.pack("<d", value)
         elif type == DataType.STRING:
             packet_body += write_string(value)
+        elif type == DataType.I32_LIST_I16_LEN:
+            packet_body += write_i32_list_i16_len(value)
         elif type == DataType.OSU_MATCH:
             packet_body += write_osu_match(*value)
         elif type == DataType.OSU_SCOREFRAME:
@@ -1117,6 +1125,13 @@ def write_silence_end_packet(seconds_remaining: int) -> bytes:
 
 
 # USER_SILENCED = 94
+
+
+def write_user_silenced_packet(user_id: int) -> bytes:
+    return write_packet(
+        packet_id=ServerPackets.USER_SILENCED,
+        packet_data_inputs=[(DataType.I32, user_id)]
+    )
 
 
 # USER_PRESENCE_SINGLE = 95
