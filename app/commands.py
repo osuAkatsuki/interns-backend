@@ -177,3 +177,8 @@ async def unrank_handler(session: "Session", args: list[str]) -> str | None:
 
 
 # TODO: qualify & approve commands?
+
+
+@command("!silence", privileges=ServerPrivileges.CHAT_MODERATOR)
+async def silence_handler(session: "Session", args: list[str]) -> str | None:
+    ...
