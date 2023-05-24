@@ -290,7 +290,6 @@ async def logout_handler(session: "Session", packet_data: bytes) -> None:
     if (datetime.now() - session["created_at"]).total_seconds() < 1:
         return
 
-    logger.info("User sign out successful", account_id=session["account_id"])
     maybe_session = await sessions.delete_by_id(session["session_id"])
     assert maybe_session is not None
     session = maybe_session
@@ -2537,6 +2536,7 @@ async def user_leaves_channel_handler(session: "Session", packet_data: bytes):
             "A user attempted to leave a channel they are not in",
             user_id=session["account_id"],
             channel_id=channel["channel_id"],
+            channel_name=channel["name"],
         )
         return
 
