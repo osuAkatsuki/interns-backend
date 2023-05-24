@@ -675,10 +675,22 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
         recipient_session["account_id"],
     )
 
-    if relationship_info is not None and relationship_info["relationship"] == "blocked":
+    if relationship_info and relationship_info["relationship"] == "blocked":
         return
 
     recipient_presence = recipient_session["presence"]
+
+    # if the recipient has non friend dms enabled
+    if recipient_presence["pm_private"] and not relationship_info:
+        dms_blocked_packet_data = packets.write_user_dm_blocked_packet(
+            recipient_presence["username"],
+            recipient_presence["account_id"],
+        )
+        await packet_bundles.enqueue(
+            session["session_id"],
+            dms_blocked_packet_data
+        )
+        return
 
     # if the recipient is afk and has a away message, send to self
     if (
@@ -2823,6 +2835,21 @@ async def tournament_match_info_request_handler(session: "Session", packet_data:
 
 
 # TOGGLE_BLOCK_NON_FRIEND_DMS = 99
+
+
+@bancho_handler(packets.ClientPackets.TOGGLE_BLOCK_NON_FRIEND_DMS)
+async def toggle_block_non_friend_dms(session: "Session", packet_data: bytes):
+    presence = session["presence"]
+    await sessions.partial_update(
+        session_id=session["session_id"],
+        presence={"pm_private": not presence["pm_private"]},
+    )
+
+    logger.info(
+        "User has toggled private dms.",
+        user_id=session["account_id"],
+        value=not presence["pm_private"],
+    )
 
 
 # TOURNAMENT_JOIN_MATCH_CHANNEL = 108
