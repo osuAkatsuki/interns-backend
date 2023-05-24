@@ -58,9 +58,7 @@ def bancho_handler(
 
 @bancho_handler(packets.ClientPackets.CHANGE_ACTION)
 async def change_action_handler(session: "Session", packet_data: bytes):
-    own_presence = session["presence"]
-
-    if not own_presence["privileges"] & ServerPrivileges.UNRESTRICTED:
+    if not session["presence"]["privileges"] & ServerPrivileges.UNRESTRICTED:
         return
 
     data = packets.PacketReader(packet_data)
@@ -105,12 +103,12 @@ async def change_action_handler(session: "Session", packet_data: bytes):
             other_session["session_id"],
             packets.write_user_stats_packet(
                 session["account_id"],
-                own_presence["action"],
-                own_presence["info_text"],
-                own_presence["beatmap_md5"],
-                own_presence["mods"],
+                session["presence"]["action"],
+                session["presence"]["info_text"],
+                session["presence"]["beatmap_md5"],
+                session["presence"]["mods"],
                 vanilla_game_mode,
-                own_presence["beatmap_id"],
+                session["presence"]["beatmap_id"],
                 own_stats["ranked_score"],
                 own_stats["accuracy"],
                 own_stats["play_count"],
