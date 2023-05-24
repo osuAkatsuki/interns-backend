@@ -2401,7 +2401,7 @@ async def user_joins_channel_handler(session: "Session", packet_data: bytes):
 
 
 # BEATMAP_INFO_REQUEST = 68
-# NOTE: this is deprecated and not used lol
+# NOTE: this is deprecated and not used
 
 
 # MATCH_TRANSFER_HOST = 70
@@ -2646,6 +2646,7 @@ async def set_away_message_handler(session: "Session", packet_data: bytes) -> No
 
 
 # IRC_ONLY = 84
+# NOTE: this is deprecated and not used
 
 
 # USER_STATS_REQUEST = 85
