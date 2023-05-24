@@ -106,4 +106,16 @@ async def partial_update(
     password: str | None,
     country: str | None,
 ) -> Account | ServiceError:
-    ...
+    account = await accounts.partial_update(
+        account_id=account_id,
+        username=username,
+        email_address=email_address,
+        privileges=privileges,
+        password=password,
+        country=country,
+    )
+
+    if account is None:
+        return ServiceError.ACCOUNTS_NOT_FOUND
+
+    return Account
