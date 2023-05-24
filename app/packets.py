@@ -1135,6 +1135,19 @@ def write_user_dm_blocked_packet(username: str, user_id: int) -> bytes:
 # TARGET_IS_SILENCED = 101
 
 
+def write_target_is_silenced_packet(username: str, user_id: int) -> bytes:
+    message = OsuMessage(
+        sender_name=username,
+        sender_id=user_id,
+        message_content="",
+        recipient_name="",
+    )
+    return write_packet(
+        packet_id=ServerPackets.TARGET_IS_SILENCED,
+        packet_data_inputs=[(DataType.OSU_MESSAGE, message)],
+    )
+
+
 # VERSION_UPDATE_FORCED = 102
 
 
