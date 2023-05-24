@@ -344,3 +344,8 @@ async def match_start_handler(session: "Session", args: list[str]) -> str | None
             session_id,
             data=match_started_packet,
         )
+
+
+@command("!silence", privileges=ServerPrivileges.CHAT_MODERATOR)
+async def silence_handler(session: "Session", args: list[str]) -> str | None:
+    ...
