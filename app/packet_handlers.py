@@ -680,7 +680,7 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
 
     recipient_presence = recipient_session["presence"]
 
-    # if the recipient has non friend dms enabled
+    # if the recipient has non friend dms blocked
     if recipient_presence["pm_private"] and not relationship_info:
         dms_blocked_packet_data = packets.write_user_dm_blocked_packet(
             recipient_presence["username"],
