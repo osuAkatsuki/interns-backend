@@ -294,9 +294,28 @@ async def logout_handler(session: "Session", packet_data: bytes) -> None:
 
     await sessions.delete_by_id(session["session_id"])
 
+    # leave channels the session is in
+    for channel in await channels.fetch_many():
+        await channel_members.remove(
+            channel["channel_id"],
+            session["session_id"],
+        )
+
+        # inform everyone in the channel that we left
+        current_channel_members = await channel_members.members(channel["channel_id"])
+
+        for session_id in current_channel_members:
+            await packet_bundles.enqueue(
+                session_id,
+                packets.write_channel_info_packet(
+                    channel["name"],
+                    channel["topic"],
+                    len(current_channel_members),
+                ),
+            )
+
     # TODO: spectator
     # TODO: multiplayer
-    # TODO: channels
 
     # tell everyone else we logged out
     if own_presence["privileges"] & ServerPrivileges.UNRESTRICTED:
@@ -2741,6 +2760,56 @@ async def match_change_password_handler(session: "Session", packet_data: bytes):
 
 
 # TOURNAMENT_MATCH_INFO_REQUEST = 93
+
+
+@bancho_handler(packets.ClientPackets.TOURNAMENT_MATCH_INFO_REQUEST)
+async def tournament_match_info_request_handler(session: "Session", packet_data: bytes):
+    packet_reader = packets.PacketReader(packet_data)
+
+    match_id = packet_reader.read_i32()
+
+    match = await multiplayer_matches.fetch_one(match_id)
+    if isinstance(match, ServiceError):
+        return
+
+    slots = await multiplayer_slots.fetch_all(match_id)
+    if isinstance(slots, ServiceError):
+        return
+
+    clientside_mode = game_modes.for_client(match["game_mode"])
+
+    osu_match_data: packets.OsuMatch = {
+        "match_id": match["match_id"],
+        "match_in_progress": match["status"] == MatchStatus.PLAYING,
+        "mods": match["mods"],
+        "match_name": match["match_name"],
+        "match_password": match["match_password"],
+        "beatmap_name": match["beatmap_name"],
+        "beatmap_id": match["beatmap_id"],
+        "beatmap_md5": match["beatmap_md5"],
+        "slot_statuses": [s["status"] for s in slots],
+        "slot_teams": [s["team"] for s in slots],
+        "per_slot_account_ids": [
+            s["account_id"] for s in slots if s["status"] & SlotStatus.HAS_PLAYER != 0
+        ],
+        "host_account_id": match["host_account_id"],
+        "game_mode": clientside_mode,
+        "win_condition": match["win_condition"],
+        "team_type": match["team_type"],
+        "freemods_enabled": match["freemods_enabled"],
+        "per_slot_mods": [s["mods"] for s in slots]
+        if match["freemods_enabled"]
+        else [],
+        "random_seed": match["random_seed"],
+    }
+
+    await packet_bundles.enqueue(
+        session["session_id"],
+        packets.write_update_match_packet(
+            osu_match_data,
+            should_send_password=False,
+        ),
+    )
 
 
 # USER_PRESENCE_REQUEST = 97
