@@ -490,6 +490,15 @@ def write_i32_list_i16_len(values: list[int]) -> bytes:
     return encoded_len
 
 
+def write_osu_message(value: OsuMessage) -> bytes:
+    return (
+        write_string(value["sender_name"]) +
+        write_string(value["message_content"]) +
+        write_string(value["recipient_name"]) +
+        struct.pack("<i", value["sender_id"])
+    )
+
+
 def write_osu_match(
     match_data: OsuMatch,
     should_send_password: bool = False,
@@ -611,6 +620,8 @@ def write_packet(
             packet_body += write_string(value)
         elif type == DataType.I32_LIST_I16_LEN:
             packet_body += write_i32_list_i16_len(value)
+        elif type == DataType.OSU_MESSAGE:
+            packet_body += write_osu_message(value)
         elif type == DataType.OSU_MATCH:
             packet_body += write_osu_match(*value)
         elif type == DataType.OSU_SCOREFRAME:
