@@ -1018,6 +1018,13 @@ def write_user_privileges_packet(privileges: int) -> bytes:
 # FRIENDS_LIST = 72
 
 
+def write_friends_list_packet(user_ids: list[int]) -> bytes:
+    return write_packet(
+        packet_id=ServerPackets.FRIENDS_LIST,
+        packet_data_inputs=[(DataType.I32_LIST_I16_LEN, user_ids)],
+    )
+
+
 # PROTOCOL_VERSION = 75
 
 
@@ -1100,6 +1107,8 @@ def write_channel_listing_complete_packet() -> bytes:
 
 
 # SILENCE_END = 92
+
+
 def write_silence_end_packet(seconds_remaining: int) -> bytes:
     return write_packet(
         packet_id=ServerPackets.SILENCE_END,
