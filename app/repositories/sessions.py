@@ -247,7 +247,7 @@ async def fetch_all(
             session = deserialize(raw_session)
 
             if (
-                has_any_privilege_bit is not None
+                has_any_privilege_bit not in (None, 0)
                 and (session["presence"]["privileges"] & has_any_privilege_bit) == 0
             ):
                 continue
