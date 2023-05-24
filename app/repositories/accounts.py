@@ -3,8 +3,8 @@ from typing import cast
 from typing import TypedDict
 
 from app import clients
-from app.undefined import UNSET
-from app.undefined import Unset
+from app.typing import UNSET
+from app.typing import Unset
 
 READ_PARAMS = """
     account_id,

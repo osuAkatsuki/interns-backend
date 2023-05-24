@@ -5,8 +5,8 @@ from app import validation
 from app.errors import ServiceError
 from app.repositories import accounts
 from app.repositories.accounts import Account
-from app.undefined import UNSET
-from app.undefined import Unset
+from app.typing import UNSET
+from app.typing import Unset
 
 
 async def create(
