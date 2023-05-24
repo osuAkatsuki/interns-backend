@@ -65,6 +65,7 @@ class Presence(TypedDict):
     multiplayer_match_id: int | None
     last_communicated_at: datetime
     last_np_beatmap_id: int | None
+    primary: bool
 
 
 def serialize_presence(presence: Presence) -> str:
@@ -93,6 +94,7 @@ def serialize_presence(presence: Presence) -> str:
             "multiplayer_match_id": presence["multiplayer_match_id"],
             "last_communicated_at": presence["last_communicated_at"].isoformat(),
             "last_np_beatmap_id": presence["last_np_beatmap_id"],
+            "primary": presence["primary"],
         }
     )
 
@@ -180,26 +182,46 @@ async def fetch_by_id(session_id: UUID) -> Session | None:
     return deserialize(session) if session is not None else None
 
 
-async def fetch_by_account_id(account_id: int) -> Session | None:
+async def fetch_primary_by_account_id(account_id: int) -> Session | None:
     all_sessions = await fetch_all()
     for session in all_sessions:
-        if session["account_id"] == account_id:
+        if session["account_id"] == account_id and session["presence"]["primary"]:
             return session
 
     return None
 
 
-async def fetch_by_username(username: str) -> Session | None:
+async def fetch_primary_by_username(username: str) -> Session | None:
     sessions = await fetch_all()
 
     for session in sessions:
-        if session["presence"] is None:
-            return None
-
-        if session["presence"]["username"] == username:
+        if (
+            session["presence"]["username"] == username
+            and session["presence"]["primary"]
+        ):
             return session
 
     return None
+
+
+async def fetch_all_by_account_id(account_id: int) -> list[Session]:
+    all_sessions = await fetch_all()
+    sessions = []
+    for session in all_sessions:
+        if session["account_id"] == account_id:
+            sessions.append(session)
+
+    return sessions
+
+
+async def fetch_all_by_username(username: str) -> list[Session]:
+    all_sessions = await fetch_all()
+    sessions = []
+    for session in all_sessions:
+        if session["presence"]["username"] == username:
+            sessions.append(session)
+
+    return sessions
 
 
 async def fetch_all(
@@ -314,6 +336,8 @@ async def partial_update(session_id: UUID, **kwargs: Any) -> Session | None:
         last_np_beatmap_id = presence.get("last_np_beatmap_id")
         if last_np_beatmap_id is not None:
             session["presence"]["last_np_beatmap_id"] = last_np_beatmap_id
+
+        # primary cannot be updated
 
     session["updated_at"] = datetime.now()
 

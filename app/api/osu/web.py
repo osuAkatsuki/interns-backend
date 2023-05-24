@@ -201,7 +201,7 @@ async def get_scores_handler(
     ):
         return
 
-    session = await sessions.fetch_by_username(username)
+    session = await sessions.fetch_primary_by_username(username)
     if session is None:
         return
 
@@ -405,7 +405,7 @@ async def submit_score_handler(
         logger.warning(f"Account {username} not found")
         return f"error: {ScoreSubmissionErrors.NEEDS_AUTHENTICATION}"
 
-    session = await sessions.fetch_by_username(username)
+    session = await sessions.fetch_primary_by_username(username)
     if session is None:
         logger.warning(f"Session for {username} not found")
         return f"error: {ScoreSubmissionErrors.NEEDS_AUTHENTICATION}"
