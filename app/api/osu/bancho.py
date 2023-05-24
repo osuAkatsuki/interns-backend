@@ -25,6 +25,7 @@ from app.repositories import channels
 from app.repositories import packet_bundles
 from app.repositories import sessions
 from app.repositories import stats
+from app.repositories import relationships
 
 bancho_router = APIRouter(default_response_class=Response)
 
@@ -344,15 +345,20 @@ async def handle_login(request: Request) -> Response:
 
     if account["silence_end"] is not None:
         seconds_remaining = (datetime.now() - account["silence_end"]).total_seconds()
-        response_data += packets.write_silence_end_packet(
-            seconds_remaining=int(seconds_remaining),
-        )
+
+        if seconds_remaining > 0:
+            response_data += packets.write_silence_end_packet(
+                seconds_remaining=int(seconds_remaining),
+            )
+        else:
+            await accounts.partial_update(account["account_id"], silence_end=None)
 
     # whether they're restricted
     if not (account["privileges"] & ServerPrivileges.UNRESTRICTED):
         response_data += packets.write_account_restricted_packet()
 
-    # TODO: friends list
+    relations = await relationships.fetch_all(account["account_id"], "friend")
+    response_data += packets.write_friends_list_packet([relation["target_id"] for relation in relations])
 
     # TODO: main menu icon
 
