@@ -165,6 +165,7 @@ async def handle_login(request: Request) -> Response:
             "beatmap_md5": "",
             "beatmap_id": 0,
             "mods": Mods.NOMOD,
+            "pm_private": login_data["pm_private"],
             "receive_match_updates": False,
             "spectator_host_session_id": None,
             "away_message": None,
