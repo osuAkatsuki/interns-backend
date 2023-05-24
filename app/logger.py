@@ -7,8 +7,6 @@ from types import TracebackType
 from typing import TextIO
 
 import structlog
-from rich.console import Console
-from rich.traceback import Traceback
 from structlog.types import EventDict
 from structlog.types import ExcInfo
 from structlog.types import Processor
@@ -69,19 +67,6 @@ def drop_color_message_key(_, __, event_dict: EventDict) -> EventDict:
     return event_dict
 
 
-def rich_traceback(sio: TextIO, exc_info: ExcInfo) -> None:
-    """
-    We overwrite the default version of this in structlog to set the `max_frames` to 10.
-
-    Being an ASGI server, there are a lot of frames that are not relevant to us, and
-    we don't want to clutter the logs with them; especially when pretty printing.
-    """
-    sio.write("\n")
-    Console(file=sio, color_system="truecolor").print(
-        Traceback.from_exception(*exc_info, show_locals=True, max_frames=10)
-    )
-
-
 def configure_logging(app_env: str, log_level: str | int) -> None:
     shared_processors: list[Processor] = [
         structlog.stdlib.add_log_level,
@@ -92,7 +77,7 @@ def configure_logging(app_env: str, log_level: str | int) -> None:
     ]
 
     if log_as_text(app_env):
-        log_renderer = structlog.dev.ConsoleRenderer(exception_formatter=rich_traceback)
+        log_renderer = structlog.dev.ConsoleRenderer()
     else:
         log_renderer = structlog.processors.JSONRenderer()
 

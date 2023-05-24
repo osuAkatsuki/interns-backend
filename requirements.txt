@@ -15,6 +15,5 @@ py3rijndael
 python-dotenv
 python-multipart
 redis
-rich
 structlog
 uvicorn
