@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - INTRN-230-friending
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
