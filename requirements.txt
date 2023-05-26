@@ -17,4 +17,4 @@ python-multipart
 redis
 structlog
 uvicorn
-pytime
+pytimeparse
