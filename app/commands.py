@@ -348,4 +348,8 @@ async def match_start_handler(session: "Session", args: list[str]) -> str | None
 
 @command("!silence", privileges=ServerPrivileges.CHAT_MODERATOR)
 async def silence_handler(session: "Session", args: list[str]) -> str | None:
-    ...
+    if await accounts.fetch_by_account_id(session["account_id"]) is None:
+        return "No account found with that ID."
+
+    # pytime parse what the user passes in through args
+    silence_end = ""
