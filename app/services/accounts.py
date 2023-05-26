@@ -1,3 +1,4 @@
+import datetime
 from app import logger
 from app import validation
 from app.errors import ServiceError
@@ -97,7 +98,6 @@ async def fetch_by_username(username: str) -> Account | ServiceError:
     return account
 
 
-# TODO: PARTIAL UPDATE w/ silence end integration
 async def partial_update(
     account_id: int,
     username: str | None,
@@ -105,6 +105,7 @@ async def partial_update(
     privileges: int | None,
     password: str | None,
     country: str | None,
+    silence_end: datetime.datetime | None,
 ) -> Account | ServiceError:
     account = await accounts.partial_update(
         account_id=account_id,
@@ -113,6 +114,7 @@ async def partial_update(
         privileges=privileges,
         password=password,
         country=country,
+        silence_end=silence_end,
     )
 
     if account is None:
