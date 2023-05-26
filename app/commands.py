@@ -19,6 +19,8 @@ from app.repositories.multiplayer_matches import MatchStatus
 from app.repositories.multiplayer_slots import SlotStatus
 from app.services import beatmaps
 from app.services import multiplayer_matches
+from datetime import datetime
+from pytimeparse import parse
 
 if TYPE_CHECKING:
     from app.repositories.sessions import Session
@@ -348,8 +350,17 @@ async def match_start_handler(session: "Session", args: list[str]) -> str | None
 
 @command("!silence", privileges=ServerPrivileges.CHAT_MODERATOR)
 async def silence_handler(session: "Session", args: list[str]) -> str | None:
-    if await accounts.fetch_by_account_id(session["account_id"]) is None:
-        return "No account found with that ID."
+    duration = " ".join(args)
 
-    # pytime parse what the user passes in through args
-    silence_end = ""
+    try:
+        raw_seconds = parse(duration)
+    except:
+        return "Invalid time format! Try again!"
+
+    silence_end = datetime.fromtimestamp(raw_seconds)
+
+    account = await accounts.partial_update(silence_end=silence_end)
+
+    assert account is not None
+
+    return "User has been silenced successfully."
