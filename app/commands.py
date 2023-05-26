@@ -1,7 +1,10 @@
 import random
 from collections.abc import Awaitable
 from collections.abc import Callable
+from datetime import datetime
 from typing import TYPE_CHECKING
+
+from pytimeparse import parse
 
 from app import game_modes
 from app import logger
@@ -19,8 +22,6 @@ from app.repositories.multiplayer_matches import MatchStatus
 from app.repositories.multiplayer_slots import SlotStatus
 from app.services import beatmaps
 from app.services import multiplayer_matches
-from datetime import datetime
-from pytimeparse import parse
 
 if TYPE_CHECKING:
     from app.repositories.sessions import Session
@@ -359,7 +360,10 @@ async def silence_handler(session: "Session", args: list[str]) -> str | None:
 
     silence_end = datetime.fromtimestamp(raw_seconds)
 
-    account = await accounts.partial_update(silence_end=silence_end)
+    account = await accounts.partial_update(
+        session["account_id"],
+        silence_end=silence_end,
+    )
 
     assert account is not None
 
