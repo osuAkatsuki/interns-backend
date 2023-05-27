@@ -468,7 +468,7 @@ def write_uleb128(value: int) -> bytes:
         data.append(value & 0x7F)
         value >>= 7
         if value != 0:
-            data[-1] = 0x80
+            data[-1] |= 0x80
 
     return data
 
@@ -482,6 +482,22 @@ def write_string(value: str) -> bytes:
 
 
 # osu! specific data types
+
+
+def write_i32_list_i16_len(values: list[int]) -> bytes:
+    encoded_len = struct.pack("<H", len(values))
+    for value in values:
+        encoded_len += struct.pack("<i", value)
+    return encoded_len
+
+
+def write_osu_message(value: OsuMessage) -> bytes:
+    return (
+        write_string(value["sender_name"])
+        + write_string(value["message_content"])
+        + write_string(value["recipient_name"])
+        + struct.pack("<i", value["sender_id"])
+    )
 
 
 def write_osu_match(
@@ -603,6 +619,10 @@ def write_packet(
             packet_body += struct.pack("<d", value)
         elif type == DataType.STRING:
             packet_body += write_string(value)
+        elif type == DataType.I32_LIST_I16_LEN:
+            packet_body += write_i32_list_i16_len(value)
+        elif type == DataType.OSU_MESSAGE:
+            packet_body += write_osu_message(value)
         elif type == DataType.OSU_MATCH:
             packet_body += write_osu_match(*value)
         elif type == DataType.OSU_SCOREFRAME:
@@ -1018,6 +1038,13 @@ def write_user_privileges_packet(privileges: int) -> bytes:
 # FRIENDS_LIST = 72
 
 
+def write_friends_list_packet(user_ids: list[int]) -> bytes:
+    return write_packet(
+        packet_id=ServerPackets.FRIENDS_LIST,
+        packet_data_inputs=[(DataType.I32_LIST_I16_LEN, user_ids)],
+    )
+
+
 # PROTOCOL_VERSION = 75
 
 
@@ -1100,6 +1127,8 @@ def write_channel_listing_complete_packet() -> bytes:
 
 
 # SILENCE_END = 92
+
+
 def write_silence_end_packet(seconds_remaining: int) -> bytes:
     return write_packet(
         packet_id=ServerPackets.SILENCE_END,
@@ -1108,6 +1137,13 @@ def write_silence_end_packet(seconds_remaining: int) -> bytes:
 
 
 # USER_SILENCED = 94
+
+
+def write_user_silenced_packet(user_id: int) -> bytes:
+    return write_packet(
+        packet_id=ServerPackets.USER_SILENCED,
+        packet_data_inputs=[(DataType.I32, user_id)],
+    )
 
 
 # USER_PRESENCE_SINGLE = 95
@@ -1119,20 +1155,33 @@ def write_silence_end_packet(seconds_remaining: int) -> bytes:
 # USER_DM_BLOCKED = 100
 
 
-def write_user_dm_blocked_packet(username: str, user_id: int) -> bytes:
+def write_user_dm_blocked_packet(username: str) -> bytes:
     message = OsuMessage(
-        sender_name=username,
-        sender_id=user_id,
+        sender_name="",
+        sender_id=0,
         message_content="",
-        recipient_name="",
+        recipient_name=username,
     )
     return write_packet(
         packet_id=ServerPackets.USER_DM_BLOCKED,
-        packet_data_inputs=[(DataType.OSU_MESSAGE, message)]
+        packet_data_inputs=[(DataType.OSU_MESSAGE, message)],
     )
 
 
 # TARGET_IS_SILENCED = 101
+
+
+def write_target_is_silenced_packet(username: str) -> bytes:
+    message = OsuMessage(
+        sender_name="",
+        sender_id=0,
+        message_content="",
+        recipient_name=username,
+    )
+    return write_packet(
+        packet_id=ServerPackets.TARGET_IS_SILENCED,
+        packet_data_inputs=[(DataType.OSU_MESSAGE, message)],
+    )
 
 
 # VERSION_UPDATE_FORCED = 102

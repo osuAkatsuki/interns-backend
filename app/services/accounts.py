@@ -1,9 +1,12 @@
-import datetime
+from datetime import datetime
+
 from app import logger
 from app import validation
 from app.errors import ServiceError
 from app.repositories import accounts
 from app.repositories.accounts import Account
+from app.typing import UNSET
+from app.typing import Unset
 
 
 async def create(
@@ -100,24 +103,28 @@ async def fetch_by_username(username: str) -> Account | ServiceError:
 
 async def partial_update(
     account_id: int,
-    username: str | None,
-    email_address: str | None,
-    privileges: int | None,
-    password: str | None,
-    country: str | None,
-    silence_end: datetime.datetime | None,
+    username: str | Unset = UNSET,
+    email_address: str | Unset = UNSET,
+    privileges: int | Unset = UNSET,
+    password: str | Unset = UNSET,
+    country: str | Unset = UNSET,
+    silence_end: datetime | None | Unset = UNSET,
 ) -> Account | ServiceError:
-    account = await accounts.partial_update(
-        account_id=account_id,
-        username=username,
-        email_address=email_address,
-        privileges=privileges,
-        password=password,
-        country=country,
-        silence_end=silence_end,
-    )
+    try:
+        account = await accounts.partial_update(
+            account_id,
+            username,
+            email_address,
+            privileges,
+            password,
+            country,
+            silence_end,
+        )
+    except Exception as exc:
+        logger.error("Failed to update account", exc_info=exc)
+        return ServiceError.INTERNAL_SERVER_ERROR
 
-    if account is None:
+    if not account:
         return ServiceError.ACCOUNTS_NOT_FOUND
 
-    return Account
+    return account
