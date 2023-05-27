@@ -353,7 +353,12 @@ async def match_start_handler(session: "Session", args: list[str]) -> str | None
 
 @command("!silence", privileges=ServerPrivileges.CHAT_MODERATOR)
 async def silence_handler(session: "Session", args: list[str]) -> str | None:
-    user_to_be_silenced = args[0]
+    if len(args) < 2:
+        return "Not enough arguments!"
+
+    account_to_be_silenced = await accounts.fetch_by_username(args[0])
+    if account_to_be_silenced is None:
+        return "Username not found!"
 
     silence_duration = " ".join(args[1:])
 
@@ -363,11 +368,11 @@ async def silence_handler(session: "Session", args: list[str]) -> str | None:
 
     silence_end = datetime.now() + timedelta(seconds=raw_seconds)
 
-    if await accounts.fetch_by_username(user_to_be_silenced) is None:
-        return "User to be silence could not be found!"
+    await accounts.partial_update(
+        account_id=account_to_be_silenced["account_id"],
+        silence_end=silence_end,
+    )
 
-    account = await accounts.partial_update(silence_end=silence_end)
-
-    assert account is not None
-
-    return "User has been silenced successfully."
+    return (
+        f"User has been silenced until {silence_end.strftime('%d/%m/%Y %I:%M:%S%p')}."
+    )
