@@ -23,6 +23,19 @@ def for_client(server_game_mode: int) -> int:
         return game_mode
 
 
+def to_string(game_mode: int) -> str:
+    if game_mode == GameMode.VN_OSU:
+        return "osu!"
+    elif game_mode == GameMode.VN_TAIKO:
+        return "taiko"
+    elif game_mode == GameMode.VN_CATCH:
+        return "fruits"
+    elif game_mode == GameMode.VN_MANIA:
+        return "mania"
+    else:
+        raise ValueError(f"Invalid game mode {game_mode}")
+
+
 def for_server(client_game_mode: int, mods: int) -> int:
     game_mode = client_game_mode
     if mods & 128:  # relax
