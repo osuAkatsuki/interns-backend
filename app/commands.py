@@ -19,6 +19,9 @@ from app.repositories.multiplayer_matches import MatchStatus
 from app.repositories.multiplayer_slots import SlotStatus
 from app.services import beatmaps
 from app.services import multiplayer_matches
+from app.services import multiplayer_matches as mp_matches
+from app.services import beatmaps
+from app import game_modes
 
 if TYPE_CHECKING:
     from app.repositories.sessions import Session
@@ -346,9 +349,6 @@ async def match_start_handler(session: "Session", args: list[str]) -> str | None
         )
 
 
-from app.services import multiplayer_matches as mp_matches
-
-
 @multiplayer_commands.command("!mp map")
 async def multiplayer_map_handler(session: "Session", args: list[str]) -> str | None:
     match_id = session["presence"]["multiplayer_match_id"]
@@ -357,7 +357,15 @@ async def multiplayer_map_handler(session: "Session", args: list[str]) -> str | 
 
     if len(args) < 1:
         print("Please provide a beatmap ID!")
+        return
+
     beatmap_id = int(args[0])
+    beatmap = await beatmaps.fetch_one(
+        beatmap_id=beatmap_id,
+    )
+
+    if isinstance(beatmap, ServiceError):
+        return "Beatmap not found!"
 
     match = await mp_matches.partial_update(
         match_id=match_id,
@@ -366,5 +374,12 @@ async def multiplayer_map_handler(session: "Session", args: list[str]) -> str | 
 
     assert not isinstance(match, ServiceError)
 
-    match_name = match["beatmap_name"]
-    return f"Beatmap has been set to {match_name}(ID#{beatmap_id})"
+    return beatmaps.create_beatmap_chat_embed(
+        beatmap_set_id=beatmap["beatmap_set_id"],
+        beatmap_id=beatmap["beatmap_id"],
+        artist=beatmap["artist"],
+        title=beatmap["title"],
+        version=beatmap["version"],
+        creator=beatmap["creator"],
+        mode_string=game_modes.to_string(beatmap["mode"]),
+    )
