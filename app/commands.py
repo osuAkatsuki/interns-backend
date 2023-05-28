@@ -353,7 +353,7 @@ async def match_start_handler(session: "Session", args: list[str]) -> str | None
 async def multiplayer_map_handler(session: "Session", args: list[str]) -> str | None:
     match_id = session["presence"]["multiplayer_match_id"]
     if match_id is None:
-        return "Invalid match ID!"
+        return "These commands only have a function in a multiplayer match!"
 
     if len(args) < 1:
         print("Please provide a beatmap ID!")
