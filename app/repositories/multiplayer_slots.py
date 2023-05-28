@@ -5,6 +5,8 @@ from typing import TypedDict
 from uuid import UUID
 
 from app import clients
+from app.typing import UNSET
+from app.typing import Unset
 
 
 class MultiplayerSlot(TypedDict):
@@ -187,37 +189,31 @@ async def all_completed(match_id: int) -> bool:
 async def partial_update(
     match_id: int,
     slot_id: int,
-    account_id: int | None = None,
-    session_id: UUID | None = None,
-    status: int | None = None,
-    team: int | None = None,
-    mods: int | None = None,
-    loaded: bool | None = None,
-    skipped: bool | None = None,
+    account_id: int | Unset = UNSET,
+    session_id: UUID | Unset = UNSET,
+    status: int | Unset = UNSET,
+    team: int | Unset = UNSET,
+    mods: int | Unset = UNSET,
+    loaded: bool | Unset = UNSET,
+    skipped: bool | Unset = UNSET,
 ) -> MultiplayerSlot | None:
     slot = await fetch_one(match_id, slot_id)
     if slot is None:
         return None
 
-    if account_id is not None:
+    if not isinstance(account_id, Unset):
         slot["account_id"] = account_id
-
-    if session_id is not None:
+    if not isinstance(session_id, Unset):
         slot["session_id"] = session_id
-
-    if status is not None:
+    if not isinstance(status, Unset):
         slot["status"] = status
-
-    if team is not None:
+    if not isinstance(team, Unset):
         slot["team"] = team
-
-    if mods is not None:
+    if not isinstance(mods, Unset):
         slot["mods"] = mods
-
-    if loaded is not None:
+    if not isinstance(loaded, Unset):
         slot["loaded"] = loaded
-
-    if skipped is not None:
+    if not isinstance(skipped, Unset):
         slot["skipped"] = skipped
 
     await clients.redis.set(

@@ -3,6 +3,8 @@ from typing import cast
 from typing import TypedDict
 
 from app import clients
+from app.typing import UNSET
+from app.typing import Unset
 
 READ_PARAMS = """\
     clan_id,
@@ -23,6 +25,12 @@ class Clan(TypedDict):
     updated_at: datetime
 
 
+class ClanUpdateFields(TypedDict, total=False):
+    name: str | Unset
+    tag: str | Unset
+    description: str | Unset
+
+
 async def create(
     name: str,
     tag: str,
@@ -33,8 +41,8 @@ async def create(
     clan = await clients.database.fetch_one(
         query=f"""\
             INSERT INTO clans (name, tag, description, created_at, updated_at)
-            VALUES (:name, :tag, :description, :created_at, :updated_at)
-            RETURNING {READ_PARAMS}
+                 VALUES (:name, :tag, :description, :created_at, :updated_at)
+              RETURNING {READ_PARAMS}
         """,
         values={
             "name": name,
@@ -50,17 +58,13 @@ async def create(
 
 
 async def fetch_one(clan_id: int) -> Clan | None:
-    clan = await clients.database.fetch_one(
-        query=f"""\
-            SELECT {READ_PARAMS}
-            FROM clans
-            WHERE clan_id = :clan_id
-        """,
-        values={
-            "clan_id": clan_id,
-        },
-    )
-
+    query = f"""\
+        SELECT {READ_PARAMS}
+          FROM clans
+         WHERE clan_id = :clan_id
+    """
+    values = {"clan_id": clan_id}
+    clan = await clients.database.fetch_one(query, values)
     return cast(Clan, clan) if clan is not None else None
 
 
@@ -70,13 +74,13 @@ async def fetch_many(
 ) -> list[Clan]:
     query = f"""\
         SELECT {READ_PARAMS}
-        FROM clans
+          FROM clans
     """
     values = {}
     if page is not None and page_size is not None:
         query += """\
             LIMIT :limit
-            OFFSET :offset
+           OFFSET :offset
         """
         values["limit"] = page
         values["offset"] = (page - 1) * page_size
@@ -85,39 +89,37 @@ async def fetch_many(
     return cast(list[Clan], clans)
 
 
-async def update_by_id(
+async def partial_update(
     clan_id: int,
-    name: str | None = None,
-    tag: str | None = None,
-    description: str | None = None,
+    name: str | Unset = UNSET,
+    tag: str | Unset = UNSET,
+    description: str | Unset = UNSET,
 ) -> Clan | None:
-    updated_at = datetime.now()
+    update_fields: ClanUpdateFields = {}
+    if not isinstance(name, Unset):
+        update_fields["name"] = name
+    if not isinstance(tag, Unset):
+        update_fields["tag"] = tag
+    if not isinstance(description, Unset):
+        update_fields["description"] = description
 
-    clan = await clients.database.fetch_one(
-        query=f"""\
-            UPDATE clans
-            SET name = COALESCE(:name, name),
-            tag = COALESCE(:tag, tag),
-            description(:description, description)
-            WHERE clan_id = :clan_id
-            RETURNING {READ_PARAMS}
-        """,
-        values={
-            "clan_id": clan_id,
-            "name": name,
-            "tag": tag,
-            "description": description,
-            "updated_at": updated_at,
-        },
-    )
+    query = f"""\
+        UPDATE clans
+           SET {", ".join(f"{key} = :{key}" for key in update_fields)},
+               updated_at = NOW()
+         WHERE clan_id = :clan_id
+     RETURNING {READ_PARAMS}
+    """
+    values = {"clan_id": clan_id} | update_fields
+    clan = await clients.database.fetch_one(query, values)
     return cast(Clan, clan) if clan is not None else None
 
 
-async def delete_by_id(clan_id) -> Clan | None:
+async def delete(clan_id: int) -> Clan | None:
     clan = await clients.database.fetch_one(
         query=f"""\
             DELETE FROM clans
-            WHERE clan_id = :clan_id
+                  WHERE clan_id = :clan_id
         """,
         values={
             "clan_id": clan_id,

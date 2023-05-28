@@ -5,6 +5,8 @@ from typing import TypedDict
 from uuid import UUID
 
 from app import clients
+from app.typing import UNSET
+from app.typing import Unset
 
 
 class ClanInvite(TypedDict):
@@ -15,6 +17,12 @@ class ClanInvite(TypedDict):
     expires_at: datetime
     created_at: datetime
     updated_at: datetime
+
+
+class BeatmapUpdateFields(TypedDict, total=False):
+    clan_id: int | Unset
+    uses: int | Unset
+    expires_at: datetime | Unset
 
 
 READ_PARAMS = """\
@@ -93,25 +101,25 @@ async def fetch_one(clan_invite_id: UUID) -> ClanInvite | None:
 
 async def partial_update(
     clan_invite_id: UUID,
-    clan_id: int | None = None,
-    uses: int | None = None,
-    expires_at: datetime | None = None,
+    clan_id: int | Unset = UNSET,
+    uses: int | Unset = UNSET,
+    expires_at: datetime | Unset = UNSET,
 ) -> ClanInvite | None:
-    clan_invite = await clients.database.fetch_one(
-        query=f"""\
-            UPDATE clan_invites
-            SET clan_id = COALESCE(:clan_id, clan_id),
-            uses = COALESCE(:uses, uses),
-            expires_at = COALESCE(:expires_at, expires_at)
-            WHERE clan_invite_id = :clan_invite_id
-            RETURNING {READ_PARAMS}
-        """,
-        values={
-            "clan_invite_id": clan_invite_id,
-            "clan_id": clan_id,
-            "uses": uses,
-            "expires_at": expires_at,
-        },
-    )
+    update_fields: BeatmapUpdateFields = {}
+    if not isinstance(clan_id, Unset):
+        update_fields["clan_id"] = clan_id
+    if not isinstance(uses, Unset):
+        update_fields["uses"] = uses
+    if not isinstance(expires_at, Unset):
+        update_fields["expires_at"] = expires_at
 
+    query = f"""\
+        UPDATE clan_invites
+           SET {", ".join(f"{key} = :{key}" for key in update_fields)},
+               updated_at = NOW()
+         WHERE clan_invite_id = :clan_invite_id
+     RETURNING {READ_PARAMS}
+    """
+    values = {"clan_invite_id": clan_invite_id} | update_fields
+    clan_invite = await clients.database.fetch_one(query, values)
     return cast(ClanInvite, clan_invite) if not None else None

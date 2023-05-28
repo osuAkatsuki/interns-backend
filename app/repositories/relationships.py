@@ -23,19 +23,17 @@ async def create(
     target_id: int,
     relationship: str,
 ) -> Relationship:
-    _relationship = await clients.database.fetch_one(
-        query=f"""
-            INSERT INTO relationships (account_id, target_id, relationship)
-            VALUES (:account_id, :target_id, :relationship)
-            RETURNING {READ_PARAMS}
-        """,
-        values={
-            "account_id": account_id,
-            "target_id": target_id,
-            "relationship": relationship,
-        },
-    )
-
+    query = f"""
+        INSERT INTO relationships (account_id, target_id, relationship)
+             VALUES (:account_id, :target_id, :relationship)
+          RETURNING {READ_PARAMS}
+    """
+    values = {
+        "account_id": account_id,
+        "target_id": target_id,
+        "relationship": relationship,
+    }
+    _relationship = await clients.database.fetch_one(query, values)
     assert _relationship is not None
     return cast(Relationship, _relationship)
 
@@ -44,15 +42,14 @@ async def fetch_all(
     account_id: int | None = None,
     relationship: str | None = None,
 ) -> list[Relationship]:
-    relationships = await clients.database.fetch_all(
-        query=f"""
-            SELECT {READ_PARAMS}
-            FROM relationships
-            WHERE account_id = COALESCE(:account_id, account_id)
-            AND relationship = COALESCE(:relationship, relationship)
-        """,
-        values={"account_id": account_id, "relationship": relationship},
-    )
+    query = f"""
+        SELECT {READ_PARAMS}
+          FROM relationships
+         WHERE account_id = COALESCE(:account_id, account_id)
+           AND relationship = COALESCE(:relationship, relationship)
+    """
+    values = {"account_id": account_id, "relationship": relationship}
+    relationships = await clients.database.fetch_all(query, values)
     return cast(list[Relationship], relationships)
 
 
@@ -60,18 +57,14 @@ async def remove(
     account_id: int,
     target_id: int,
 ) -> Relationship | None:
-    relationship = await clients.database.fetch_one(
-        query=f"""
-            DELETE FROM relationships
-            WHERE account_id = :account_id
-            AND target_id = :target_id
-            RETURNING {READ_PARAMS}
-        """,
-        values={
-            "account_id": account_id,
-            "target_id": target_id,
-        },
-    )
+    query = f"""
+        DELETE FROM relationships
+              WHERE account_id = :account_id
+                AND target_id = :target_id
+          RETURNING {READ_PARAMS}
+    """
+    values = {"account_id": account_id, "target_id": target_id}
+    relationship = await clients.database.fetch_one(query, values)
     return cast(Relationship, relationship)
 
 
@@ -79,13 +72,12 @@ async def fetch_one(
     target_id: int,
     account_id: int,
 ) -> Relationship | None:
-    relationship = await clients.database.fetch_one(
-        query=f"""
-            SELECT {READ_PARAMS}
-            FROM relationships
-            WHERE account_id = :account_id
-            AND target_id = :target_id
-        """,
-        values={"account_id": account_id, "target_id": target_id},
-    )
+    query = f"""
+        SELECT {READ_PARAMS}
+          FROM relationships
+         WHERE account_id = :account_id
+           AND target_id = :target_id
+    """
+    values = {"account_id": account_id, "target_id": target_id}
+    relationship = await clients.database.fetch_one(query, values)
     return cast(Relationship, relationship)
