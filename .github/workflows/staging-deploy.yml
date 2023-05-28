@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - INTRN-182-mp-COMMAND
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

@@ -344,3 +344,27 @@ async def match_start_handler(session: "Session", args: list[str]) -> str | None
             session_id,
             data=match_started_packet,
         )
+
+
+from app.services import multiplayer_matches as mp_matches
+
+
+@multiplayer_commands.command("!mp map")
+async def multiplayer_map_handler(session: "Session", args: list[str]) -> str | None:
+    match_id = session["presence"]["multiplayer_match_id"]
+    if match_id is None:
+        return "Invalid match ID!"
+
+    if len(args) < 1:
+        print("Please provide a beatmap ID!")
+    beatmap_id = int(args[0])
+
+    match = await mp_matches.partial_update(
+        match_id=match_id,
+        beatmap_id=beatmap_id,
+    )
+
+    assert not isinstance(match, ServiceError)
+
+    match_name = match["beatmap_name"]
+    return f"Beatmap has been set to {match_name}(ID#{beatmap_id})"
