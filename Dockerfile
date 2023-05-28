@@ -14,7 +14,6 @@ RUN wget https://github.com/golang-migrate/migrate/releases/download/v4.15.2/mig
     chmod u+x /usr/local/bin/go-migrate && \
     rm migrate.linux-amd64.tar.gz
 
-COPY scripts /scripts
 
 COPY . /srv/root
 WORKDIR /srv/root
