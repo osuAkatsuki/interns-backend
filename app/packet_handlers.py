@@ -227,7 +227,7 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
 
         # search for regular commands
         command = commands.get_command(trigger)
-        if command is None:
+        if command is None and len(args) > 0:
             command_set = commands.get_command_set(trigger)
             if command_set is not None:
                 trigger, *args = args
