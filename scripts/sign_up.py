@@ -141,4 +141,7 @@ async def main() -> int:
 
 
 if __name__ == "__main__":
+    # use gnu readline interface
+    import readline
+
     raise SystemExit(asyncio.run(main()))
