@@ -1,5 +1,7 @@
 experimental osu! server written with some interns of mine :)
 
+sister (frontend) project: https://github.com/osuAkatsuki/interns-frontend
+
 ---
 
 some philosophy:
