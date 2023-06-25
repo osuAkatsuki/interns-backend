@@ -1,7 +1,8 @@
-from typing import cast
 from typing import TypedDict
 
 from app import clients
+from app.typing import UNSET
+from app.typing import Unset
 
 READ_PARAMS = """\
     account_id,
@@ -26,6 +27,25 @@ READ_PARAMS = """\
 class Stats(TypedDict):
     account_id: int
     game_mode: int
+    total_score: int
+    ranked_score: int
+    performance_points: int
+    play_count: int
+    play_time: int
+    accuracy: float
+    highest_combo: int
+    total_hits: int
+    replay_views: int
+    xh_count: int
+    x_count: int
+    sh_count: int
+    s_count: int
+    a_count: int
+
+    # TODO: track updated_at?
+
+
+class StatsUpdateFields(TypedDict, total=False):
     total_score: int
     ranked_score: int
     performance_points: int
@@ -148,6 +168,26 @@ async def fetch_many(
     return [deserialize(stats) for stats in all_stats]
 
 
+async def fetch_total_count(
+    account_id: int | None = None,
+    game_mode: int | None = None,
+) -> int:
+    rec = await clients.database.fetch_one(
+        query=f"""
+            SELECT COUNT(*) AS count
+            FROM stats
+            WHERE account_id = COALESCE(:account_id, account_id)
+            AND game_mode = COALESCE(:game_mode, game_mode)
+        """,
+        values={
+            "account_id": account_id,
+            "game_mode": game_mode,
+        },
+    )
+    assert rec is not None
+    return rec["count"]
+
+
 async def fetch_one(account_id: int, game_mode: int) -> Stats | None:
     stats = await clients.database.fetch_one(
         query=f"""\
@@ -164,59 +204,59 @@ async def fetch_one(account_id: int, game_mode: int) -> Stats | None:
 async def partial_update(
     account_id: int,
     game_mode: int,
-    total_score: int | None = None,
-    ranked_score: int | None = None,
-    performance_points: int | None = None,
-    play_count: int | None = None,
-    play_time: int | None = None,
-    accuracy: float | None = None,
-    highest_combo: int | None = None,
-    total_hits: int | None = None,
-    replay_views: int | None = None,
-    xh_count: int | None = None,
-    x_count: int | None = None,
-    sh_count: int | None = None,
-    s_count: int | None = None,
-    a_count: int | None = None,
+    total_score: int | Unset = UNSET,
+    ranked_score: int | Unset = UNSET,
+    performance_points: int | Unset = UNSET,
+    play_count: int | Unset = UNSET,
+    play_time: int | Unset = UNSET,
+    accuracy: float | Unset = UNSET,
+    highest_combo: int | Unset = UNSET,
+    total_hits: int | Unset = UNSET,
+    replay_views: int | Unset = UNSET,
+    xh_count: int | Unset = UNSET,
+    x_count: int | Unset = UNSET,
+    sh_count: int | Unset = UNSET,
+    s_count: int | Unset = UNSET,
+    a_count: int | Unset = UNSET,
 ) -> Stats | None:
+    update_fields: StatsUpdateFields = {}
+    if not isinstance(total_score, Unset):
+        update_fields["total_score"] = total_score
+    if not isinstance(ranked_score, Unset):
+        update_fields["ranked_score"] = ranked_score
+    if not isinstance(performance_points, Unset):
+        update_fields["performance_points"] = performance_points
+    if not isinstance(play_count, Unset):
+        update_fields["play_count"] = play_count
+    if not isinstance(play_time, Unset):
+        update_fields["play_time"] = play_time
+    if not isinstance(accuracy, Unset):
+        update_fields["accuracy"] = accuracy
+    if not isinstance(highest_combo, Unset):
+        update_fields["highest_combo"] = highest_combo
+    if not isinstance(total_hits, Unset):
+        update_fields["total_hits"] = total_hits
+    if not isinstance(replay_views, Unset):
+        update_fields["replay_views"] = replay_views
+    if not isinstance(xh_count, Unset):
+        update_fields["xh_count"] = xh_count
+    if not isinstance(x_count, Unset):
+        update_fields["x_count"] = x_count
+    if not isinstance(sh_count, Unset):
+        update_fields["sh_count"] = sh_count
+    if not isinstance(s_count, Unset):
+        update_fields["s_count"] = s_count
+    if not isinstance(a_count, Unset):
+        update_fields["a_count"] = a_count
+
     stats = await clients.database.fetch_one(
         query=f"""\
             UPDATE stats
-            SET total_score = COALESCE(:total_score, total_score),
-                ranked_score = COALESCE(:ranked_score, ranked_score),
-                performance_points = COALESCE(:performance_points, performance_points),
-                play_count = COALESCE(:play_count, play_count),
-                play_time = COALESCE(:play_time, play_time),
-                accuracy = COALESCE(:accuracy, accuracy),
-                highest_combo = COALESCE(:highest_combo, highest_combo),
-                total_hits = COALESCE(:total_hits, total_hits),
-                replay_views = COALESCE(:replay_views, replay_views),
-                xh_count = COALESCE(:xh_count, xh_count),
-                x_count = COALESCE(:x_count, x_count),
-                sh_count = COALESCE(:sh_count, sh_count),
-                s_count = COALESCE(:s_count, s_count),
-                a_count = COALESCE(:a_count, a_count)
-            WHERE account_id = :account_id
-            AND game_mode = :game_mode
-            RETURNING {READ_PARAMS}
+               SET {",".join(f"{k} = :{k}" for k in update_fields)}
+             WHERE account_id = :account_id
+               AND game_mode = :game_mode
+         RETURNING {READ_PARAMS}
         """,
-        values={
-            "account_id": account_id,
-            "game_mode": game_mode,
-            "total_score": total_score,
-            "ranked_score": ranked_score,
-            "performance_points": performance_points,
-            "play_count": play_count,
-            "play_time": play_time,
-            "accuracy": accuracy,
-            "highest_combo": highest_combo,
-            "total_hits": total_hits,
-            "replay_views": replay_views,
-            "xh_count": xh_count,
-            "x_count": x_count,
-            "sh_count": sh_count,
-            "s_count": s_count,
-            "a_count": a_count,
-        },
+        values={"account_id": account_id, "game_mode": game_mode} | update_fields,
     )
     return deserialize(stats) if stats is not None else None
