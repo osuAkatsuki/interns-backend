@@ -27,11 +27,11 @@ class Presence(BaseModel):
     # pm_private: bool
     # receive_match_updates: bool
     spectator_host_session_id: UUID | None
-    # away_message: str | None
+    away_message: str | None
     multiplayer_match_id: int | None
     # last_communicated_at: datetime
     last_np_beatmap_id: int | None
-    # primary: bool
+    primary: bool
 
 class Session(BaseModel):
     session_id: UUID

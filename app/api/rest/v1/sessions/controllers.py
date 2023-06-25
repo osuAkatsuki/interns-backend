@@ -78,7 +78,7 @@ async def fetch_many(
     )
 
 
-@router.get("/v1/sessions/{account_id}")
+@router.get("/v1/sessions/{session_id}")
 async def fetch_one(session_id: UUID) -> Success[Session]:
     data = await sessions.fetch_by_id(session_id)
     if isinstance(data, ServiceError):

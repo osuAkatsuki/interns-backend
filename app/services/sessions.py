@@ -147,7 +147,7 @@ async def partial_update(session_id: UUID, **kwargs: Any) -> Session | ServiceEr
 async def delete_by_id(session_id: UUID) -> Session | ServiceError:
     try:
         session = await sessions.delete_by_id(session_id)
-    except Exception as exc:
+    except Exception as exc:  # pragma: no cover
         logger.error("Failed to delete session", exc_info=exc)
         return ServiceError.SESSIONS_DELETE_FAILED
 
