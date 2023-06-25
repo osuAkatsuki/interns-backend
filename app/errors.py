@@ -13,6 +13,13 @@ class ServiceError(str, Enum):
     ACCOUNTS_COUNTRY_INVALID = "accounts.country_invalid"
 
     SESSIONS_NOT_FOUND = "sessions.not_found"
+    SESSIONS_CREATE_FAILED = "sessions.create_failed"
+    SESSIONS_FETCH_BY_ID_FAILED = "sessions.fetch_by_id_failed"
+    SESSIONS_FETCH_MANY_FAILED = "sessions.fetch_many_failed"
+    SESSIONS_FETCH_TOTAL_COUNT_FAILED = "sessions.fetch_total_count_failed"
+    SESSIONS_FETCH_ALL_FAILED = "sessions.fetch_all_failed"
+    SESSIONS_UPDATE_FAILED = "sessions.update_failed"
+    SESSIONS_DELETE_FAILED = "sessions.delete_failed"
 
     CREDENTIALS_NOT_FOUND = "credentials.incorrect_credentials"
     CREDENTIALS_INCORRECT = "credentials.incorrect_credentials"
