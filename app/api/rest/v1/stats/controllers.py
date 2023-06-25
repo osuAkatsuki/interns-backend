@@ -17,7 +17,6 @@ def determine_status_code(error: ServiceError) -> int:
             return status.HTTP_500_INTERNAL_SERVER_ERROR
         case ServiceError.ACCOUNTS_NOT_FOUND:
             return status.HTTP_404_NOT_FOUND
-        # TODO: what others?
         case _:
             logger.warning(
                 "Unhandled error code in stats rest api controller",
