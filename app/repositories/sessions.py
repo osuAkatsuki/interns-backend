@@ -206,6 +206,69 @@ async def fetch_primary_by_username(username: str) -> Session | None:
     return None
 
 
+async def fetch_many(
+    has_any_privilege_bit: int | None = None,
+    page: int = 1,
+    page_size: int = 50,
+) -> list[Session]:
+    session_key = make_key("*")
+
+    sessions = []
+
+    _, keys = await clients.redis.scan(
+        cursor=page_size * (page - 1),
+        count=page_size,
+        match=session_key,
+    )
+
+    raw_sessions = await clients.redis.mget(keys)
+
+    for raw_session in raw_sessions:
+        assert raw_session is not None  # TODO: why does mget return list[T | None]?
+        session = deserialize(raw_session)
+
+        if (
+            has_any_privilege_bit not in (None, 0)
+            and (session["presence"]["privileges"] & has_any_privilege_bit) == 0
+        ):
+            continue
+
+        sessions.append(session)
+
+    return sessions
+
+
+async def fetch_total_count(
+    has_any_privilege_bit: int | None = None,
+) -> int:
+    session_key = make_key("*")
+
+    cursor = None
+    count = 0
+
+    while cursor != 0:
+        cursor, keys = await clients.redis.scan(
+            cursor=cursor or 0,
+            match=session_key,
+        )
+
+        raw_sessions = await clients.redis.mget(keys)
+
+        for raw_session in raw_sessions:
+            assert raw_session is not None  # TODO: why does mget return list[T | None]?
+            session = deserialize(raw_session)
+
+            if (
+                has_any_privilege_bit not in (None, 0)
+                and (session["presence"]["privileges"] & has_any_privilege_bit) == 0
+            ):
+                continue
+
+            count += 1
+
+    return count
+
+
 async def fetch_all_by_account_id(account_id: int) -> list[Session]:
     all_sessions = await fetch_all()
     sessions = []
