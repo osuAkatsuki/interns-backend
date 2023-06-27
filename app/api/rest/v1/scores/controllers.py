@@ -43,6 +43,7 @@ async def fetch_many(
         "accuracy",
         "highest_combo",
         "grade",
+        "created_at",
     ] = "performance_points",
     page: int = 1,
     page_size: int = 50,

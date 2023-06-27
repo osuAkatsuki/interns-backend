@@ -213,6 +213,7 @@ async def fetch_many(
         "accuracy",
         "highest_combo",
         "grade",
+        "created_at",
     ] = "performance_points",
     page: int | None = None,
     page_size: int | None = None,
@@ -223,6 +224,7 @@ async def fetch_many(
         "accuracy",
         "highest_combo",
         "grade",
+        "created_at",
     ):
         raise ValueError(f"{sort_by} is not a valid value for sort_by parameter")
 
