@@ -5,6 +5,8 @@ from typing import Literal
 from typing import TypedDict
 
 from app import clients
+from app.typing import UNSET
+from app.typing import Unset
 
 
 # TODO: a subset of the data here needs to be persisted to the database
@@ -164,19 +166,19 @@ async def fetch_all() -> list[MultiplayerMatch]:
 
 async def partial_update(
     match_id: int,
-    match_name: str | None,
-    match_password: str | None,
-    beatmap_name: str | None,
-    beatmap_id: int | None,
-    beatmap_md5: str | None,
-    host_account_id: int | None,
-    game_mode: int | None,  # enum
-    mods: int | None,  # flags
-    win_condition: int | None,  # enum
-    team_type: int | None,  # enum
-    freemods_enabled: bool | None,
-    random_seed: int | None,
-    status: int | None,  # enum
+    match_name: str | Unset = UNSET,
+    match_password: str | Unset = UNSET,
+    beatmap_name: str | Unset = UNSET,
+    beatmap_id: int | Unset = UNSET,
+    beatmap_md5: str | Unset = UNSET,
+    host_account_id: int | Unset = UNSET,
+    game_mode: int | Unset = UNSET,  # enum
+    mods: int | Unset = UNSET,  # flags
+    win_condition: int | Unset = UNSET,  # enum
+    team_type: int | Unset = UNSET,  # enum
+    freemods_enabled: bool | Unset = UNSET,
+    random_seed: int | Unset = UNSET,
+    status: int | Unset = UNSET,  # enum
 ) -> MultiplayerMatch | None:
     match_key = make_key(match_id)
 
@@ -187,43 +189,31 @@ async def partial_update(
 
     match = deserialize(raw_match)
 
-    if match_name is not None:
+    if not isinstance(match_name, Unset):
         match["match_name"] = match_name
-
-    if match_password is not None:
+    if not isinstance(match_password, Unset):
         match["match_password"] = match_password
-
-    if beatmap_name is not None:
+    if not isinstance(beatmap_name, Unset):
         match["beatmap_name"] = beatmap_name
-
-    if beatmap_id is not None:
+    if not isinstance(beatmap_id, Unset):
         match["beatmap_id"] = beatmap_id
-
-    if beatmap_md5 is not None:
+    if not isinstance(beatmap_md5, Unset):
         match["beatmap_md5"] = beatmap_md5
-
-    if host_account_id is not None:
+    if not isinstance(host_account_id, Unset):
         match["host_account_id"] = host_account_id
-
-    if game_mode is not None:
+    if not isinstance(game_mode, Unset):
         match["game_mode"] = game_mode
-
-    if mods is not None:
+    if not isinstance(mods, Unset):
         match["mods"] = mods
-
-    if win_condition is not None:
+    if not isinstance(win_condition, Unset):
         match["win_condition"] = win_condition
-
-    if team_type is not None:
+    if not isinstance(team_type, Unset):
         match["team_type"] = team_type
-
-    if freemods_enabled is not None:
+    if not isinstance(freemods_enabled, Unset):
         match["freemods_enabled"] = freemods_enabled
-
-    if random_seed is not None:
+    if not isinstance(random_seed, Unset):
         match["random_seed"] = random_seed
-
-    if status is not None:
+    if not isinstance(status, Unset):
         match["status"] = status
 
     match["updated_at"] = datetime.now()

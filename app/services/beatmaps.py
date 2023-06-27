@@ -26,7 +26,7 @@ def create_beatmap_chat_embed(
     title: str,
     version: str,
     creator: str,
-    mode_string: Literal["osu", "taiko", "fruits", "mania"],
+    mode_string: str,
 ) -> str:
     return f"[https://osu.ppy.sh/beatmapsets/{beatmap_set_id}#{mode_string}/{beatmap_id} {artist} - {title} ({creator}) [{version}]]"
 

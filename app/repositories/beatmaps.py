@@ -3,6 +3,8 @@ from typing import cast
 from typing import TypedDict
 
 from app import clients
+from app.typing import UNSET
+from app.typing import Unset
 
 READ_PARAMS = """\
     beatmap_id,
@@ -59,6 +61,36 @@ class Beatmap(TypedDict):
     bancho_updated_at: datetime
     created_at: datetime
     updated_at: datetime
+
+
+class BeatmapUpdateFields(TypedDict, total=False):
+    ranked_status: int | Unset
+    beatmap_md5: str | Unset
+    artist: str | Unset
+    title: str | Unset
+    version: str | Unset
+    creator: str | Unset
+    filename: str | Unset
+    total_length: int | Unset
+    max_combo: int | Unset
+    ranked_status_manually_changed: bool | Unset
+    plays: int | Unset
+    passes: int | Unset
+    mode: int | Unset
+    bpm: float | Unset
+    cs: float | Unset
+    ar: float | Unset
+    od: float | Unset
+    hp: float | Unset
+    star_rating: float | Unset
+    bancho_ranked_status: int | Unset
+    bancho_updated_at: datetime | Unset
+    username: str
+    email_address: str
+    privileges: int
+    password: str
+    country: str
+    silence_end: datetime | None
 
 
 async def create(
@@ -180,79 +212,79 @@ async def fetch_one(
 
 async def partial_update(
     beatmap_id: int,
-    ranked_status: int | None = None,
-    beatmap_md5: str | None = None,
-    artist: str | None = None,
-    title: str | None = None,
-    version: str | None = None,
-    creator: str | None = None,
-    filename: str | None = None,
-    total_length: int | None = None,
-    max_combo: int | None = None,
-    ranked_status_manually_changed: bool | None = None,
-    plays: int | None = None,
-    passes: int | None = None,
-    mode: int | None = None,
-    bpm: float | None = None,
-    cs: float | None = None,
-    ar: float | None = None,
-    od: float | None = None,
-    hp: float | None = None,
-    star_rating: float | None = None,
-    bancho_ranked_status: int | None = None,
-    bancho_updated_at: datetime | None = None,
+    ranked_status: int | Unset = UNSET,
+    beatmap_md5: str | Unset = UNSET,
+    artist: str | Unset = UNSET,
+    title: str | Unset = UNSET,
+    version: str | Unset = UNSET,
+    creator: str | Unset = UNSET,
+    filename: str | Unset = UNSET,
+    total_length: int | Unset = UNSET,
+    max_combo: int | Unset = UNSET,
+    ranked_status_manually_changed: bool | Unset = UNSET,
+    plays: int | Unset = UNSET,
+    passes: int | Unset = UNSET,
+    mode: int | Unset = UNSET,
+    bpm: float | Unset = UNSET,
+    cs: float | Unset = UNSET,
+    ar: float | Unset = UNSET,
+    od: float | Unset = UNSET,
+    hp: float | Unset = UNSET,
+    star_rating: float | Unset = UNSET,
+    bancho_ranked_status: int | Unset = UNSET,
+    bancho_updated_at: datetime | Unset = UNSET,
 ) -> Beatmap | None:
-    beatmap = await clients.database.fetch_one(
-        query=f"""\
-            UPDATE beatmaps
-            SET ranked_status = COALESCE(:ranked_status, ranked_status),
-                beatmap_md5 = COALESCE(:beatmap_md5, beatmap_md5),
-                artist = COALESCE(:artist, artist),
-                title = COALESCE(:title, title),
-                version = COALESCE(:version, version),
-                creator = COALESCE(:creator, creator),
-                filename = COALESCE(:filename, filename),
-                total_length = COALESCE(:total_length, total_length),
-                max_combo = COALESCE(:max_combo, max_combo),
-                ranked_status_manually_changed = COALESCE(:ranked_status_manually_changed, ranked_status_manually_changed),
-                plays = COALESCE(:plays, plays),
-                passes = COALESCE(:passes, passes),
-                mode = COALESCE(:mode, mode),
-                bpm = COALESCE(:bpm, bpm),
-                cs = COALESCE(:cs, cs),
-                ar = COALESCE(:ar, ar),
-                od = COALESCE(:od, od),
-                hp = COALESCE(:hp, hp),
-                star_rating = COALESCE(:star_rating, star_rating),
-                bancho_ranked_status = COALESCE(:bancho_ranked_status, bancho_ranked_status),
-                bancho_updated_at = COALESCE(:bancho_updated_at, bancho_updated_at),
-                updated_at = NOW()
-            WHERE beatmap_id = :beatmap_id
-            RETURNING {READ_PARAMS}
-        """,
-        values={
-            "beatmap_id": beatmap_id,
-            "ranked_status": ranked_status,
-            "beatmap_md5": beatmap_md5,
-            "artist": artist,
-            "title": title,
-            "version": version,
-            "creator": creator,
-            "filename": filename,
-            "total_length": total_length,
-            "max_combo": max_combo,
-            "ranked_status_manually_changed": ranked_status_manually_changed,
-            "plays": plays,
-            "passes": passes,
-            "mode": mode,
-            "bpm": bpm,
-            "cs": cs,
-            "ar": ar,
-            "od": od,
-            "hp": hp,
-            "star_rating": star_rating,
-            "bancho_ranked_status": bancho_ranked_status,
-            "bancho_updated_at": bancho_updated_at,
-        },
-    )
+    update_fields: BeatmapUpdateFields = {}
+    if not isinstance(ranked_status, Unset):
+        update_fields["ranked_status"] = ranked_status
+    if not isinstance(beatmap_md5, Unset):
+        update_fields["beatmap_md5"] = beatmap_md5
+    if not isinstance(artist, Unset):
+        update_fields["artist"] = artist
+    if not isinstance(title, Unset):
+        update_fields["title"] = title
+    if not isinstance(version, Unset):
+        update_fields["version"] = version
+    if not isinstance(creator, Unset):
+        update_fields["creator"] = creator
+    if not isinstance(filename, Unset):
+        update_fields["filename"] = filename
+    if not isinstance(total_length, Unset):
+        update_fields["total_length"] = total_length
+    if not isinstance(max_combo, Unset):
+        update_fields["max_combo"] = max_combo
+    if not isinstance(ranked_status_manually_changed, Unset):
+        update_fields["ranked_status_manually_changed"] = ranked_status_manually_changed
+    if not isinstance(plays, Unset):
+        update_fields["plays"] = plays
+    if not isinstance(passes, Unset):
+        update_fields["passes"] = passes
+    if not isinstance(mode, Unset):
+        update_fields["mode"] = mode
+    if not isinstance(bpm, Unset):
+        update_fields["bpm"] = bpm
+    if not isinstance(cs, Unset):
+        update_fields["cs"] = cs
+    if not isinstance(ar, Unset):
+        update_fields["ar"] = ar
+    if not isinstance(od, Unset):
+        update_fields["od"] = od
+    if not isinstance(hp, Unset):
+        update_fields["hp"] = hp
+    if not isinstance(star_rating, Unset):
+        update_fields["star_rating"] = star_rating
+    if not isinstance(bancho_ranked_status, Unset):
+        update_fields["bancho_ranked_status"] = bancho_ranked_status
+    if not isinstance(bancho_updated_at, Unset):
+        update_fields["bancho_updated_at"] = bancho_updated_at
+
+    query = f"""\
+        UPDATE beatmaps
+           SET {", ".join(f"{key} = :{key}" for key in update_fields)},
+               updated_at = NOW()
+        WHERE beatmap_id = :beatmap_id
+        RETURNING {READ_PARAMS}
+    """
+    values = {"beatmap_id": beatmap_id} | update_fields
+    beatmap = await clients.database.fetch_one(query, values)
     return cast(Beatmap, beatmap) if beatmap is not None else None

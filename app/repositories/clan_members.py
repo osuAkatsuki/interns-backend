@@ -3,6 +3,8 @@ from typing import cast
 from typing import TypedDict
 
 from app import clients
+from app.typing import UNSET
+from app.typing import Unset
 
 
 class ClanMember(TypedDict):
@@ -11,6 +13,10 @@ class ClanMember(TypedDict):
     privileges: int
     created_at: datetime
     updated_at: datetime
+
+
+class ClanUpdateFields(TypedDict, total=False):
+    privileges: int | Unset
 
 
 READ_PARAMS = """\
@@ -30,8 +36,8 @@ async def create(
     clan_member = await clients.database.fetch_one(
         query=f"""\
             INSERT INTO clan_members (clan_id, account_id, privileges)
-            VALUES (:clan_id, :account_id, :privileges)
-            RETURNING {READ_PARAMS}
+                 VALUES (:clan_id, :account_id, :privileges)
+              RETURNING {READ_PARAMS}
         """,
         values={
             clan_id: "clan_id",
@@ -51,8 +57,8 @@ async def fetch_many(
 ) -> list[ClanMember]:
     query = f"""\
         SELECT {READ_PARAMS}
-        FROM clan_members
-        WHERE clan_id = COALESCE(:clan_id, clan_id)
+          FROM clan_members
+         WHERE clan_id = COALESCE(:clan_id, clan_id)
     """
     values = {
         "clan_id": clan_id,
@@ -73,39 +79,34 @@ async def fetch_many(
 async def partial_update(
     clan_id: int,
     account_id: int,
-    privileges: int | None = None,
+    privileges: int | Unset = UNSET,
 ) -> ClanMember | None:
-    clan_member = await clients.database.fetch_one(
-        query=f"""\
-            UPDATE clan_members
-            SET privileges = COALESCE(:privileges, privileges)
-            WHERE clan_id = :clan_id
-            AND account_id = :account_id
-        """,
-        values={
-            "clan_id": clan_id,
-            "account_id": account_id,
-            "privileges": privileges,
-        },
-    )
+    update_fields: ClanUpdateFields = {}
+    if not isinstance(privileges, Unset):
+        update_fields["privileges"] = privileges
 
+    query = f"""\
+        UPDATE clan_members
+           SET {", ".join(f"{key} = :{key}" for key in update_fields)},
+               updated_at = NOW()
+         WHERE clan_id = :clan_id
+           AND account_id = :account_id
+     RETURNING {READ_PARAMS}
+    """
+    values = {"clan_id": clan_id, "account_id": account_id} | update_fields
+    clan_member = await clients.database.fetch_one(query, values)
     return cast(ClanMember, clan_member) if clan_member is not None else None
 
 
 async def delete(clan_id: int, account_id: int) -> ClanMember | None:
-    clan_member = await clients.database.fetch_one(
-        query=f"""\
-            DELETE FROM clan_members
-            WHERE clan_id = :clan_id
-            AND account_id = :account_id
-            RETURNING {READ_PARAMS}
-        """,
-        values={
-            "clan_id": clan_id,
-            "account_id": account_id,
-        },
-    )
-
+    query = f"""\
+        DELETE FROM clan_members
+              WHERE clan_id = :clan_id
+                AND account_id = :account_id
+          RETURNING {READ_PARAMS}
+    """
+    values = {"clan_id": clan_id, "account_id": account_id}
+    clan_member = await clients.database.fetch_one(query, values)
     return cast(ClanMember, clan_member) if not None else None
 
 

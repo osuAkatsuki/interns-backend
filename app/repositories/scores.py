@@ -1,9 +1,10 @@
 from datetime import datetime
-from typing import cast
 from typing import Literal
 from typing import TypedDict
 
 from app import clients
+from app.typing import UNSET
+from app.typing import Unset
 
 READ_PARAMS = """\
     score_id,
@@ -66,6 +67,28 @@ class Score(TypedDict):
     client_anticheat_token: str | None
     created_at: datetime
     updated_at: datetime
+
+
+class ScoreUpdateFields(TypedDict, total=False):
+    score: int | Unset
+    performance_points: float | Unset
+    accuracy: float | Unset
+    highest_combo: int | Unset
+    full_combo: bool | Unset
+    mods: int | Unset
+    num_300s: int | Unset
+    num_100s: int | Unset
+    num_50s: int | Unset
+    num_misses: int | Unset
+    num_gekis: int | Unset
+    num_katus: int | Unset
+    grade: str | Unset
+    submission_status: int | Unset
+    game_mode: int | Unset
+    country: str | Unset
+    time_elapsed: int | Unset
+    client_anticheat_flags: int | Unset
+    client_anticheat_token: str | Unset
 
 
 def deserialize(score: dict) -> Score:
@@ -424,72 +447,73 @@ async def fetch_one_by_id(score_id: int) -> Score | None:
 async def partial_update(
     score_id: int,
     # TODO: probably not all of this should be updatable
-    score: int | None = None,
-    performance_points: float | None = None,
-    accuracy: float | None = None,
-    highest_combo: int | None = None,
-    full_combo: bool | None = None,
-    mods: int | None = None,
-    num_300s: int | None = None,
-    num_100s: int | None = None,
-    num_50s: int | None = None,
-    num_misses: int | None = None,
-    num_gekis: int | None = None,
-    num_katus: int | None = None,
-    grade: str | None = None,  # enum
-    submission_status: int | None = None,  # enum
-    game_mode: int | None = None,  # enum
-    country: str | None = None,
-    time_elapsed: int | None = None,
-    client_anticheat_flags: int | None = None,
-    client_anticheat_token: str | None = None,
+    score: int | Unset = UNSET,
+    performance_points: float | Unset = UNSET,
+    accuracy: float | Unset = UNSET,
+    highest_combo: int | Unset = UNSET,
+    full_combo: bool | Unset = UNSET,
+    mods: int | Unset = UNSET,
+    num_300s: int | Unset = UNSET,
+    num_100s: int | Unset = UNSET,
+    num_50s: int | Unset = UNSET,
+    num_misses: int | Unset = UNSET,
+    num_gekis: int | Unset = UNSET,
+    num_katus: int | Unset = UNSET,
+    grade: str | Unset = UNSET,  # enum
+    submission_status: int | Unset = UNSET,  # enum
+    game_mode: int | Unset = UNSET,  # enum
+    country: str | Unset = UNSET,
+    time_elapsed: int | Unset = UNSET,
+    client_anticheat_flags: int | Unset = UNSET,
+    client_anticheat_token: str | Unset = UNSET,
 ) -> Score | None:
-    _score = await clients.database.fetch_one(
-        query=f"""
-            UPDATE scores
-            SET score = COALESCE(:score, score),
-                performance_points = COALESCE(:performance_points, performance_points),
-                accuracy = COALESCE(:accuracy, accuracy),
-                highest_combo = COALESCE(:highest_combo, highest_combo),
-                full_combo = COALESCE(:full_combo, full_combo),
-                mods = COALESCE(:mods, mods),
-                num_300s = COALESCE(:num_300s, num_300s),
-                num_100s = COALESCE(:num_100s, num_100s),
-                num_50s = COALESCE(:num_50s, num_50s),
-                num_misses = COALESCE(:num_misses, num_misses),
-                num_gekis = COALESCE(:num_gekis, num_gekis),
-                num_katus = COALESCE(:num_katus, num_katus),
-                grade = COALESCE(:grade, grade),
-                submission_status = COALESCE(:submission_status, submission_status),
-                game_mode = COALESCE(:game_mode, game_mode),
-                country = COALESCE(:country, country),
-                time_elapsed = COALESCE(:time_elapsed, time_elapsed),
-                client_anticheat_flags = COALESCE(:client_anticheat_flags, client_anticheat_flags),
-                client_anticheat_token = COALESCE(:client_anticheat_token, client_anticheat_token)
-            WHERE score_id = :score_id
-            RETURNING {READ_PARAMS}
-        """,
-        values={
-            "score_id": score_id,
-            "score": score,
-            "performance_points": performance_points,
-            "accuracy": accuracy,
-            "highest_combo": highest_combo,
-            "full_combo": full_combo,
-            "mods": mods,
-            "num_300s": num_300s,
-            "num_100s": num_100s,
-            "num_50s": num_50s,
-            "num_misses": num_misses,
-            "num_gekis": num_gekis,
-            "num_katus": num_katus,
-            "grade": grade,
-            "submission_status": submission_status,
-            "game_mode": game_mode,
-            "country": country,
-            "time_elapsed": time_elapsed,
-            "client_anticheat_flags": client_anticheat_flags,
-            "client_anticheat_token": client_anticheat_token,
-        },
-    )
+    update_fields: ScoreUpdateFields = {}
+    if not isinstance(score, Unset):
+        update_fields["score"] = score
+    if not isinstance(performance_points, Unset):
+        update_fields["performance_points"] = performance_points
+    if not isinstance(accuracy, Unset):
+        update_fields["accuracy"] = accuracy
+    if not isinstance(highest_combo, Unset):
+        update_fields["highest_combo"] = highest_combo
+    if not isinstance(full_combo, Unset):
+        update_fields["full_combo"] = full_combo
+    if not isinstance(mods, Unset):
+        update_fields["mods"] = mods
+    if not isinstance(num_300s, Unset):
+        update_fields["num_300s"] = num_300s
+    if not isinstance(num_100s, Unset):
+        update_fields["num_100s"] = num_100s
+    if not isinstance(num_50s, Unset):
+        update_fields["num_50s"] = num_50s
+    if not isinstance(num_misses, Unset):
+        update_fields["num_misses"] = num_misses
+    if not isinstance(num_gekis, Unset):
+        update_fields["num_gekis"] = num_gekis
+    if not isinstance(num_katus, Unset):
+        update_fields["num_katus"] = num_katus
+    if not isinstance(grade, Unset):
+        update_fields["grade"] = grade
+    if not isinstance(submission_status, Unset):
+        update_fields["submission_status"] = submission_status
+    if not isinstance(game_mode, Unset):
+        update_fields["game_mode"] = game_mode
+    if not isinstance(country, Unset):
+        update_fields["country"] = country
+    if not isinstance(time_elapsed, Unset):
+        update_fields["time_elapsed"] = time_elapsed
+    if not isinstance(client_anticheat_flags, Unset):
+        update_fields["client_anticheat_flags"] = client_anticheat_flags
+    if not isinstance(client_anticheat_token, Unset):
+        update_fields["client_anticheat_token"] = client_anticheat_token
+
+    query = f"""
+        UPDATE scores
+           SET {", ".join(f"{key} = :{key}" for key in update_fields)},
+               updated_at = NOW()
+        WHERE score_id = :score_id
+        RETURNING {READ_PARAMS}
+    """
+    values = {"score_id": score_id} | update_fields
+    _score = await clients.database.fetch_one(query, values)
     return deserialize(_score) if _score is not None else None

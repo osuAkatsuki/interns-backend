@@ -154,7 +154,8 @@ async def partial_update(
 
     query = f"""\
         UPDATE accounts
-           SET {",".join(f"{k} = :{k}" for k in update_fields)}
+           SET {", ".join(f"{k} = :{k}" for k in update_fields)},
+               updated_at = NOW()
          WHERE account_id = :account_id
      RETURNING {READ_PARAMS}
     """
