@@ -1,7 +1,7 @@
+from uuid import UUID
+
 from fastapi import APIRouter
 from fastapi import status
-
-from uuid import UUID
 
 from app import logger
 from app.api.rest import responses

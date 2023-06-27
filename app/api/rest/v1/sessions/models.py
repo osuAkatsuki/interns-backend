@@ -1,5 +1,4 @@
 from datetime import datetime
-
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -9,6 +8,7 @@ from pydantic import BaseModel
 
 
 # output models
+
 
 class Presence(BaseModel):
     # account_id: int
@@ -32,6 +32,7 @@ class Presence(BaseModel):
     # last_communicated_at: datetime
     last_np_beatmap_id: int | None
     primary: bool
+
 
 class Session(BaseModel):
     session_id: UUID

@@ -1,15 +1,13 @@
-from datetime import datetime
-
-from typing import Any
-
-from uuid import UUID
 import uuid
+from datetime import datetime
+from typing import Any
+from uuid import UUID
 
 from app import logger
 from app.errors import ServiceError
 from app.repositories import sessions
-from app.repositories.sessions import Session
 from app.repositories.sessions import Presence
+from app.repositories.sessions import Session
 
 
 async def create(
