@@ -269,7 +269,7 @@ async def fetch_many(
             OFFSET :offset
         """
         values["page_size"] = page_size
-        values["offset"] = page * page_size
+        values["offset"] = (page - 1) * page_size
 
     scores = await clients.database.fetch_all(query, values)
     return [deserialize(score) for score in scores]
@@ -401,7 +401,7 @@ async def fetch_best_for_each_account(
             OFFSET :offset
         """
         values["page_size"] = page_size
-        values["offset"] = page * page_size
+        values["offset"] = (page - 1) * page_size
 
     scores = await clients.database.fetch_all(query, values)
     return [deserialize(score) for score in scores]

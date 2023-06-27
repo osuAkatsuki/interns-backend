@@ -88,7 +88,7 @@ async def fetch_many(
             country=country,
             full_combo=full_combo,
             grade=grade,
-            submission_status=submission_status,
+            submission_statuses=[submission_status] if submission_status else None,
             game_mode=game_mode,
             mods=mods,
             sort_by=sort_by,
@@ -119,7 +119,7 @@ async def fetch_total_count(
             country=country,
             full_combo=full_combo,
             grade=grade,
-            submission_status=submission_status,
+            submission_statuses=[submission_status] if submission_status else None,
             game_mode=game_mode,
             mods=mods,
         )
