@@ -29,6 +29,8 @@ app.host("c6.cmyui.xyz", bancho_router)
 
 # rest api hosts
 app.host("api.cmyui.xyz", rest_api_router)
+if settings.APP_ENV == "local":
+    app.host("localhost", rest_api_router)
 
 
 @app.on_event("startup")
