@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import atexit
 
+from fastapi.middleware.cors import CORSMiddleware
+
 from app import lifecycle
 from app import logger
 from app import settings
@@ -18,6 +20,15 @@ atexit.register(logger.restore_exception_hook)
 
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# web api hosts
 app.host("osu.cmyui.xyz", osu_web_router)
 
 # osu bancho hosts
