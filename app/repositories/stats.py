@@ -1,3 +1,4 @@
+from typing import Literal
 from typing import TypedDict
 
 from app import clients
@@ -143,18 +144,60 @@ async def fetch_all(
     return [deserialize(stats) for stats in all_stats]
 
 
+def validate_sort_params(sort_by: str, sort_order: str) -> None:
+    if sort_by not in (
+        "total_score",
+        "ranked_score",
+        "performance_points",
+        "play_count",
+        "play_time",
+        "accuracy",
+        "highest_combo",
+        "total_hits",
+        "replay_views",
+        "xh_count",
+        "x_count",
+        "sh_count",
+        "s_count",
+        "a_count",
+    ):
+        raise ValueError("Invalid sort_by")
+
+    if sort_order not in ("asc", "desc"):
+        raise ValueError("Invalid sort_order")
+
+
 async def fetch_many(
     account_id: int | None = None,
     game_mode: int | None = None,
     page: int = 1,
     page_size: int = 50,
+    sort_by: Literal[
+        "total_score",
+        "ranked_score",
+        "performance_points",
+        "play_count",
+        "play_time",
+        "accuracy",
+        "highest_combo",
+        "total_hits",
+        "replay_views",
+        "xh_count",
+        "x_count",
+        "sh_count",
+        "s_count",
+        "a_count",
+    ] = "performance_points",
+    sort_order: Literal["asc", "desc"] = "desc",
 ) -> list[Stats]:
+    validate_sort_params(sort_by, sort_order)  # just in case
     all_stats = await clients.database.fetch_all(
         query=f"""
             SELECT {READ_PARAMS}
             FROM stats
             WHERE account_id = COALESCE(:account_id, account_id)
             AND game_mode = COALESCE(:game_mode, game_mode)
+            ORDER BY {sort_by} {sort_order}
             LIMIT :limit
             OFFSET :offset
         """,

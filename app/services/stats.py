@@ -1,3 +1,5 @@
+from typing import Literal
+
 from app import logger
 from app.errors import ServiceError
 from app.repositories import stats
@@ -24,6 +26,23 @@ async def fetch_many(
     game_mode: int | None = None,
     page: int = 1,
     page_size: int = 50,
+    sort_by: Literal[
+        "total_score",
+        "ranked_score",
+        "performance_points",
+        "play_count",
+        "play_time",
+        "accuracy",
+        "highest_combo",
+        "total_hits",
+        "replay_views",
+        "xh_count",
+        "x_count",
+        "sh_count",
+        "s_count",
+        "a_count",
+    ] = "performance_points",
+    sort_order: Literal["asc", "desc"] = "desc",
 ) -> list[Stats] | ServiceError:
     try:
         _stats = await stats.fetch_many(
@@ -31,6 +50,8 @@ async def fetch_many(
             game_mode=game_mode,
             page=page,
             page_size=page_size,
+            sort_by=sort_by,
+            sort_order=sort_order,
         )
     except Exception as exc:  # pragma: no cover
         logger.error("Failed to fetch stats", exc_info=exc)
