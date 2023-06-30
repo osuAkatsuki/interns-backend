@@ -14,6 +14,8 @@ pillow
 py3rijndael
 python-dotenv
 python-multipart
+pytimeparse
 redis
 structlog
 uvicorn
+pytimeparse

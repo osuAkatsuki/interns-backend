@@ -17,7 +17,7 @@ class ServerPrivileges:
     SUPPORTER = 1 << 4
     PREMIUM = 1 << 5
     BEATMAP_NOMINATOR = 1 << 7
-    CHAT_MODERATIOR = 1 << 9
+    CHAT_MODERATOR = 1 << 9
     MULTIPLAYER_STAFF = 1 << 11
     ACCOUNT_MANAGEMENT = 1 << 13
     SUPER_ADMIN = 1 << 30
