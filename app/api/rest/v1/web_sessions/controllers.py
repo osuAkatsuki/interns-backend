@@ -1,14 +1,17 @@
 from uuid import UUID
 
 from fastapi import APIRouter
+from fastapi import Depends
 from fastapi import status
 
 from app import logger
 from app.api.rest import responses
+from app.api.rest.authentication import http_bearer_authentication
 from app.api.rest.responses import Success
 from app.api.rest.v1.web_sessions.models import LoginCredentials
 from app.api.rest.v1.web_sessions.models import WebSession
 from app.errors import ServiceError
+from app.repositories.web_sessions import WebSession as InternalWebSessionModel
 from app.services import web_sessions
 
 
@@ -101,3 +104,21 @@ async def fetch_one(web_session_id: UUID) -> Success[WebSession]:
 
     resp = WebSession.parse_obj(data)
     return responses.success(content=resp)
+
+
+@router.delete("/v1/web_sessions")
+async def delete_one(
+    current_web_session: InternalWebSessionModel = Depends(http_bearer_authentication),
+) -> Success[None]:
+    data = await web_sessions.delete_by_id(
+        web_session_id=current_web_session["web_session_id"],
+    )
+    if isinstance(data, ServiceError):
+        status_code = determine_status_code(data)
+        return responses.failure(
+            error=data,
+            message="Failed to delete web sessions",
+            status_code=status_code,
+        )
+
+    return responses.success(content=None)
