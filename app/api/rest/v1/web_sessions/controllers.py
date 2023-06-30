@@ -19,7 +19,7 @@ def determine_status_code(error: ServiceError) -> int:
     match error:
         case ServiceError.WEB_SESSIONS_NOT_FOUND:
             return status.HTTP_404_NOT_FOUND
-        case ServiceError.ACCOUNTS_NOT_FOUND:
+        case ServiceError.CREDENTIALS_NOT_FOUND:
             return status.HTTP_401_UNAUTHORIZED
         case ServiceError.CREDENTIALS_INCORRECT:
             return status.HTTP_401_UNAUTHORIZED
