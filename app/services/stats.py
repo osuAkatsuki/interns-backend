@@ -1,11 +1,11 @@
 from typing import Literal
 
 from app import logger
+from app._typing import UNSET
+from app._typing import Unset
 from app.errors import ServiceError
 from app.repositories import stats
 from app.repositories.stats import Stats
-from app.typing import UNSET
-from app.typing import Unset
 
 
 async def create(account_id: int, game_mode: int) -> Stats | ServiceError:

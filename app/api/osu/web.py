@@ -36,10 +36,10 @@ from app.repositories import accounts
 from app.repositories import achievements
 from app.repositories import channel_members
 from app.repositories import channels
+from app.repositories import osu_sessions
 from app.repositories import packet_bundles
 from app.repositories import relationships
 from app.repositories import scores
-from app.repositories import sessions
 from app.repositories import stats
 from app.repositories import user_achievements
 from app.repositories.accounts import Account
@@ -201,21 +201,21 @@ async def get_scores_handler(
     ):
         return
 
-    session = await sessions.fetch_primary_by_username(username)
-    if session is None:
+    osu_session = await osu_sessions.fetch_primary_by_username(username)
+    if osu_session is None:
         return
 
     # update user stats if they have changed
     # TODO: should we do this on more attributes?
-    if game_mode != session["presence"]["game_mode"]:
-        session = await sessions.partial_update(
-            session["session_id"],
+    if game_mode != osu_session["game_mode"]:
+        osu_session = await osu_sessions.partial_update(
+            osu_session["osu_session_id"],
             game_mode=game_mode,
             mods=mods,
         )
-        assert session is not None
+        assert osu_session is not None
 
-        own_stats = await stats.fetch_one(session["account_id"], game_mode)
+        own_stats = await stats.fetch_one(osu_session["account_id"], game_mode)
         assert own_stats is not None
 
         own_global_rank = await ranking.get_global_rank(
@@ -223,17 +223,17 @@ async def get_scores_handler(
             own_stats["game_mode"],
         )
 
-        for other_session in await sessions.fetch_all():
+        for other_osu_session in await osu_sessions.fetch_all():
             await packet_bundles.enqueue(
-                other_session["session_id"],
+                other_osu_session["osu_session_id"],
                 data=packets.write_user_stats_packet(
-                    session["presence"]["account_id"],
-                    session["presence"]["action"],
-                    session["presence"]["info_text"],
-                    session["presence"]["beatmap_md5"],
-                    session["presence"]["mods"],
-                    session["presence"]["game_mode"],
-                    session["presence"]["beatmap_id"],
+                    osu_session["account_id"],
+                    osu_session["action"],
+                    osu_session["info_text"],
+                    osu_session["beatmap_md5"],
+                    osu_session["mods"],
+                    osu_session["game_mode"],
+                    osu_session["beatmap_id"],
                     own_stats["ranked_score"],
                     own_stats["accuracy"],
                     own_stats["play_count"],
@@ -284,7 +284,7 @@ async def get_scores_handler(
             account_id=account["account_id"],
             relationship="friend",
         )
-        filter_params["friends"] = [session["account_id"]] + [
+        filter_params["friends"] = [osu_session["account_id"]] + [
             friend["account_id"] for friend in friends
         ]
 
@@ -405,9 +405,9 @@ async def submit_score_handler(
         logger.warning(f"Account {username} not found")
         return f"error: {ScoreSubmissionErrors.NEEDS_AUTHENTICATION}"
 
-    session = await sessions.fetch_primary_by_username(username)
-    if session is None:
-        logger.warning(f"Session for {username} not found")
+    osu_session = await osu_sessions.fetch_primary_by_username(username)
+    if osu_session is None:
+        logger.warning(f"osu! session for {username} not found")
         return f"error: {ScoreSubmissionErrors.NEEDS_AUTHENTICATION}"
 
     if not security.check_password(
@@ -623,24 +623,24 @@ async def submit_score_handler(
 
     # send account stats to all other osu! sessions if we're not restricted
     if account["privileges"] & ServerPrivileges.UNRESTRICTED:
-        sessions_to_notify = await sessions.fetch_all()
+        osu_sessions_to_notify = await osu_sessions.fetch_all()
     else:
-        sessions_to_notify = [session]
+        osu_sessions_to_notify = [osu_session]
 
     own_global_rank = await ranking.get_global_rank(
         gamemode_stats["account_id"],
         gamemode_stats["game_mode"],
     )
 
-    for other_session in sessions_to_notify:
+    for other_osu_session in osu_sessions_to_notify:
         packet_data = packets.write_user_stats_packet(
             gamemode_stats["account_id"],
-            session["presence"]["action"],
-            session["presence"]["info_text"],
-            session["presence"]["beatmap_md5"],
-            session["presence"]["mods"],
+            osu_session["action"],
+            osu_session["info_text"],
+            osu_session["beatmap_md5"],
+            osu_session["mods"],
             vanilla_game_mode,
-            session["presence"]["beatmap_id"],
+            osu_session["beatmap_id"],
             gamemode_stats["ranked_score"],
             gamemode_stats["accuracy"],
             gamemode_stats["play_count"],
@@ -649,7 +649,7 @@ async def submit_score_handler(
             gamemode_stats["performance_points"],
         )
         await packet_bundles.enqueue(
-            other_session["session_id"],
+            other_osu_session["osu_session_id"],
             packet_data,
         )
 
@@ -679,8 +679,8 @@ async def submit_score_handler(
             announce_channel_members = await channel_members.members(
                 announce_channel["channel_id"]
             )
-            for session_id in announce_channel_members:
-                await packet_bundles.enqueue(session_id, packet_data)
+            for osu_session_id in announce_channel_members:
+                await packet_bundles.enqueue(osu_session_id, packet_data)
 
     # unlock achievements
     own_achievements = await user_achievements.fetch_many(
@@ -706,7 +706,7 @@ async def submit_score_handler(
             )
             continue
 
-        unlocked = await achievement_handler(session, beatmap, score)
+        unlocked = await achievement_handler(osu_session, beatmap, score)
 
         # might not meet criteria
         if not unlocked:

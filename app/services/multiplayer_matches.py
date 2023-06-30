@@ -47,7 +47,7 @@ async def create(
                 match["match_id"],
                 slot_id,
                 account_id=-1,
-                session_id=UUID(int=0),
+                osu_session_id=UUID(int=0),
                 status=multiplayer_slots.SlotStatus.OPEN,
                 team=MatchTeams.NEUTRAL,
                 mods=0,

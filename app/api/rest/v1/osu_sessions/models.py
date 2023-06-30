@@ -10,8 +10,9 @@ from pydantic import BaseModel
 # output models
 
 
-class Presence(BaseModel):
-    # account_id: int
+class OsuSession(BaseModel):
+    session_id: UUID
+    account_id: int
     username: str
     utc_offset: int
     country: str
@@ -26,18 +27,13 @@ class Presence(BaseModel):
     mods: int
     # pm_private: bool
     # receive_match_updates: bool
-    spectator_host_session_id: UUID | None
+    spectator_host_osu_session_id: UUID | None
     away_message: str | None
     multiplayer_match_id: int | None
     # last_communicated_at: datetime
     last_np_beatmap_id: int | None
     primary: bool
 
-
-class Session(BaseModel):
-    session_id: UUID
-    account_id: int
-    presence: Presence
     expires_at: datetime
     created_at: datetime
     updated_at: datetime

@@ -1010,14 +1010,14 @@ def write_channel_kick_packet(channel_name: str) -> bytes:
 def write_channel_auto_join_packet(
     name: str,
     topic: str,
-    num_sessions: int,
+    session_count: int,
 ) -> bytes:
     return write_packet(
         packet_id=ServerPackets.CHANNEL_AUTO_JOIN,
         packet_data_inputs=[
             (DataType.STRING, name),
             (DataType.STRING, topic),
-            (DataType.U16, num_sessions),
+            (DataType.U16, session_count),
         ],
     )
 

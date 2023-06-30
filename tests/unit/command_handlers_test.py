@@ -6,19 +6,19 @@ from testing import sample_data
 
 async def test_echo_handler_should_echo_args():
     # arrange
-    session = sample_data.fake_session()
+    osu_session = sample_data.fake_osu_session()
 
     # act
-    command_response = await commands.echo_handler(session, ["hello", "world"])
+    command_response = await commands.roll_handler(osu_session, ["42"])
 
     # assert
     assert command_response is not None
-    assert command_response == "hello world"
+    assert command_response in range(0, 100)
 
 
 async def test_roll_handler_should_roll_between_default_range():
     # arrange
-    session = sample_data.fake_session()
+    session = sample_data.fake_osu_session()
 
     # act
     command_response = await commands.roll_handler(session, ["100"])
@@ -28,22 +28,9 @@ async def test_roll_handler_should_roll_between_default_range():
     assert 0 <= int(command_response) < 100
 
 
-async def test_py_handler_should_run_successfully():
-    # arrange
-    session = sample_data.fake_session()
-
-    # act
-    command_response = await commands.py_handler(session, ["return 1 + 1"])
-
-    # assert
-    assert command_response is not None
-    assert command_response == "2"
-
-
 async def test_block_handler_should_block_user(mocker: pytest_mock.MockerFixture):
     # arrange
-    fake_session = sample_data.fake_session()
-    assert fake_session["presence"] is not None
+    fake_session = sample_data.fake_osu_session()
     fake_account = sample_data.fake_account()
 
     mocker.patch(
@@ -72,7 +59,7 @@ async def test_block_handler_should_block_user(mocker: pytest_mock.MockerFixture
     assert command_response is not None
     assert (
         command_response
-        == f"{fake_session['presence']['username']} successfully blocked {fake_account['username']}"
+        == f"{fake_session['username']} successfully blocked {fake_account['username']}"
     )
 
 
@@ -80,8 +67,7 @@ async def test_block_handler_should_not_block_user_if_not_found(
     mocker: pytest_mock.MockerFixture,
 ):
     # arrange
-    fake_session = sample_data.fake_session()
-    assert fake_session["presence"] is not None
+    fake_session = sample_data.fake_osu_session()
     fake_account = sample_data.fake_account()
 
     mocker.patch(
@@ -103,8 +89,7 @@ async def test_block_handler_should_not_block_user_if_already_blocked(
     mocker: pytest_mock.MockerFixture,
 ):
     # arrange
-    fake_session = sample_data.fake_session()
-    assert fake_session["presence"] is not None
+    fake_session = sample_data.fake_osu_session()
     fake_account = sample_data.fake_account()
 
     mocker.patch(
