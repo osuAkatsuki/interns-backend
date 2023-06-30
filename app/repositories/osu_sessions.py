@@ -416,13 +416,13 @@ async def partial_update(
     return cast(OsuSession, osu_session)
 
 
-async def delete_by_id(session_id: UUID) -> OsuSession | None:
-    session_key = make_key(session_id)
+async def delete_by_id(osu_session_id: UUID) -> OsuSession | None:
+    session_key = make_key(osu_session_id)
 
-    session = await clients.redis.get(session_key)
-    if session is None:
+    osu_session = await clients.redis.get(session_key)
+    if osu_session is None:
         return None
 
     await clients.redis.delete(session_key)
 
-    return deserialize(session)
+    return deserialize(osu_session)

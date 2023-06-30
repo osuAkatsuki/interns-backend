@@ -35,7 +35,7 @@ async def create(
     session_id = uuid.uuid4()
 
     try:
-        session = await osu_sessions.create(
+        osu_session = await osu_sessions.create(
             session_id,
             account_id=account_id,
             username=username,
@@ -63,7 +63,7 @@ async def create(
         logger.error("Failed to create osu! session", exc_info=exc)
         return ServiceError.OSU_SESSIONS_CREATE_FAILED
 
-    return session
+    return osu_session
 
 
 async def fetch_by_id(osu_session_id: UUID) -> OsuSession | ServiceError:
@@ -127,25 +127,25 @@ async def partial_update(
     osu_session_id: UUID, **kwargs: Any
 ) -> OsuSession | ServiceError:
     try:
-        session = await osu_sessions.partial_update(osu_session_id, **kwargs)
+        osu_session = await osu_sessions.partial_update(osu_session_id, **kwargs)
     except Exception as exc:  # pragma: no cover
         logger.error("Failed to update osu! session", exc_info=exc)
         return ServiceError.OSU_SESSIONS_UPDATE_FAILED
 
-    if session is None:
+    if osu_session is None:
         return ServiceError.OSU_SESSIONS_NOT_FOUND
 
-    return session
+    return osu_session
 
 
 async def delete_by_id(osu_session_id: UUID) -> OsuSession | ServiceError:
     try:
-        session = await osu_sessions.delete_by_id(osu_session_id)
+        osu_session = await osu_sessions.delete_by_id(osu_session_id)
     except Exception as exc:  # pragma: no cover
         logger.error("Failed to delete osu! session", exc_info=exc)
         return ServiceError.OSU_SESSIONS_DELETE_FAILED
 
-    if session is None:
+    if osu_session is None:
         return ServiceError.OSU_SESSIONS_NOT_FOUND
 
-    return session
+    return osu_session

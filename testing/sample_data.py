@@ -17,7 +17,7 @@ def fake_country() -> str:
     return random.choice(tuple(geolocation.COUNTRY_STR_TO_INT))
 
 
-def fake_session() -> "OsuSession":
+def fake_osu_session() -> "OsuSession":
     return {
         "osu_session_id": uuid.uuid4(),
         "account_id": fake.pyint(),

@@ -407,7 +407,7 @@ async def submit_score_handler(
 
     osu_session = await osu_sessions.fetch_primary_by_username(username)
     if osu_session is None:
-        logger.warning(f"Osu session for {username} not found")
+        logger.warning(f"osu! session for {username} not found")
         return f"error: {ScoreSubmissionErrors.NEEDS_AUTHENTICATION}"
 
     if not security.check_password(

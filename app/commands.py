@@ -97,7 +97,7 @@ def get_command_set(trigger: str) -> CommandSet | None:
 
 
 @command("!help")
-async def help_handler(session: "OsuSession", args: list[str]) -> str | None:
+async def help_handler(osu_session: "OsuSession", args: list[str]) -> str | None:
     """Display this help message."""
     response_lines = []
 
@@ -110,7 +110,7 @@ async def help_handler(session: "OsuSession", args: list[str]) -> str | None:
 
         # don't show commands that the user can't access
         if command.privileges is not None:
-            if (session["privileges"] & command.privileges) == 0:
+            if (osu_session["privileges"] & command.privileges) == 0:
                 continue
 
         response_lines.append(f"* {trigger} - {documentation}")
@@ -132,7 +132,7 @@ async def help_handler(session: "OsuSession", args: list[str]) -> str | None:
 
             # don't show commands that the user can't access
             if command.privileges is not None:
-                if (session["privileges"] & command.privileges) == 0:
+                if (osu_session["privileges"] & command.privileges) == 0:
                     continue
 
             response_lines.append(f"* {trigger} - {documentation}")
@@ -143,32 +143,32 @@ async def help_handler(session: "OsuSession", args: list[str]) -> str | None:
 
 
 @command("!roll")
-async def roll_handler(session: "OsuSession", args: list[str]) -> str | None:
+async def roll_handler(osu_session: "OsuSession", args: list[str]) -> str | None:
     """Roll a random number between 0 and a given number."""
     random_number_max = int(args[0]) if args else 100
     return str(random.randrange(0, random_number_max))
 
 
 @command("!block")
-async def block_handler(session: "OsuSession", args: list[str]) -> str | None:
+async def block_handler(osu_session: "OsuSession", args: list[str]) -> str | None:
     """Block communications with another user."""
     account_to_be_blocked = await accounts.fetch_by_username(args[0])
     if account_to_be_blocked is None:
         return f"{args[0]} could not be blocked"
 
-    all_relationships = await relationships.fetch_all(session["account_id"])
+    all_relationships = await relationships.fetch_all(osu_session["account_id"])
 
     for relationship in all_relationships:
         if relationship["target_id"] == account_to_be_blocked["account_id"]:
             return f"{args[0]} is already blocked"
 
     await relationships.create(
-        account_id=session["account_id"],
+        account_id=osu_session["account_id"],
         target_id=account_to_be_blocked["account_id"],
         relationship="blocked",
     )
 
-    return f"{session['username']} successfully blocked {args[0]}"
+    return f"{osu_session['username']} successfully blocked {args[0]}"
 
 
 async def _shared_base_for_edit_map_handlers(
@@ -219,28 +219,28 @@ async def _shared_base_for_edit_map_handlers(
 
 
 @command("!rank", privileges=ServerPrivileges.BEATMAP_NOMINATOR)
-async def rank_handler(session: "OsuSession", args: list[str]) -> str | None:
+async def rank_handler(osu_session: "OsuSession", args: list[str]) -> str | None:
     """Rank the previously /np'ed beatmap."""
     return await _shared_base_for_edit_map_handlers(
-        session["last_np_beatmap_id"],
+        osu_session["last_np_beatmap_id"],
         BeatmapRankedStatus.RANKED,
     )
 
 
 @command("!love", privileges=ServerPrivileges.BEATMAP_NOMINATOR)
-async def love_handler(session: "OsuSession", args: list[str]) -> str | None:
+async def love_handler(osu_session: "OsuSession", args: list[str]) -> str | None:
     """Love the previously /np'ed beatmap."""
     return await _shared_base_for_edit_map_handlers(
-        session["last_np_beatmap_id"],
+        osu_session["last_np_beatmap_id"],
         BeatmapRankedStatus.LOVED,
     )
 
 
 @command("!unrank", privileges=ServerPrivileges.BEATMAP_NOMINATOR)
-async def unrank_handler(session: "OsuSession", args: list[str]) -> str | None:
+async def unrank_handler(osu_session: "OsuSession", args: list[str]) -> str | None:
     """Unrank the previously /np'ed beatmap."""
     return await _shared_base_for_edit_map_handlers(
-        session["last_np_beatmap_id"],
+        osu_session["last_np_beatmap_id"],
         BeatmapRankedStatus.PENDING,
     )
 
@@ -252,9 +252,9 @@ command_sets[multiplayer_commands.trigger] = multiplayer_commands
 
 
 @multiplayer_commands.command("!mp start")
-async def match_start_handler(session: "OsuSession", args: list[str]) -> str | None:
+async def match_start_handler(osu_session: "OsuSession", args: list[str]) -> str | None:
     """Start a multiplayer match."""
-    match_id = session["multiplayer_match_id"]
+    match_id = osu_session["multiplayer_match_id"]
     if match_id is None:
         return "These commands only have a function in a multiplayer match"
 
@@ -263,14 +263,14 @@ async def match_start_handler(session: "OsuSession", args: list[str]) -> str | N
         logger.warning(
             "Failed to fetch a multiplayer match",
             match_id=match_id,
-            username=session["username"],
-            account_id=session["account_id"],
+            username=osu_session["username"],
+            account_id=osu_session["account_id"],
         )
         return
 
     if (
-        session["account_id"] != match["host_account_id"]
-        and not session["privileges"] & ServerPrivileges.MULTIPLAYER_STAFF
+        osu_session["account_id"] != match["host_account_id"]
+        and not osu_session["privileges"] & ServerPrivileges.MULTIPLAYER_STAFF
     ):
         return "You are not the host of this match"
 
