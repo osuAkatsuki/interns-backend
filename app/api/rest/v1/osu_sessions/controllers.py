@@ -6,9 +6,9 @@ from fastapi import status
 from app import logger
 from app.api.rest import responses
 from app.api.rest.responses import Success
-from app.api.rest.v1.sessions.models import Session
+from app.api.rest.v1.osu_sessions.models import OsuSession
 from app.errors import ServiceError
-from app.services import sessions
+from app.services import osu_sessions
 
 
 router = APIRouter()
@@ -18,32 +18,32 @@ def determine_status_code(error: ServiceError) -> int:
     match error:
         case (
             ServiceError.INTERNAL_SERVER_ERROR
-            | ServiceError.SESSIONS_FETCH_BY_ID_FAILED
-            | ServiceError.SESSIONS_FETCH_MANY_FAILED
-            | ServiceError.SESSIONS_FETCH_TOTAL_COUNT_FAILED
-            | ServiceError.SESSIONS_FETCH_ALL_FAILED
-            | ServiceError.SESSIONS_CREATE_FAILED
-            | ServiceError.SESSIONS_UPDATE_FAILED
-            | ServiceError.SESSIONS_DELETE_FAILED
+            | ServiceError.OSU_SESSIONS_FETCH_BY_ID_FAILED
+            | ServiceError.OSU_SESSIONS_FETCH_MANY_FAILED
+            | ServiceError.OSU_SESSIONS_FETCH_TOTAL_COUNT_FAILED
+            | ServiceError.OSU_SESSIONS_FETCH_ALL_FAILED
+            | ServiceError.OSU_SESSIONS_CREATE_FAILED
+            | ServiceError.OSU_SESSIONS_UPDATE_FAILED
+            | ServiceError.OSU_SESSIONS_DELETE_FAILED
         ):
             return status.HTTP_500_INTERNAL_SERVER_ERROR
-        case ServiceError.SESSIONS_NOT_FOUND:
+        case ServiceError.OSU_SESSIONS_NOT_FOUND:
             return status.HTTP_404_NOT_FOUND
         case _:
             logger.warning(
-                "Unhandled error code in sessions rest api controller",
+                "Unhandled error code in osu! sessions rest api controller",
                 service_error=error,
             )
             return status.HTTP_500_INTERNAL_SERVER_ERROR
 
 
-@router.get("/v1/sessions")
+@router.get("/v1/osu_sessions")
 async def fetch_many(
     has_any_privilege_bit: int | None = None,
     page: int = 1,
     page_size: int = 50,
-) -> Success[list[Session]]:
-    data = await sessions.fetch_many(
+) -> Success[list[OsuSession]]:
+    data = await osu_sessions.fetch_many(
         has_any_privilege_bit=has_any_privilege_bit,
         page=page,
         page_size=page_size,
@@ -52,22 +52,22 @@ async def fetch_many(
         status_code = determine_status_code(data)
         return responses.failure(
             error=data,
-            message="Failed to fetch sessions",
+            message="Failed to fetch osu! sessions",
             status_code=status_code,
         )
 
-    total = await sessions.fetch_total_count(
+    total = await osu_sessions.fetch_total_count(
         has_any_privilege_bit=has_any_privilege_bit
     )
     if isinstance(total, ServiceError):
         status_code = determine_status_code(total)
         return responses.failure(
             error=total,
-            message="Failed to fetch sessions",
+            message="Failed to fetch osu! sessions",
             status_code=status_code,
         )
 
-    resp = [Session.parse_obj(rec) for rec in data]
+    resp = [OsuSession.parse_obj(rec) for rec in data]
     return responses.success(
         content=resp,
         meta={
@@ -78,9 +78,9 @@ async def fetch_many(
     )
 
 
-@router.get("/v1/sessions/{session_id}")
-async def fetch_one(session_id: UUID) -> Success[Session]:
-    data = await sessions.fetch_by_id(session_id)
+@router.get("/v1/osu_sessions/{osu_session_id}")
+async def fetch_one(osu_session_id: UUID) -> Success[OsuSession]:
+    data = await osu_sessions.fetch_by_id(osu_session_id)
     if isinstance(data, ServiceError):
         status_code = determine_status_code(data)
         return responses.failure(
@@ -89,5 +89,5 @@ async def fetch_one(session_id: UUID) -> Success[Session]:
             status_code=status_code,
         )
 
-    resp = Session.parse_obj(data)
+    resp = OsuSession.parse_obj(data)
     return responses.success(content=resp)

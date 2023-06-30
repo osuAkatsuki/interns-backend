@@ -22,9 +22,9 @@ from app.privileges import ServerPrivileges
 from app.repositories import accounts
 from app.repositories import channel_members
 from app.repositories import channels
+from app.repositories import osu_sessions
 from app.repositories import packet_bundles
 from app.repositories import relationships
-from app.repositories import sessions
 from app.repositories import stats
 
 bancho_router = APIRouter(default_response_class=Response)
@@ -145,43 +145,41 @@ async def handle_login(request: Request) -> Response:
                 headers={"cho-token": "no"},
             )
 
-    other_session = await sessions.fetch_primary_by_username(login_data["username"])
+    other_osu_session = await osu_sessions.fetch_primary_by_username(
+        login_data["username"]
+    )
 
     vanilla_game_mode = GameMode.VN_OSU
 
-    own_session = await sessions.create(
-        session_id=uuid4(),
+    own_osu_session = await osu_sessions.create(
+        osu_session_id=uuid4(),
         account_id=account["account_id"],
-        presence={
-            "account_id": account["account_id"],
-            "username": account["username"],
-            "utc_offset": login_data["utc_offset"],
-            "country": account["country"],
-            "privileges": account["privileges"],
-            "game_mode": vanilla_game_mode,
-            "latitude": user_geolocation["latitude"],
-            "longitude": user_geolocation["longitude"],
-            "action": 0,
-            "info_text": "",
-            "beatmap_md5": "",
-            "beatmap_id": 0,
-            "mods": Mods.NOMOD,
-            "pm_private": login_data["pm_private"],
-            "receive_match_updates": False,
-            "spectator_host_session_id": None,
-            "away_message": None,
-            "multiplayer_match_id": None,
-            "last_communicated_at": datetime.now(),
-            "last_np_beatmap_id": None,
-            "primary": (
-                # this is either our first session or we're logging in from a tournament spectator client
-                # TODO: limit the number of spectators clients which can connect simultaneously?
-                other_session is None
-                or login_data["osu_version"].endswith("tourney")
-            ),
-        },
+        username=account["username"],
+        utc_offset=login_data["utc_offset"],
+        country=account["country"],
+        privileges=account["privileges"],
+        game_mode=vanilla_game_mode,
+        latitude=user_geolocation["latitude"],
+        longitude=user_geolocation["longitude"],
+        action=0,
+        info_text="",
+        beatmap_md5="",
+        beatmap_id=0,
+        mods=Mods.NOMOD,
+        pm_private=login_data["pm_private"],
+        receive_match_updates=False,
+        spectator_host_osu_session_id=None,
+        away_message=None,
+        multiplayer_match_id=None,
+        last_communicated_at=datetime.now(),
+        last_np_beatmap_id=None,
+        primary=(
+            # this is either our first session or we're logging in from a tournament spectator client
+            # TODO: limit the number of spectators clients which can connect simultaneously?
+            other_osu_session is None
+            or login_data["osu_version"].endswith("tourney")
+        ),
     )
-    own_presence = own_session["presence"]
 
     # we will respond to this request with several bancho packets
     response_data = bytearray()
@@ -222,26 +220,26 @@ async def handle_login(request: Request) -> Response:
     response_data += packets.write_channel_listing_complete_packet()
 
     own_global_rank = await ranking.get_global_rank(
-        own_presence["account_id"],
-        own_presence["game_mode"],
+        own_osu_session["account_id"],
+        own_osu_session["game_mode"],
     )
 
     # user presence
     own_presence_packet_data = packets.write_user_presence_packet(
-        own_presence["account_id"],
-        own_presence["username"],
-        own_presence["utc_offset"],
-        geolocation.country_str_to_int(own_presence["country"]),
-        privileges.server_to_client_privileges(own_presence["privileges"]),
+        own_osu_session["account_id"],
+        own_osu_session["username"],
+        own_osu_session["utc_offset"],
+        geolocation.country_str_to_int(own_osu_session["country"]),
+        privileges.server_to_client_privileges(own_osu_session["privileges"]),
         vanilla_game_mode,
-        int(own_presence["latitude"]),
-        int(own_presence["longitude"]),
+        int(own_osu_session["latitude"]),
+        int(own_osu_session["longitude"]),
         own_global_rank,
     )
 
     own_stats = await stats.fetch_one(
         account_id=account["account_id"],
-        game_mode=own_presence["game_mode"],
+        game_mode=own_osu_session["game_mode"],
     )
     if not own_stats:
         return Response(
@@ -259,12 +257,12 @@ async def handle_login(request: Request) -> Response:
 
     own_stats_packet_data = packets.write_user_stats_packet(
         own_stats["account_id"],
-        own_presence["action"],
-        own_presence["info_text"],
-        own_presence["beatmap_md5"],
-        own_presence["mods"],
+        own_osu_session["action"],
+        own_osu_session["info_text"],
+        own_osu_session["beatmap_md5"],
+        own_osu_session["mods"],
         vanilla_game_mode,
-        own_presence["beatmap_id"],
+        own_osu_session["beatmap_id"],
         own_stats["ranked_score"],
         own_stats["accuracy"],
         own_stats["play_count"],
@@ -277,34 +275,32 @@ async def handle_login(request: Request) -> Response:
     response_data += own_presence_packet_data
     response_data += own_stats_packet_data
 
-    for other_session in await sessions.fetch_all():
-        if other_session["session_id"] == own_session["session_id"]:
+    for other_osu_session in await osu_sessions.fetch_all():
+        if other_osu_session["osu_session_id"] == own_osu_session["osu_session_id"]:
             continue
 
-        other_presence = other_session["presence"]
-
         other_global_rank = await ranking.get_global_rank(
-            other_session["account_id"],
-            own_presence["game_mode"],
+            other_osu_session["account_id"],
+            own_osu_session["game_mode"],
         )
 
         # send other user's presence to us
         response_data += packets.write_user_presence_packet(
-            other_presence["account_id"],
-            other_presence["username"],
-            other_presence["utc_offset"],
-            geolocation.country_str_to_int(other_presence["country"]),
-            privileges.server_to_client_privileges(other_presence["privileges"]),
+            other_osu_session["account_id"],
+            other_osu_session["username"],
+            other_osu_session["utc_offset"],
+            geolocation.country_str_to_int(other_osu_session["country"]),
+            privileges.server_to_client_privileges(other_osu_session["privileges"]),
             vanilla_game_mode,
-            int(other_presence["latitude"]),
-            int(other_presence["longitude"]),
+            int(other_osu_session["latitude"]),
+            int(other_osu_session["longitude"]),
             other_global_rank,
         )
 
         # send other user's stats to us
         others_stats = await stats.fetch_one(
-            account_id=other_session["account_id"],
-            game_mode=other_presence["game_mode"],
+            account_id=other_osu_session["account_id"],
+            game_mode=other_osu_session["game_mode"],
         )
         if not others_stats:
             return Response(
@@ -317,12 +313,12 @@ async def handle_login(request: Request) -> Response:
 
         response_data += packets.write_user_stats_packet(
             others_stats["account_id"],
-            other_presence["action"],
-            other_presence["info_text"],
-            other_presence["beatmap_md5"],
-            other_presence["mods"],
+            other_osu_session["action"],
+            other_osu_session["info_text"],
+            other_osu_session["beatmap_md5"],
+            other_osu_session["mods"],
             vanilla_game_mode,
-            other_presence["beatmap_id"],
+            other_osu_session["beatmap_id"],
             others_stats["ranked_score"],
             others_stats["accuracy"],
             others_stats["play_count"],
@@ -334,7 +330,7 @@ async def handle_login(request: Request) -> Response:
         if account["privileges"] & ServerPrivileges.UNRESTRICTED:
             # send our presence & stats to other user
             await packet_bundles.enqueue(
-                other_session["session_id"],
+                other_osu_session["osu_session_id"],
                 data=own_presence_packet_data + own_stats_packet_data,
             )
 
@@ -366,21 +362,21 @@ async def handle_login(request: Request) -> Response:
 
     logger.info(
         "User login successful",
-        account_id=own_session["account_id"],
-        session_id=own_session["session_id"],
+        account_id=own_osu_session["account_id"],
+        osu_session_id=own_osu_session["osu_session_id"],
     )
 
     return Response(
         content=bytes(response_data),
-        headers={"cho-token": str(own_session["session_id"])},
+        headers={"cho-token": str(own_osu_session["osu_session_id"])},
     )
 
 
 async def handle_bancho_request(request: Request) -> Response:
     # authenticate the request
-    session_id = UUID(request.headers["osu-token"])
-    session = await sessions.fetch_by_id(session_id)
-    if session is None:
+    osu_session_id = UUID(request.headers["osu-token"])
+    osu_session = await osu_sessions.fetch_by_id(osu_session_id)
+    if osu_session is None:
         return Response(
             content=(
                 packets.write_restart_packet(millseconds_until_restart=0)
@@ -399,24 +395,24 @@ async def handle_bancho_request(request: Request) -> Response:
             logger.warning("Unhandled packet type", packet_id=packet.packet_id)
             continue
 
-        await packet_handler(session, packet.packet_data)
+        await packet_handler(osu_session, packet.packet_data)
         logger.debug("Handled packet", packet_id=packet.packet_id)
 
     # dequeue all packets to send back to the client
     response_content = bytearray()
-    own_packet_bundles = await packet_bundles.dequeue_all(session["session_id"])
+    own_packet_bundles = await packet_bundles.dequeue_all(osu_session["osu_session_id"])
     for packet_bundle in own_packet_bundles:
         response_content.extend(packet_bundle["data"])
 
     # (the session may already be signed out, no worries if so)
-    await sessions.partial_update(
-        session["session_id"],
-        presence={"last_communicated_at": datetime.now()},
+    await osu_sessions.partial_update(
+        osu_session["osu_session_id"],
+        last_communicated_at=datetime.now(),
     )
 
     return Response(
         content=bytes(response_content),
-        headers={"cho-token": str(session["session_id"])},
+        headers={"cho-token": str(osu_session["osu_session_id"])},
     )
 
 

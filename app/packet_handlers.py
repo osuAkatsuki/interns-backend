@@ -19,23 +19,23 @@ from app.privileges import ServerPrivileges
 from app.repositories import channel_members
 from app.repositories import channels
 from app.repositories import multiplayer_slots
+from app.repositories import osu_sessions
 from app.repositories import packet_bundles
 from app.repositories import relationships
-from app.repositories import sessions
 from app.repositories import spectators
 from app.repositories import stats
 from app.repositories.multiplayer_matches import MatchStatus
 from app.repositories.multiplayer_matches import MatchTeams
 from app.repositories.multiplayer_matches import MatchTeamTypes
 from app.repositories.multiplayer_slots import SlotStatus
-from app.repositories.sessions import Action
+from app.repositories.osu_sessions import Action
 from app.services import accounts
 from app.services import multiplayer_matches
 
 if TYPE_CHECKING:
-    from app.repositories.sessions import Session
+    from app.repositories.osu_sessions import OsuSession
 
-BanchoHandler = Callable[["Session", bytes], Awaitable[None]]
+BanchoHandler = Callable[["OsuSession", bytes], Awaitable[None]]
 
 packet_handlers: dict[int, BanchoHandler] = {}
 
@@ -56,8 +56,8 @@ def bancho_handler(packet_id: int) -> Callable[[BanchoHandler], BanchoHandler]:
 
 
 @bancho_handler(packets.ClientPackets.CHANGE_ACTION)
-async def change_action_handler(session: "Session", packet_data: bytes):
-    if not session["presence"]["privileges"] & ServerPrivileges.UNRESTRICTED:
+async def change_action_handler(osu_session: "OsuSession", packet_data: bytes):
+    if not osu_session["privileges"] & ServerPrivileges.UNRESTRICTED:
         return
 
     data = packets.PacketReader(packet_data)
@@ -77,37 +77,37 @@ async def change_action_handler(session: "Session", packet_data: bytes):
 
     game_mode = game_modes.for_server(vanilla_game_mode, mods)
 
-    maybe_session = await sessions.partial_update(
-        session["session_id"],
-        presence={
-            "action": action,
-            "info_text": info_text,
-            "beatmap_md5": beatmap_md5,
-            "mods": mods,
-            "game_mode": game_mode,
-            "beatmap_id": beatmap_id,
-        },
+    maybe_osu_session = await osu_sessions.partial_update(
+        osu_session["osu_session_id"],
+        action=action,
+        info_text=info_text,
+        beatmap_md5=beatmap_md5,
+        mods=mods,
+        game_mode=game_mode,
+        beatmap_id=beatmap_id,
     )
-    assert maybe_session is not None
-    session = maybe_session
+    assert maybe_osu_session is not None
+    osu_session = maybe_osu_session
 
-    own_stats = await stats.fetch_one(session["account_id"], game_mode)
+    own_stats = await stats.fetch_one(osu_session["account_id"], game_mode)
     assert own_stats is not None
 
-    own_global_rank = await ranking.get_global_rank(session["account_id"], game_mode)
+    own_global_rank = await ranking.get_global_rank(
+        osu_session["account_id"], game_mode
+    )
 
-    # send the stats update to all active osu sessions' packet bundles
-    for other_session in await sessions.fetch_all():
+    # send the stats update to all active osu osu_sessions' packet bundles
+    for other_osu_session in await osu_sessions.fetch_all():
         await packet_bundles.enqueue(
-            other_session["session_id"],
+            other_osu_session["osu_session_id"],
             packets.write_user_stats_packet(
-                session["account_id"],
-                session["presence"]["action"],
-                session["presence"]["info_text"],
-                session["presence"]["beatmap_md5"],
-                session["presence"]["mods"],
+                osu_session["account_id"],
+                osu_session["action"],
+                osu_session["info_text"],
+                osu_session["beatmap_md5"],
+                osu_session["mods"],
                 vanilla_game_mode,
-                session["presence"]["beatmap_id"],
+                osu_session["beatmap_id"],
                 own_stats["ranked_score"],
                 own_stats["accuracy"],
                 own_stats["play_count"],
@@ -122,10 +122,8 @@ async def change_action_handler(session: "Session", packet_data: bytes):
 
 
 @bancho_handler(packets.ClientPackets.SEND_PUBLIC_MESSAGE)
-async def send_public_message_handler(session: "Session", packet_data: bytes):
-    own_presence = session["presence"]
-
-    if not own_presence["privileges"] & ServerPrivileges.UNRESTRICTED:
+async def send_public_message_handler(osu_session: "OsuSession", packet_data: bytes):
+    if not osu_session["privileges"] & ServerPrivileges.UNRESTRICTED:
         return
 
     # read packet data
@@ -137,11 +135,11 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
     sender_id = packet_reader.read_i32()  # always 0
 
     if recipient_name == "#multiplayer":
-        multiplayer_match_id = session["presence"]["multiplayer_match_id"]
+        multiplayer_match_id = osu_session["multiplayer_match_id"]
         if multiplayer_match_id is None:
             logger.warning(
                 "User tried to send a message in #multiplayer without being in a match",
-                account_id=session["account_id"],
+                account_id=osu_session["account_id"],
             )
             return
 
@@ -149,12 +147,12 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
 
     elif recipient_name == "#spectator":
         # we may be spectating someone, or may be the host of spectators
-        if own_presence["spectator_host_session_id"] is not None:
-            spectator_host_session_id = own_presence["spectator_host_session_id"]
+        if osu_session["spectator_host_osu_session_id"] is not None:
+            spectator_host_osu_session_id = osu_session["spectator_host_osu_session_id"]
         else:
-            spectator_host_session_id = session["session_id"]
+            spectator_host_osu_session_id = osu_session["osu_session_id"]
 
-        channel_name = f"#spec_{spectator_host_session_id}"
+        channel_name = f"#spec_{spectator_host_osu_session_id}"
 
     else:
         channel_name = recipient_name
@@ -166,7 +164,7 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
             "User tried to join channel when it doesn't exist",
             channel_name=channel_name,
             recipient_name=recipient_name,
-            account_id=session["account_id"],
+            account_id=osu_session["account_id"],
         )
         return
 
@@ -175,23 +173,23 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
 
     # send message to everyone else
     send_message_packet_data = packets.write_send_message_packet(
-        own_presence["username"],
+        osu_session["username"],
         message_content,
         recipient_name,
-        own_presence["account_id"],
+        osu_session["account_id"],
     )
 
     if message_content.startswith("!help"):
-        target_session_ids = []
+        target_osu_session_ids = []
     else:
-        target_session_ids = await channel_members.members(channel["channel_id"])
+        target_osu_session_ids = await channel_members.members(channel["channel_id"])
 
-    for other_session_id in target_session_ids:
-        if other_session_id == session["session_id"]:
+    for other_osu_session_id in target_osu_session_ids:
+        if other_osu_session_id == osu_session["osu_session_id"]:
             continue
 
         await packet_bundles.enqueue(
-            other_session_id,
+            other_osu_session_id,
             data=send_message_packet_data,
         )
 
@@ -214,12 +212,12 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
                 last_np_beatmap_id = None
 
             if last_np_beatmap_id is not None:
-                maybe_session = await sessions.partial_update(
-                    session["session_id"],
-                    presence={"last_np_beatmap_id": last_np_beatmap_id},
+                maybe_osu_session = await osu_sessions.partial_update(
+                    osu_session["osu_session_id"],
+                    last_np_beatmap_id=last_np_beatmap_id,
                 )
-                assert maybe_session is not None
-                session = maybe_session
+                assert maybe_osu_session is not None
+                osu_session = maybe_osu_session
 
     # handle commands
     if message_content.startswith("!"):
@@ -237,10 +235,10 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
 
         if command is not None:
             if command.privileges is not None:
-                if not own_presence["privileges"] & command.privileges:
+                if not osu_session["privileges"] & command.privileges:
                     return
 
-            bancho_bot_message = await command.callback(session, args)
+            bancho_bot_message = await command.callback(osu_session, args)
 
             # send message to everyone else
             if bancho_bot_message is not None:
@@ -248,15 +246,15 @@ async def send_public_message_handler(session: "Session", packet_data: bytes):
                     # XXX: the osu! client seems to have a special case for this,
                     # where it will dm the player. if we don't have this case,
                     # this message will be DMed to all players in the channel
-                    target_session_ids = [session["session_id"]]
+                    target_osu_session_ids = [osu_session["osu_session_id"]]
                 else:
-                    target_session_ids = await channel_members.members(
+                    target_osu_session_ids = await channel_members.members(
                         channel["channel_id"]
                     )
 
-                for other_session_id in target_session_ids:
+                for other_osu_session_id in target_osu_session_ids:
                     await packet_bundles.enqueue(
-                        other_session_id,
+                        other_osu_session_id,
                         data=packets.write_send_message_packet(
                             sender_name="BanchoBot",
                             message_content=bancho_bot_message,
@@ -275,7 +273,7 @@ class ExitReason:
 
 
 @bancho_handler(packets.ClientPackets.OSU_EXIT)
-async def logout_handler(session: "Session", packet_data: bytes) -> None:
+async def logout_handler(osu_session: "OsuSession", packet_data: bytes) -> None:
     packet_reader = packets.PacketReader(packet_data)
     reason = packet_reader.read_i32()
 
@@ -287,27 +285,25 @@ async def logout_handler(session: "Session", packet_data: bytes) -> None:
         logger.warning(
             "User sent invalid exit reason on logout",
             reason=reason,
-            account_id=session["account_id"],
+            account_id=osu_session["account_id"],
         )
-
-    own_presence = session["presence"]
 
     # XXX: the osu! client will often attempt to logout as soon
     # as they login. this is a quirk of the client, and we don't
     # really want to log them out; so we ignore this case if it's
     # been < 1 second since the client's login
-    if (datetime.now() - session["created_at"]).total_seconds() < 1:
+    if (datetime.now() - osu_session["created_at"]).total_seconds() < 1:
         return
 
-    maybe_session = await sessions.delete_by_id(session["session_id"])
-    assert maybe_session is not None
-    session = maybe_session
+    maybe_osu_session = await osu_sessions.delete_by_id(osu_session["osu_session_id"])
+    assert maybe_osu_session is not None
+    osu_session = maybe_osu_session
 
-    # leave channels the session is in
+    # leave channels the osu_session is in
     for channel in await channels.fetch_many():
         member_who_left = await channel_members.remove(
             channel["channel_id"],
-            session["session_id"],
+            osu_session["osu_session_id"],
         )
         if member_who_left is not None:
             # inform everyone in the channel that we left
@@ -315,9 +311,9 @@ async def logout_handler(session: "Session", packet_data: bytes) -> None:
                 channel["channel_id"]
             )
 
-            for session_id in current_channel_members:
+            for osu_session_id in current_channel_members:
                 await packet_bundles.enqueue(
-                    session_id,
+                    osu_session_id,
                     packets.write_channel_info_packet(
                         channel["name"],
                         channel["topic"],
@@ -329,18 +325,18 @@ async def logout_handler(session: "Session", packet_data: bytes) -> None:
     # TODO: multiplayer
 
     # tell everyone else we logged out
-    if own_presence["privileges"] & ServerPrivileges.UNRESTRICTED:
-        logout_packet_data = packets.write_logout_packet(session["account_id"])
-        for other_session in await sessions.fetch_all():
+    if osu_session["privileges"] & ServerPrivileges.UNRESTRICTED:
+        logout_packet_data = packets.write_logout_packet(osu_session["account_id"])
+        for other_osu_session in await osu_sessions.fetch_all():
             await packet_bundles.enqueue(
-                other_session["session_id"],
+                other_osu_session["osu_session_id"],
                 data=logout_packet_data,
             )
 
     logger.info(
         "User logout successful",
-        session_id=session["session_id"],
-        account_id=session["account_id"],
+        osu_session_id=osu_session["osu_session_id"],
+        account_id=osu_session["account_id"],
     )
 
 
@@ -348,32 +344,30 @@ async def logout_handler(session: "Session", packet_data: bytes) -> None:
 
 
 @bancho_handler(packets.ClientPackets.REQUEST_STATUS_UPDATE)
-async def request_status_update_handler(session: "Session", packet_data: bytes):
-    own_presence = session["presence"]
-
+async def request_status_update_handler(osu_session: "OsuSession", packet_data: bytes):
     own_stats = await stats.fetch_one(
-        session["account_id"],
-        own_presence["game_mode"],
+        osu_session["account_id"],
+        osu_session["game_mode"],
     )
     assert own_stats is not None
 
-    vanilla_game_mode = game_modes.for_client(own_presence["game_mode"])
+    vanilla_game_mode = game_modes.for_client(osu_session["game_mode"])
 
     own_global_rank = await ranking.get_global_rank(
-        session["account_id"],
-        own_presence["game_mode"],
+        osu_session["account_id"],
+        osu_session["game_mode"],
     )
 
     await packet_bundles.enqueue(
-        session["session_id"],
+        osu_session["osu_session_id"],
         packets.write_user_stats_packet(
             own_stats["account_id"],
-            own_presence["action"],
-            own_presence["info_text"],
-            own_presence["beatmap_md5"],
-            own_presence["mods"],
+            osu_session["action"],
+            osu_session["info_text"],
+            osu_session["beatmap_md5"],
+            osu_session["mods"],
             vanilla_game_mode,
-            own_presence["beatmap_id"],
+            osu_session["beatmap_id"],
             own_stats["ranked_score"],
             own_stats["accuracy"],
             own_stats["play_count"],
@@ -388,7 +382,7 @@ async def request_status_update_handler(session: "Session", packet_data: bytes):
 
 
 @bancho_handler(packets.ClientPackets.PING)
-async def ping_handler(session: "Session", packet_data: bytes):
+async def ping_handler(osu_session: "OsuSession", packet_data: bytes):
     pass
 
 
@@ -396,47 +390,45 @@ async def ping_handler(session: "Session", packet_data: bytes):
 
 
 @bancho_handler(packets.ClientPackets.START_SPECTATING)
-async def start_spectating_handler(session: "Session", packet_data: bytes):
-    own_presence = session["presence"]
-
-    if not own_presence["privileges"] & ServerPrivileges.UNRESTRICTED:
+async def start_spectating_handler(osu_session: "OsuSession", packet_data: bytes):
+    if not osu_session["privileges"] & ServerPrivileges.UNRESTRICTED:
         return
 
     packet_reader = packets.PacketReader(packet_data)
     host_account_id = packet_reader.read_i32()
 
-    host_session = await sessions.fetch_primary_by_account_id(host_account_id)
+    host_osu_session = await osu_sessions.fetch_primary_by_account_id(host_account_id)
 
-    if host_session is None:
+    if host_osu_session is None:
         logger.warning(
             "A user attempted to spectate another user who is offline",
-            spectator_id=session["account_id"],
+            spectator_id=osu_session["account_id"],
             host_id=host_account_id,
         )
         return
 
     await spectators.add(
-        host_session["session_id"],
-        session["session_id"],
+        host_osu_session["osu_session_id"],
+        osu_session["osu_session_id"],
     )
 
-    maybe_session = await sessions.partial_update(
-        session["session_id"],
-        presence={"spectator_host_session_id": host_session["session_id"]},
+    maybe_osu_session = await osu_sessions.partial_update(
+        osu_session["osu_session_id"],
+        spectator_host_osu_session_id=host_osu_session["osu_session_id"],
     )
-    assert maybe_session is not None
-    session = maybe_session
+    assert maybe_osu_session is not None
+    osu_session = maybe_osu_session
 
     # fetch the #spectator channel
     spectator_channel = await channels.fetch_one_by_name(
-        f"#spec_{host_session['session_id']}"
+        f"#spec_{host_osu_session['osu_session_id']}"
     )
 
     if spectator_channel is None:
         # create the #spectator channel
         spectator_channel = await channels.create(
-            name=f"#spec_{host_session['session_id']}",
-            topic=f"Channel for spectator host ID {host_session['session_id']}",
+            name=f"#spec_{host_osu_session['osu_session_id']}",
+            topic=f"Channel for spectator host ID {host_osu_session['osu_session_id']}",
             read_privileges=ServerPrivileges.UNRESTRICTED,
             write_privileges=ServerPrivileges.UNRESTRICTED,
             auto_join=False,
@@ -444,15 +436,18 @@ async def start_spectating_handler(session: "Session", packet_data: bytes):
         )
 
         # add to & inform both host and spectator of the #spectator channel
-        for session_id in [session["session_id"], host_session["session_id"]]:
-            await channel_members.add(spectator_channel["channel_id"], session_id)
+        for osu_session_id in [
+            osu_session["osu_session_id"],
+            host_osu_session["osu_session_id"],
+        ]:
+            await channel_members.add(spectator_channel["channel_id"], osu_session_id)
             await packet_bundles.enqueue(
-                session_id,
+                osu_session_id,
                 data=(
                     packets.write_channel_auto_join_packet(
                         name="#spectator",
                         topic=spectator_channel["topic"],
-                        num_sessions=2,
+                        session_count=2,
                     )
                     + packets.write_channel_join_success_packet(
                         channel_name="#spectator"
@@ -462,16 +457,16 @@ async def start_spectating_handler(session: "Session", packet_data: bytes):
     else:
         # join the #spectator channel
         await channel_members.add(
-            spectator_channel["channel_id"], session["session_id"]
+            spectator_channel["channel_id"], osu_session["osu_session_id"]
         )
 
         # inform everyone in the #spectator channel that we joined
         current_channel_members = await channel_members.members(
             spectator_channel["channel_id"]
         )
-        for session_id in current_channel_members:
+        for osu_session_id in current_channel_members:
             await packet_bundles.enqueue(
-                session_id,
+                osu_session_id,
                 packets.write_channel_info_packet(
                     "#spectator",
                     spectator_channel["topic"],
@@ -480,17 +475,19 @@ async def start_spectating_handler(session: "Session", packet_data: bytes):
             )
 
     await packet_bundles.enqueue(
-        host_session["session_id"],
-        packets.write_spectator_joined_packet(session["account_id"]),
+        host_osu_session["osu_session_id"],
+        packets.write_spectator_joined_packet(osu_session["account_id"]),
     )
 
-    for spectator_session_id in await spectators.members(host_session["session_id"]):
-        if spectator_session_id == session["session_id"]:
+    for spectator_osu_session_id in await spectators.members(
+        host_osu_session["osu_session_id"]
+    ):
+        if spectator_osu_session_id == osu_session["osu_session_id"]:
             continue
 
         await packet_bundles.enqueue(
-            spectator_session_id,
-            packets.write_fellow_spectator_joined_packet(session["account_id"]),
+            spectator_osu_session_id,
+            packets.write_fellow_spectator_joined_packet(osu_session["account_id"]),
         )
 
 
@@ -498,58 +495,58 @@ async def start_spectating_handler(session: "Session", packet_data: bytes):
 
 
 @bancho_handler(packets.ClientPackets.STOP_SPECTATING)
-async def stop_spectating_handler(session: "Session", packet_data: bytes):
-    own_presence = session["presence"]
-
-    if not own_presence["privileges"] & ServerPrivileges.UNRESTRICTED:
+async def stop_spectating_handler(osu_session: "OsuSession", packet_data: bytes):
+    if not osu_session["privileges"] & ServerPrivileges.UNRESTRICTED:
         return
 
-    if own_presence["spectator_host_session_id"] is None:
+    if osu_session["spectator_host_osu_session_id"] is None:
         logger.warning(
             "A user attempted to stop spectating user while not spectating anyone",
-            spectator_id=session["account_id"],
+            spectator_id=osu_session["account_id"],
         )
         return
 
-    host_session = await sessions.fetch_by_id(own_presence["spectator_host_session_id"])
+    host_osu_session = await osu_sessions.fetch_by_id(
+        osu_session["spectator_host_osu_session_id"]
+    )
 
-    if host_session is None:
+    if host_osu_session is None:
         logger.warning(
             "A user attempted to stop spectating another user who is offline",
-            spectator_id=session["account_id"],
-            # host_id=host_session["account_id"], # not possible to eval
+            spectator_id=osu_session["account_id"],
+            # host_id=host_osu_session["account_id"], # not possible to eval
         )
         return
 
     await spectators.remove(
-        host_session["session_id"],
-        session["session_id"],
+        host_osu_session["osu_session_id"],
+        osu_session["osu_session_id"],
     )
 
-    maybe_session = await sessions.partial_update(
-        session["session_id"],
-        presence={"spectator_host_session_id": None},
+    maybe_osu_session = await osu_sessions.partial_update(
+        osu_session["osu_session_id"],
+        spectator_host_osu_session_id=None,
     )
-    assert maybe_session is not None
-    session = maybe_session
+    assert maybe_osu_session is not None
+    osu_session = maybe_osu_session
 
     spectator_channel = await channels.fetch_one_by_name(
-        f"#spec_{host_session['session_id']}"
+        f"#spec_{host_osu_session['osu_session_id']}"
     )
 
     assert spectator_channel is not None
 
     await channel_members.remove(
         spectator_channel["channel_id"],
-        session["session_id"],
+        osu_session["osu_session_id"],
     )
 
     current_channel_members = await channel_members.members(
         spectator_channel["channel_id"]
     )
-    for session_id in current_channel_members:
+    for osu_session_id in current_channel_members:
         await packet_bundles.enqueue(
-            session_id,
+            osu_session_id,
             packets.write_channel_info_packet(
                 "#spectator",
                 spectator_channel["topic"],
@@ -561,7 +558,7 @@ async def stop_spectating_handler(session: "Session", packet_data: bytes):
         # remove the host from the channel
         await channel_members.remove(
             spectator_channel["channel_id"],
-            host_session["session_id"],
+            host_osu_session["osu_session_id"],
         )
 
         # delete the channel
@@ -569,28 +566,30 @@ async def stop_spectating_handler(session: "Session", packet_data: bytes):
 
         # inform the host that the channel was deleted
         await packet_bundles.enqueue(
-            host_session["session_id"],
+            host_osu_session["osu_session_id"],
             packets.write_channel_kick_packet("#spectator"),
         )
 
         logger.info(
             "Spectator channel closed due to no spectators",
-            spectator_id=session["account_id"],
-            host_id=host_session["account_id"],
+            spectator_id=osu_session["account_id"],
+            host_id=host_osu_session["account_id"],
         )
 
     await packet_bundles.enqueue(
-        host_session["session_id"],
-        packets.write_spectator_left_packet(session["account_id"]),
+        host_osu_session["osu_session_id"],
+        packets.write_spectator_left_packet(osu_session["account_id"]),
     )
 
-    for spectator_session_id in await spectators.members(host_session["session_id"]):
-        if spectator_session_id == session["session_id"]:
+    for spectator_osu_session_id in await spectators.members(
+        host_osu_session["osu_session_id"]
+    ):
+        if spectator_osu_session_id == osu_session["osu_session_id"]:
             continue
 
         await packet_bundles.enqueue(
-            spectator_session_id,
-            packets.write_fellow_spectator_left_packet(session["account_id"]),
+            spectator_osu_session_id,
+            packets.write_fellow_spectator_left_packet(osu_session["account_id"]),
         )
 
 
@@ -598,10 +597,8 @@ async def stop_spectating_handler(session: "Session", packet_data: bytes):
 
 
 @bancho_handler(packets.ClientPackets.SPECTATE_FRAMES)
-async def spectate_frames_handler(session: "Session", packet_data: bytes):
-    own_presence = session["presence"]
-
-    if not own_presence["privileges"] & ServerPrivileges.UNRESTRICTED:
+async def spectate_frames_handler(osu_session: "OsuSession", packet_data: bytes):
+    if not osu_session["privileges"] & ServerPrivileges.UNRESTRICTED:
         return
 
     packet_reader = packets.PacketReader(packet_data)
@@ -609,9 +606,11 @@ async def spectate_frames_handler(session: "Session", packet_data: bytes):
 
     # TODO: make assertions on replay_frame_bundle
 
-    for spectator_session_id in await spectators.members(session["session_id"]):
+    for spectator_osu_session_id in await spectators.members(
+        osu_session["osu_session_id"]
+    ):
         await packet_bundles.enqueue(
-            spectator_session_id,
+            spectator_osu_session_id,
             packets.write_spectate_frames_packet(replay_frame_bundle),
         )
 
@@ -623,41 +622,43 @@ async def spectate_frames_handler(session: "Session", packet_data: bytes):
 
 
 @bancho_handler(packets.ClientPackets.CANT_SPECTATE)
-async def cant_spectate_handler(session: "Session", packet_data: bytes):
-    assert session["presence"] is not None
-
-    if session["presence"]["spectator_host_session_id"] is None:
+async def cant_spectate_handler(osu_session: "OsuSession", packet_data: bytes):
+    if osu_session["spectator_host_osu_session_id"] is None:
         logger.warning(
             "A user told us they can't spectate while not spectating anyone",
-            spectator_id=session["account_id"],
+            spectator_id=osu_session["account_id"],
         )
         return
 
-    host_session_id = session["presence"]["spectator_host_session_id"]
+    host_osu_session_id = osu_session["spectator_host_osu_session_id"]
 
-    host_session = await sessions.fetch_by_id(host_session_id)
-    if host_session is None:
+    host_osu_session = await osu_sessions.fetch_by_id(host_osu_session_id)
+    if host_osu_session is None:
         logger.warning(
             "A user told us they can't spectate another user who is offline",
-            spectator_id=session["account_id"],
-            host_id=host_session_id,
+            spectator_id=osu_session["account_id"],
+            host_id=host_osu_session_id,
         )
         return
 
-    packet_data = packets.write_spectator_cant_spectate_packet(session["account_id"])
+    packet_data = packets.write_spectator_cant_spectate_packet(
+        osu_session["account_id"]
+    )
 
-    await packet_bundles.enqueue(host_session["session_id"], packet_data)
+    await packet_bundles.enqueue(host_osu_session["osu_session_id"], packet_data)
 
-    for spectator_session_id in await spectators.members(host_session["session_id"]):
-        await packet_bundles.enqueue(spectator_session_id, packet_data)
+    for spectator_osu_session_id in await spectators.members(
+        host_osu_session["osu_session_id"]
+    ):
+        await packet_bundles.enqueue(spectator_osu_session_id, packet_data)
 
 
 # SEND_PRIVATE_MESSAGE = 25
 
 
 @bancho_handler(packets.ClientPackets.SEND_PRIVATE_MESSAGE)
-async def send_private_message_handler(session: "Session", packet_data: bytes):
-    account = await accounts.fetch_by_account_id(session["account_id"])
+async def send_private_message_handler(osu_session: "OsuSession", packet_data: bytes):
+    account = await accounts.fetch_by_account_id(osu_session["account_id"])
     assert not isinstance(account, ServiceError)
     if account["silence_end"] is not None:
         seconds_remaining = (datetime.now() - account["silence_end"]).total_seconds()
@@ -665,16 +666,14 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
         if seconds_remaining > 0:
             logger.warning(
                 "A user attempted to send a message but they are silenced.",
-                user_id=session["account_id"],
+                user_id=osu_session["account_id"],
                 silence_end=account["silence_end"],
             )
             return
 
         await accounts.partial_update(account["account_id"], silence_end=None)
 
-    own_presence = session["presence"]
-
-    if not own_presence["privileges"] & ServerPrivileges.UNRESTRICTED:
+    if not osu_session["privileges"] & ServerPrivileges.UNRESTRICTED:
         return
 
     packet_reader = packets.PacketReader(packet_data)
@@ -687,79 +686,77 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
     if len(message_content) > 2000:
         message_content = message_content[:2000] + "..."
 
-    recipient_session = await sessions.fetch_primary_by_username(recipient_name)
+    recipient_osu_session = await osu_sessions.fetch_primary_by_username(recipient_name)
 
-    if recipient_session is None:
+    if recipient_osu_session is None:
         logger.warning(
-            "Recipient session could not be found by username.",
+            "Recipient osu_session could not be found by username.",
             recipient_name=recipient_name,
         )
         return
 
     relationship_info = await relationships.fetch_one(
-        session["account_id"],
-        recipient_session["account_id"],
+        osu_session["account_id"],
+        recipient_osu_session["account_id"],
     )
 
     if relationship_info and relationship_info["relationship"] == "blocked":
         return
 
-    recipient_presence = recipient_session["presence"]
-
     # if the recipient has non friend dms blocked
-    if recipient_presence["pm_private"] and not relationship_info:
+    if recipient_osu_session["pm_private"] and not relationship_info:
         dms_blocked_packet_data = packets.write_user_dm_blocked_packet(
-            recipient_presence["username"],
+            recipient_osu_session["username"],
         )
         await packet_bundles.enqueue(
-            session["session_id"],
+            osu_session["osu_session_id"],
             dms_blocked_packet_data,
         )
         return
 
     # if the recipient is afk and has a away message, send to self
     if (
-        recipient_presence["action"] == Action.AFK
-        and recipient_presence["away_message"] is not None
+        recipient_osu_session["action"] == Action.AFK
+        and recipient_osu_session["away_message"] is not None
     ):
         away_message_packet_data = packets.write_send_message_packet(
-            recipient_presence["username"],
-            recipient_presence["away_message"],
-            own_presence["username"],
-            recipient_session["account_id"],
+            recipient_osu_session["username"],
+            recipient_osu_session["away_message"],
+            osu_session["username"],
+            recipient_osu_session["account_id"],
         )
 
         await packet_bundles.enqueue(
-            session["session_id"],
+            osu_session["osu_session_id"],
             away_message_packet_data,
         )
 
-    recipient = await accounts.fetch_by_account_id(recipient_session["account_id"])
+    recipient = await accounts.fetch_by_account_id(recipient_osu_session["account_id"])
     assert not isinstance(recipient, ServiceError)
     if recipient["silence_end"] is not None:
         seconds_remaining = (datetime.now() - recipient["silence_end"]).total_seconds()
 
         if seconds_remaining > 0:
             user_silenced_packet = packets.write_target_is_silenced_packet(
-                recipient_presence["username"],
+                recipient_osu_session["username"],
             )
 
             await packet_bundles.enqueue(
-                session["session_id"],
+                osu_session["osu_session_id"],
                 user_silenced_packet,
             )
         else:
             await accounts.partial_update(recipient["account_id"], silence_end=None)
 
     send_message_packet_data = packets.write_send_message_packet(
-        own_presence["username"],
+        osu_session["username"],
         message_content,
         recipient_name,
-        own_presence["account_id"],
+        osu_session["account_id"],
     )
 
     await packet_bundles.enqueue(
-        recipient_session["session_id"],
+        recipient_osu_session["osu_session_id"],
         send_message_packet_data,
     )
 
@@ -768,29 +765,29 @@ async def send_private_message_handler(session: "Session", packet_data: bytes):
 
 
 @bancho_handler(packets.ClientPackets.PART_LOBBY)
-async def part_lobby_handler(session: "Session", packet_data: bytes):
-    maybe_session = await sessions.partial_update(
-        session["session_id"],
-        presence={"receive_match_updates": False},
+async def part_lobby_handler(osu_session: "OsuSession", packet_data: bytes):
+    maybe_osu_session = await osu_sessions.partial_update(
+        osu_session["osu_session_id"],
+        receive_match_updates=False,
     )
-    assert maybe_session is not None
-    session = maybe_session
+    assert maybe_osu_session is not None
+    osu_session = maybe_osu_session
 
     channel = await channels.fetch_one_by_name("#lobby")
     assert channel
 
     await channel_members.remove(
         channel_id=channel["channel_id"],
-        session_id=session["session_id"],
+        osu_session_id=osu_session["osu_session_id"],
     )
 
     current_channel_members = await channel_members.members(channel["channel_id"])
 
-    for other_session in await sessions.fetch_all(
+    for other_osu_session in await osu_sessions.fetch_all(
         has_any_privilege_bit=channel["read_privileges"]
     ):
         await packet_bundles.enqueue(
-            other_session["session_id"],
+            other_osu_session["osu_session_id"],
             packets.write_channel_info_packet(
                 channel["name"],
                 channel["topic"],
@@ -803,13 +800,13 @@ async def part_lobby_handler(session: "Session", packet_data: bytes):
 
 
 @bancho_handler(packets.ClientPackets.JOIN_LOBBY)
-async def join_lobby_handler(session: "Session", packet_data: bytes):
-    maybe_session = await sessions.partial_update(
-        session["session_id"],
-        presence={"receive_match_updates": True},
+async def join_lobby_handler(osu_session: "OsuSession", packet_data: bytes):
+    maybe_osu_session = await osu_sessions.partial_update(
+        osu_session["osu_session_id"],
+        receive_match_updates=True,
     )
-    assert maybe_session is not None
-    session = maybe_session
+    assert maybe_osu_session is not None
+    osu_session = maybe_osu_session
 
     matches = await multiplayer_matches.fetch_all()
     assert not isinstance(matches, ServiceError)
@@ -851,7 +848,7 @@ async def join_lobby_handler(session: "Session", packet_data: bytes):
         )
 
         await packet_bundles.enqueue(
-            session_id=session["session_id"],
+            osu_session_id=osu_session["osu_session_id"],
             data=match_packet,
         )
 
@@ -874,7 +871,7 @@ async def _broadcast_to_match(
             continue
 
         await packet_bundles.enqueue(
-            slot["session_id"],
+            slot["osu_session_id"],
             data,
         )
 
@@ -887,9 +884,9 @@ async def _broadcast_to_lobby(data: bytes):
         )
         return False
 
-    for session_id in await channel_members.members(lobby_channel["channel_id"]):
+    for osu_session_id in await channel_members.members(lobby_channel["channel_id"]):
         await packet_bundles.enqueue(
-            session_id,
+            osu_session_id,
             data,
         )
 
@@ -899,7 +896,7 @@ async def _broadcast_to_lobby(data: bytes):
 async def _broadcast_match_updates(
     match_id: int,
     send_to_lobby: bool = True,
-    extra_session_ids: list[UUID] = [],
+    extra_osu_session_ids: list[UUID] = [],
 ):
     match = await multiplayer_matches.fetch_one(match_id)
     assert not isinstance(match, ServiceError)
@@ -939,8 +936,8 @@ async def _broadcast_match_updates(
         should_send_password=True,
     )
 
-    for session_id in extra_session_ids:
-        await packet_bundles.enqueue(session_id, match_packet)
+    for osu_session_id in extra_osu_session_ids:
+        await packet_bundles.enqueue(osu_session_id, match_packet)
 
     await _broadcast_to_match(
         match_id=match_id,
@@ -958,12 +955,10 @@ async def _broadcast_match_updates(
 
 
 @bancho_handler(packets.ClientPackets.CREATE_MATCH)
-async def create_match_handler(session: "Session", packet_data: bytes):
-    own_presence = session["presence"]
-
-    if not own_presence["privileges"] & ServerPrivileges.UNRESTRICTED:
+async def create_match_handler(osu_session: "OsuSession", packet_data: bytes):
+    if not osu_session["privileges"] & ServerPrivileges.UNRESTRICTED:
         await packet_bundles.enqueue(
-            session["session_id"],
+            osu_session["osu_session_id"],
             data=packets.write_match_join_fail_packet(),
         )
         return
@@ -975,54 +970,54 @@ async def create_match_handler(session: "Session", packet_data: bytes):
     vanilla_game_mode = osu_match_data["game_mode"]
     game_mode = game_modes.for_server(
         osu_match_data["game_mode"],
-        own_presence["mods"],
+        osu_session["mods"],
     )
 
     # if we are spectating someone, stop spectating them
-    if own_presence["spectator_host_session_id"] is not None:
-        host_session = await sessions.fetch_by_id(
-            own_presence["spectator_host_session_id"]
+    if osu_session["spectator_host_osu_session_id"] is not None:
+        host_osu_session = await osu_sessions.fetch_by_id(
+            osu_session["spectator_host_osu_session_id"]
         )
 
-        if host_session is None:
+        if host_osu_session is None:
             logger.warning(
                 "A user attempted to stop spectating another user who is offline",
-                spectator_id=session["account_id"],
-                # host_id=host_session["account_id"], # not possible to eval
+                spectator_id=osu_session["account_id"],
+                # host_id=host_osu_session["account_id"], # not possible to eval
             )
             return
 
         # remove us from the host's spectators
         spectator = await spectators.remove(
-            host_session["session_id"],
-            session["session_id"],
+            host_osu_session["osu_session_id"],
+            osu_session["osu_session_id"],
         )
         assert spectator is not None
 
         # remove the host from our presence
-        maybe_session = await sessions.partial_update(
-            session["session_id"],
-            presence={"spectator_host_session_id": None},
+        maybe_osu_session = await osu_sessions.partial_update(
+            osu_session["osu_session_id"],
+            spectator_host_osu_session_id=None,
         )
-        assert maybe_session is not None
-        session = maybe_session
+        assert maybe_osu_session is not None
+        osu_session = maybe_osu_session
 
         # inform the host that we left
         await packet_bundles.enqueue(
-            host_session["session_id"],
-            packets.write_spectator_left_packet(session["account_id"]),
+            host_osu_session["osu_session_id"],
+            packets.write_spectator_left_packet(osu_session["account_id"]),
         )
 
         # inform the other spectators that we left
-        for spectator_session_id in await spectators.members(
-            host_session["session_id"]
+        for spectator_osu_session_id in await spectators.members(
+            host_osu_session["osu_session_id"]
         ):
-            if spectator_session_id == session["session_id"]:
+            if spectator_osu_session_id == osu_session["osu_session_id"]:
                 continue
 
             await packet_bundles.enqueue(
-                spectator_session_id,
-                packets.write_fellow_spectator_left_packet(session["account_id"]),
+                spectator_osu_session_id,
+                packets.write_fellow_spectator_left_packet(osu_session["account_id"]),
             )
 
     # create the multiplayer match
@@ -1044,10 +1039,10 @@ async def create_match_handler(session: "Session", packet_data: bytes):
         logger.error(
             "Failed to create multiplayer match",
             error=match,
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
         )
         await packet_bundles.enqueue(
-            session["session_id"],
+            osu_session["osu_session_id"],
             data=packets.write_match_join_fail_packet(),
         )
         return
@@ -1062,17 +1057,17 @@ async def create_match_handler(session: "Session", packet_data: bytes):
         temporary=True,
     )
 
-    # claim a slot for the session
+    # claim a slot for the osu_session
     async with await clients.redlock.lock(f"slot_ids:lock:{match['match_id']}"):
         slot_id = await multiplayer_slots.claim_slot_id(match["match_id"])
         if slot_id is None:
             logger.error(
                 "Failed to claim slot",
-                session_id=session["session_id"],
+                osu_session_id=osu_session["osu_session_id"],
                 match_id=match["match_id"],
             )
             await packet_bundles.enqueue(
-                session["session_id"],
+                osu_session["osu_session_id"],
                 data=packets.write_match_join_fail_packet(),
             )
             return
@@ -1080,30 +1075,32 @@ async def create_match_handler(session: "Session", packet_data: bytes):
         await multiplayer_slots.partial_update(
             match["match_id"],
             slot_id,
-            account_id=session["account_id"],
-            session_id=session["session_id"],
+            account_id=osu_session["account_id"],
+            osu_session_id=osu_session["osu_session_id"],
             status=multiplayer_slots.SlotStatus.NOT_READY,
         )
 
     # join the multiplayer match
-    maybe_session = await sessions.partial_update(
-        session["session_id"],
-        presence={"multiplayer_match_id": match["match_id"]},
+    maybe_osu_session = await osu_sessions.partial_update(
+        osu_session["osu_session_id"],
+        multiplayer_match_id=match["match_id"],
     )
-    assert maybe_session is not None
-    session = maybe_session
+    assert maybe_osu_session is not None
+    osu_session = maybe_osu_session
 
     # join the #multiplayer channel
-    await channel_members.add(match_channel["channel_id"], session["session_id"])
+    await channel_members.add(
+        match_channel["channel_id"], osu_session["osu_session_id"]
+    )
 
     # inform our user of the #multiplayer channel
     await packet_bundles.enqueue(
-        session["session_id"],
+        osu_session["osu_session_id"],
         data=(
             packets.write_channel_auto_join_packet(
                 name="#multiplayer",
                 topic=match_channel["topic"],
-                num_sessions=1,
+                session_count=1,
             )
             + packets.write_channel_join_success_packet(channel_name="#multiplayer")
         ),
@@ -1141,7 +1138,7 @@ async def create_match_handler(session: "Session", packet_data: bytes):
         should_send_password=True,
     )
     await packet_bundles.enqueue(
-        session["session_id"],
+        osu_session["osu_session_id"],
         match_join_success_packet,
     )
 
@@ -1149,7 +1146,7 @@ async def create_match_handler(session: "Session", packet_data: bytes):
     # TODO: does this make sense over initially creating the match with the user as host?
     match = await multiplayer_matches.partial_update(
         match_id=match["match_id"],
-        host_account_id=session["account_id"],
+        host_account_id=osu_session["account_id"],
     )
     assert not isinstance(match, ServiceError)
 
@@ -1160,7 +1157,7 @@ async def create_match_handler(session: "Session", packet_data: bytes):
 
 
 @bancho_handler(packets.ClientPackets.JOIN_MATCH)
-async def join_match_handler(session: "Session", packet_data: bytes) -> None:
+async def join_match_handler(osu_session: "OsuSession", packet_data: bytes) -> None:
     reader = packets.PacketReader(packet_data)
 
     match_id = reader.read_i32()
@@ -1171,11 +1168,11 @@ async def join_match_handler(session: "Session", packet_data: bytes) -> None:
     if isinstance(match, ServiceError):
         logger.warning(
             "Failed to find match when joining",
-            session_id=session["session_id"],
+            osu_session_id=osu_session["osu_session_id"],
             match_id=match_id,
         )
         await packet_bundles.enqueue(
-            session["session_id"],
+            osu_session["osu_session_id"],
             packets.write_match_join_fail_packet(),
         )
         return
@@ -1184,26 +1181,26 @@ async def join_match_handler(session: "Session", packet_data: bytes) -> None:
     if match["match_password"] != "" and match_password != match["match_password"]:
         logger.warning(
             "User tried to join a match with an incorrect password",
-            session_id=session["session_id"],
+            osu_session_id=osu_session["osu_session_id"],
             match_id=match_id,
         )
         await packet_bundles.enqueue(
-            session["session_id"],
+            osu_session["osu_session_id"],
             packets.write_match_join_fail_packet(),
         )
         return
 
-    # claim a slot for the session
+    # claim a slot for the osu_session
     async with await clients.redlock.lock(f"slot_ids:lock:{match_id}"):
         slot_id = await multiplayer_slots.claim_slot_id(match_id)
         if slot_id is None:
             logger.error(
                 "Failed to claim slot",
-                session_id=session["session_id"],
+                osu_session_id=osu_session["osu_session_id"],
                 match_id=match_id,
             )
             await packet_bundles.enqueue(
-                session["session_id"],
+                osu_session["osu_session_id"],
                 packets.write_match_join_fail_packet(),
             )
             return
@@ -1211,34 +1208,36 @@ async def join_match_handler(session: "Session", packet_data: bytes) -> None:
         await multiplayer_slots.partial_update(
             match_id,
             slot_id,
-            account_id=session["account_id"],
-            session_id=session["session_id"],
+            account_id=osu_session["account_id"],
+            osu_session_id=osu_session["osu_session_id"],
             status=multiplayer_slots.SlotStatus.NOT_READY,
         )
 
     # join the multiplayer match
-    maybe_session = await sessions.partial_update(
-        session["session_id"],
-        presence={"multiplayer_match_id": match_id},
+    maybe_osu_session = await osu_sessions.partial_update(
+        osu_session["osu_session_id"],
+        multiplayer_match_id=match_id,
     )
-    assert maybe_session is not None
-    session = maybe_session
+    assert maybe_osu_session is not None
+    osu_session = maybe_osu_session
 
     match_channel = await channels.fetch_one_by_name(f"#mp_{match_id}")
     assert match_channel is not None
 
     # join the #multiplayer channel
-    await channel_members.add(match_channel["channel_id"], session["session_id"])
+    await channel_members.add(
+        match_channel["channel_id"], osu_session["osu_session_id"]
+    )
     match_channel_members = await channel_members.members(match_channel["channel_id"])
 
     # inform our user of the #multiplayer channel
     await packet_bundles.enqueue(
-        session["session_id"],
+        osu_session["osu_session_id"],
         data=(
             packets.write_channel_auto_join_packet(
                 name="#multiplayer",
                 topic=match_channel["topic"],
-                num_sessions=len(match_channel_members),
+                session_count=len(match_channel_members),
             )
             + packets.write_channel_join_success_packet("#multiplayer")
         ),
@@ -1279,16 +1278,16 @@ async def join_match_handler(session: "Session", packet_data: bytes) -> None:
         should_send_password=True,
     )
     await packet_bundles.enqueue(
-        session["session_id"],
+        osu_session["osu_session_id"],
         match_join_success_packet,
     )
 
-    # make other people aware the session joined
+    # make other people aware the osu_session joined
     await _broadcast_match_updates(match_id)
 
     logger.info(
         "User joined a match",
-        session_id=session["session_id"],
+        osu_session_id=osu_session["osu_session_id"],
         match_id=match_id,
     )
 
@@ -1297,34 +1296,32 @@ async def join_match_handler(session: "Session", packet_data: bytes) -> None:
 
 
 @bancho_handler(packets.ClientPackets.PART_MATCH)
-async def part_match_handler(session: "Session", packet_data: bytes) -> None:
-    own_presence = session["presence"]
-
-    if own_presence["multiplayer_match_id"] is None:
+async def part_match_handler(osu_session: "OsuSession", packet_data: bytes) -> None:
+    if osu_session["multiplayer_match_id"] is None:
         logger.warning(
             "User tried to leave a match while not in a match",
-            session_id=session["session_id"],
+            osu_session_id=osu_session["osu_session_id"],
         )
         return
 
-    match = await multiplayer_matches.fetch_one(own_presence["multiplayer_match_id"])
+    match = await multiplayer_matches.fetch_one(osu_session["multiplayer_match_id"])
     if isinstance(match, ServiceError):
         logger.error(
             "Failed to find match when leaving",
-            session_id=session["session_id"],
-            match_id=own_presence["multiplayer_match_id"],
+            osu_session_id=osu_session["osu_session_id"],
+            match_id=osu_session["multiplayer_match_id"],
         )
         return
 
-    current_slot = await multiplayer_slots.fetch_one_by_session_id(
+    current_slot = await multiplayer_slots.fetch_one_by_osu_session_id(
         match["match_id"],
-        session["session_id"],
+        osu_session["osu_session_id"],
     )
     if not current_slot:
-        # NOTE: this typically happens when a session is kicked from a match
+        # NOTE: this typically happens when a osu_session is kicked from a match
         logger.warning(
             "A user attempted to leave their match but they don't have a slot.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
             match_id=match["match_id"],
         )
         return
@@ -1334,7 +1331,7 @@ async def part_match_handler(session: "Session", packet_data: bytes) -> None:
         match["match_id"],
         current_slot["slot_id"],
         account_id=-1,
-        session_id=UUID(int=0),
+        osu_session_id=UUID(int=0),
         status=SlotStatus.OPEN,
         team=MatchTeams.NEUTRAL,
         mods=0,
@@ -1346,7 +1343,7 @@ async def part_match_handler(session: "Session", packet_data: bytes) -> None:
     match_channel = await channels.fetch_one_by_name(f"#mp_{match['match_id']}")
     assert match_channel is not None
 
-    if match["host_account_id"] == session["account_id"]:
+    if match["host_account_id"] == osu_session["account_id"]:
         # if the host left, pick a new host
         slots = await multiplayer_slots.fetch_all(match["match_id"])
 
@@ -1365,20 +1362,20 @@ async def part_match_handler(session: "Session", packet_data: bytes) -> None:
             assert lobby_channel is not None
 
             # inform everyone in the lobby that the match no longer exists
-            for other_session_id in await channel_members.members(
+            for other_osu_session_id in await channel_members.members(
                 lobby_channel["channel_id"]
             ):
                 await packet_bundles.enqueue(
-                    other_session_id,
+                    other_osu_session_id,
                     packets.write_dispose_match_packet(match["match_id"]),
                 )
 
             # kick everyone out of the multiplayer match and channel
-            for other_session_id in await channel_members.members(
+            for other_osu_session_id in await channel_members.members(
                 match_channel["channel_id"]
             ):
                 await packet_bundles.enqueue(
-                    other_session_id,
+                    other_osu_session_id,
                     data=(
                         packets.write_dispose_match_packet(match["match_id"])
                         + packets.write_channel_kick_packet("#multiplayer")
@@ -1386,7 +1383,7 @@ async def part_match_handler(session: "Session", packet_data: bytes) -> None:
                 )
                 await channel_members.remove(
                     match_channel["channel_id"],
-                    other_session_id,
+                    other_osu_session_id,
                 )
 
             # delete the multiplayer channel and it's slots
@@ -1410,21 +1407,23 @@ async def part_match_handler(session: "Session", packet_data: bytes) -> None:
         )
 
         await packet_bundles.enqueue(
-            new_host_slot["session_id"],
+            new_host_slot["osu_session_id"],
             packets.write_match_transfer_host_packet(),
         )
 
         logger.info(
             "Match host passed to new user",
-            old_host_session_id=session["session_id"],
-            new_host_session_id=new_host_slot["session_id"],
+            old_host_osu_session_id=osu_session["osu_session_id"],
+            new_host_osu_session_id=new_host_slot["osu_session_id"],
             match_id=match["match_id"],
         )
 
     # leave the multiplayer channel
-    await channel_members.remove(match_channel["channel_id"], session["session_id"])
+    await channel_members.remove(
+        match_channel["channel_id"], osu_session["osu_session_id"]
+    )
     await packet_bundles.enqueue(
-        session["session_id"],
+        osu_session["osu_session_id"],
         packets.write_channel_kick_packet("#multiplayer"),
     )
 
@@ -1433,7 +1432,7 @@ async def part_match_handler(session: "Session", packet_data: bytes) -> None:
 
     logger.info(
         "User left a match",
-        session_id=session["session_id"],
+        osu_session_id=osu_session["osu_session_id"],
         match_id=match["match_id"],
     )
 
@@ -1442,18 +1441,18 @@ async def part_match_handler(session: "Session", packet_data: bytes) -> None:
 
 
 @bancho_handler(packets.ClientPackets.MATCH_CHANGE_SLOT)
-async def match_change_slot_handler(session: "Session", packet_data: bytes) -> None:
-    own_presence = session["presence"]
-
+async def match_change_slot_handler(
+    osu_session: "OsuSession", packet_data: bytes
+) -> None:
     reader = packets.PacketReader(packet_data)
 
     slot_id = reader.read_i32()
 
-    match_id = own_presence["multiplayer_match_id"]
+    match_id = osu_session["multiplayer_match_id"]
     if match_id is None:
         logger.warning(
             "User tried to change slot while not in a match",
-            account_id=session["account_id"],
+            account_id=osu_session["account_id"],
         )
         return
 
@@ -1462,19 +1461,19 @@ async def match_change_slot_handler(session: "Session", packet_data: bytes) -> N
         logger.warning(
             "Failed to find match when changing slot",
             match_id=match_id,
-            account_id=session["account_id"],
+            account_id=osu_session["account_id"],
             target_slot_id=slot_id,
         )
         return
 
-    current_slot = await multiplayer_slots.fetch_one_by_session_id(
+    current_slot = await multiplayer_slots.fetch_one_by_osu_session_id(
         match_id,
-        session["session_id"],
+        osu_session["osu_session_id"],
     )
     if current_slot is None:
         logger.warning(
             "User not inside of a slot",
-            account_id=session["account_id"],
+            account_id=osu_session["account_id"],
             match_id=match_id,
         )
         return
@@ -1484,7 +1483,7 @@ async def match_change_slot_handler(session: "Session", packet_data: bytes) -> N
         logger.warning(
             "User tried to change to a slot that doesn't exist",
             match_id=match_id,
-            account_id=session["account_id"],
+            account_id=osu_session["account_id"],
             slot_id=slot_id,
         )
         return
@@ -1493,7 +1492,7 @@ async def match_change_slot_handler(session: "Session", packet_data: bytes) -> N
         logger.warning(
             "User tried to change to a slot that isn't open",
             match_id=match_id,
-            account_id=session["account_id"],
+            account_id=osu_session["account_id"],
             slot_id=slot_id,
         )
         return
@@ -1503,7 +1502,7 @@ async def match_change_slot_handler(session: "Session", packet_data: bytes) -> N
         match_id,
         slot_id,
         account_id=current_slot["account_id"],
-        session_id=current_slot["session_id"],
+        osu_session_id=current_slot["osu_session_id"],
         status=current_slot["status"],
         team=current_slot["team"],
         mods=current_slot["mods"],
@@ -1517,7 +1516,7 @@ async def match_change_slot_handler(session: "Session", packet_data: bytes) -> N
         match_id,
         current_slot["slot_id"],
         account_id=-1,
-        session_id=UUID(int=0),
+        osu_session_id=UUID(int=0),
         status=SlotStatus.OPEN,
         team=MatchTeams.NEUTRAL,
         mods=0,
@@ -1531,7 +1530,7 @@ async def match_change_slot_handler(session: "Session", packet_data: bytes) -> N
         old_slot_id=current_slot["slot_id"],
         new_slot_id=slot_id,
         match_id=match_id,
-        account_id=session["account_id"],
+        account_id=osu_session["account_id"],
     )
 
     # send updated data to those in the multi match, and #lobby
@@ -1542,23 +1541,22 @@ async def match_change_slot_handler(session: "Session", packet_data: bytes) -> N
 
 
 @bancho_handler(packets.ClientPackets.MATCH_READY)
-async def match_ready_handler(session: "Session", packet_data: bytes):
-    presence = session["presence"]
-    match_id = presence["multiplayer_match_id"]
+async def match_ready_handler(osu_session: "OsuSession", packet_data: bytes):
+    match_id = osu_session["multiplayer_match_id"]
     if match_id is None:
         logger.warning(
             "A user attempted to get ready but they are not in a match.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
         )
         return
 
-    slot = await multiplayer_slots.fetch_one_by_session_id(
-        match_id=match_id, session_id=session["session_id"]
+    slot = await multiplayer_slots.fetch_one_by_osu_session_id(
+        match_id=match_id, osu_session_id=osu_session["osu_session_id"]
     )
     if not slot:
         logger.warning(
             "A user attempted to get ready but they don't have a slot.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
             match_id=match_id,
         )
         return
@@ -1566,7 +1564,7 @@ async def match_ready_handler(session: "Session", packet_data: bytes):
     if slot["status"] != SlotStatus.NOT_READY:
         logger.warning(
             "A user attempted to get ready but they are not allowed to.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
             match_id=match_id,
             slot_id=slot["slot_id"],
             slot_status=slot["status"],
@@ -1586,16 +1584,15 @@ async def match_ready_handler(session: "Session", packet_data: bytes):
 
 
 @bancho_handler(packets.ClientPackets.MATCH_LOCK)
-async def match_lock_handler(session: "Session", packet_data: bytes):
+async def match_lock_handler(osu_session: "OsuSession", packet_data: bytes):
     reader = packets.PacketReader(packet_data)
     slot_id = reader.read_i32()
 
-    presence = session["presence"]
-    match_id = presence["multiplayer_match_id"]
+    match_id = osu_session["multiplayer_match_id"]
     if match_id is None:
         logger.warning(
             "A user attempted to (un)lock a slot but they are not in a match.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
         )
         return
 
@@ -1603,15 +1600,15 @@ async def match_lock_handler(session: "Session", packet_data: bytes):
     if isinstance(match, ServiceError):
         logger.warning(
             "A user attempted to (un)lock a slot but their match doesn't exist.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
         )
         return
 
     # only the host can edit slots
-    if match["host_account_id"] != session["account_id"]:
+    if match["host_account_id"] != osu_session["account_id"]:
         logger.warning(
             "A user attempted to (un)lock a slot but they are not the host.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
             match_id=match_id,
             match_host=match["host_account_id"],
         )
@@ -1624,42 +1621,44 @@ async def match_lock_handler(session: "Session", packet_data: bytes):
     if not slot:
         logger.warning(
             "A user attempted to (un)lock a slot that does not exist.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
             match_id=match_id,
         )
         return
 
-    slot_session = None
+    slot_osu_session = None
     if slot["account_id"] != -1:
-        if slot["account_id"] == session["account_id"]:
+        if slot["account_id"] == osu_session["account_id"]:
             logger.warning(
                 "A user attempted to lock their own slot.",
-                user_id=session["account_id"],
+                user_id=osu_session["account_id"],
                 match_id=match_id,
             )
             return
 
-        slot_session = await sessions.fetch_primary_by_account_id(slot["account_id"])
-        assert slot_session is not None
+        slot_osu_session = await osu_sessions.fetch_primary_by_account_id(
+            slot["account_id"]
+        )
+        assert slot_osu_session is not None
 
         match_channel = await channels.fetch_one_by_name(f"#mp_{match_id}")
         assert match_channel is not None
 
         await channel_members.remove(
             channel_id=match_channel["channel_id"],
-            session_id=slot_session["session_id"],
+            osu_session_id=slot_osu_session["osu_session_id"],
         )
 
         kick_packet = packets.write_channel_kick_packet("#multiplayer")
         await packet_bundles.enqueue(
-            session_id=slot_session["session_id"],
+            osu_session_id=slot_osu_session["osu_session_id"],
             data=kick_packet,
         )
 
         logger.info(
             "User was kicked from match.",
-            host_id=session["account_id"],
-            target_id=slot_session["account_id"],
+            host_id=osu_session["account_id"],
+            target_id=slot_osu_session["account_id"],
             match_id=match_id,
         )
 
@@ -1673,7 +1672,7 @@ async def match_lock_handler(session: "Session", packet_data: bytes):
         match_id=match_id,
         slot_id=slot["slot_id"],
         account_id=-1,
-        session_id=UUID(int=0),
+        osu_session_id=UUID(int=0),
         status=new_status,
         team=MatchTeams.NEUTRAL,
         mods=0,
@@ -1682,13 +1681,17 @@ async def match_lock_handler(session: "Session", packet_data: bytes):
     )
 
     # inform relevant places of the new match state
-    # extra_session_ids = [slot_session["session_id"] for _ in range(1) if slot_session]
-    extra_session_ids = [slot_session["session_id"]] if slot_session else []
-    await _broadcast_match_updates(match_id, extra_session_ids=extra_session_ids)
+    # extra_osu_session_ids = [slot_osu_session["osu_session_id"] for _ in range(1) if slot_osu_session]
+    extra_osu_session_ids = (
+        [slot_osu_session["osu_session_id"]] if slot_osu_session else []
+    )
+    await _broadcast_match_updates(
+        match_id, extra_osu_session_ids=extra_osu_session_ids
+    )
 
     logger.info(
         "User (un)locked match slot.",
-        host_id=session["account_id"],
+        host_id=osu_session["account_id"],
         slot_id=slot_id,
         match_id=match_id,
     )
@@ -1698,13 +1701,12 @@ async def match_lock_handler(session: "Session", packet_data: bytes):
 
 
 @bancho_handler(packets.ClientPackets.MATCH_CHANGE_SETTINGS)
-async def match_change_settings_handler(session: "Session", packet_data: bytes):
-    presence = session["presence"]
-    match_id = presence["multiplayer_match_id"]
+async def match_change_settings_handler(osu_session: "OsuSession", packet_data: bytes):
+    match_id = osu_session["multiplayer_match_id"]
     if match_id is None:
         logger.warning(
             "A user attempted to change match settings but they are not in a match.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
         )
         return
 
@@ -1712,15 +1714,15 @@ async def match_change_settings_handler(session: "Session", packet_data: bytes):
     if isinstance(match, ServiceError):
         logger.warning(
             "A user attempted to change match settings but their match doesn't exist.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
         )
         return
 
     # only the host can change match settings
-    if match["host_account_id"] != session["account_id"]:
+    if match["host_account_id"] != osu_session["account_id"]:
         logger.warning(
             "A user attempted to change match settings but they are not the host.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
             match_id=match_id,
             match_host=match["host_account_id"],
         )
@@ -1804,7 +1806,7 @@ async def match_change_settings_handler(session: "Session", packet_data: bytes):
     del match_params["match_password"]
     logger.info(
         "User changed match settings.",
-        user_id=session["account_id"],
+        user_id=osu_session["account_id"],
         match_id=match_id,
         **match_params,
     )
@@ -1814,13 +1816,12 @@ async def match_change_settings_handler(session: "Session", packet_data: bytes):
 
 
 @bancho_handler(packets.ClientPackets.MATCH_START)
-async def match_start_handler(session: "Session", packet_data: bytes):
-    presence = session["presence"]
-    match_id = presence["multiplayer_match_id"]
+async def match_start_handler(osu_session: "OsuSession", packet_data: bytes):
+    match_id = osu_session["multiplayer_match_id"]
     if not match_id:
         logger.warning(
             "A user attempted to start a match but they aren't in a match.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
         )
         return
 
@@ -1828,14 +1829,14 @@ async def match_start_handler(session: "Session", packet_data: bytes):
     if isinstance(match, ServiceError):
         logger.warning(
             "A user attempted to start a match but their match doesn't exist.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
         )
         return
 
-    if match["host_account_id"] != session["account_id"]:
+    if match["host_account_id"] != osu_session["account_id"]:
         logger.warning(
             "A user attempted to start a match but they aren't the host.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
             match_id=match_id,
             match_host=match["host_account_id"],
         )
@@ -1899,7 +1900,7 @@ async def match_start_handler(session: "Session", packet_data: bytes):
 
     logger.info(
         "User started a multiplayer match.",
-        user_id=session["account_id"],
+        user_id=osu_session["account_id"],
         match_id=match_id,
     )
 
@@ -1908,13 +1909,12 @@ async def match_start_handler(session: "Session", packet_data: bytes):
 
 
 @bancho_handler(packets.ClientPackets.MATCH_SCORE_UPDATE)
-async def match_score_update_handler(session: "Session", packet_data: bytes):
-    presence = session["presence"]
-    match_id = presence["multiplayer_match_id"]
+async def match_score_update_handler(osu_session: "OsuSession", packet_data: bytes):
+    match_id = osu_session["multiplayer_match_id"]
     if match_id is None:
         logger.warning(
             "A user sent a match score frame but they are not in a match.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
         )
         return
 
@@ -1922,17 +1922,17 @@ async def match_score_update_handler(session: "Session", packet_data: bytes):
     if isinstance(match, ServiceError):
         logger.warning(
             "A user sent a match score frame but their match doesn't exist.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
         )
         return
 
-    slot = await multiplayer_slots.fetch_one_by_session_id(
-        match_id=match_id, session_id=session["session_id"]
+    slot = await multiplayer_slots.fetch_one_by_osu_session_id(
+        match_id=match_id, osu_session_id=osu_session["osu_session_id"]
     )
     if not slot:
         logger.warning(
             "A user sent a match score frame but they don't have a slot.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
         )
         return
 
@@ -1950,23 +1950,22 @@ async def match_score_update_handler(session: "Session", packet_data: bytes):
 
 
 @bancho_handler(packets.ClientPackets.MATCH_COMPLETE)
-async def match_complete_handler(session: "Session", packet_data: bytes):
-    presence = session["presence"]
-    match_id = presence["multiplayer_match_id"]
+async def match_complete_handler(osu_session: "OsuSession", packet_data: bytes):
+    match_id = osu_session["multiplayer_match_id"]
     if match_id is None:
         logger.warning(
             "A user attempted to tell us they completed but they are not in a match.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
         )
         return
 
-    slot = await multiplayer_slots.fetch_one_by_session_id(
-        match_id=match_id, session_id=session["session_id"]
+    slot = await multiplayer_slots.fetch_one_by_osu_session_id(
+        match_id=match_id, osu_session_id=osu_session["osu_session_id"]
     )
     if not slot:
         logger.warning(
             "A user attempted to tell us they completed but they don't have a slot.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
             match_id=match_id,
         )
         return
@@ -2011,13 +2010,12 @@ async def match_complete_handler(session: "Session", packet_data: bytes):
 
 
 @bancho_handler(packets.ClientPackets.MATCH_CHANGE_MODS)
-async def match_change_mods_handler(session: "Session", packet_data: bytes):
-    presence = session["presence"]
-    match_id = presence["multiplayer_match_id"]
+async def match_change_mods_handler(osu_session: "OsuSession", packet_data: bytes):
+    match_id = osu_session["multiplayer_match_id"]
     if not match_id:
         logger.warning(
             "A user attempted to change mods but they aren't in a match.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
         )
         return
 
@@ -2025,11 +2023,11 @@ async def match_change_mods_handler(session: "Session", packet_data: bytes):
     if isinstance(match, ServiceError):
         logger.warning(
             "A user attempted to change mods but their match doesn't exist.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
         )
         return
 
-    is_host = match["host_account_id"] == session["account_id"]
+    is_host = match["host_account_id"] == osu_session["account_id"]
 
     reader = packets.PacketReader(packet_data)
     mods = reader.read_i32()
@@ -2049,13 +2047,13 @@ async def match_change_mods_handler(session: "Session", packet_data: bytes):
         # and apply the non-speed changing mods to the slot
         speedless_mods = mods & (~Mods.SPEED_CHANGING)
 
-        slot = await multiplayer_slots.fetch_one_by_session_id(
-            match_id=match_id, session_id=session["session_id"]
+        slot = await multiplayer_slots.fetch_one_by_osu_session_id(
+            match_id=match_id, osu_session_id=osu_session["osu_session_id"]
         )
         if not slot:
             logger.warning(
                 "A user attempted to change mods but their slot doesn't exist.",
-                user_id=session["account_id"],
+                user_id=osu_session["account_id"],
                 match_id=match_id,
             )
             return
@@ -2066,27 +2064,23 @@ async def match_change_mods_handler(session: "Session", packet_data: bytes):
             mods=speedless_mods,
         )
 
-        # set the sessions game mode if needed
-        if presence["game_mode"] != serverside_mode:
-            await sessions.partial_update(
-                session_id=session["session_id"],
-                presence={
-                    "game_mode": serverside_mode,
-                    "mods": mods,
-                },
+        # set the osu_sessions game mode if needed
+        if osu_session["game_mode"] != serverside_mode:
+            await osu_sessions.partial_update(
+                osu_session_id=osu_session["osu_session_id"],
+                game_mode=serverside_mode,
+                mods=mods,
             )
     elif is_host:
-        # set all sessions game mode if needed
+        # set all osu_sessions game mode if needed
         if match["game_mode"] != serverside_mode:
             slots = await multiplayer_slots.fetch_all(match_id)
             for slot in slots:
                 if slot["account_id"] != -1:
-                    await sessions.partial_update(
-                        session_id=slot["session_id"],
-                        presence={
-                            "game_mode": serverside_mode,
-                            "mods": mods,
-                        },
+                    await osu_sessions.partial_update(
+                        osu_session_id=slot["osu_session_id"],
+                        game_mode=serverside_mode,
+                        mods=mods,
                     )
 
         await multiplayer_matches.partial_update(
@@ -2095,7 +2089,7 @@ async def match_change_mods_handler(session: "Session", packet_data: bytes):
     else:
         logger.warning(
             "A user attempted to change the match mods but they aren't allowed to.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
             match_id=match_id,
         )
         return
@@ -2104,7 +2098,7 @@ async def match_change_mods_handler(session: "Session", packet_data: bytes):
 
     logger.info(
         "User changed match mods.",
-        user_id=session["account_id"],
+        user_id=osu_session["account_id"],
         match_id=match_id,
         mods=mods,
     )
@@ -2114,23 +2108,22 @@ async def match_change_mods_handler(session: "Session", packet_data: bytes):
 
 
 @bancho_handler(packets.ClientPackets.MATCH_LOAD_COMPLETE)
-async def match_load_complete_handler(session: "Session", packet_data: bytes):
-    presence = session["presence"]
-    match_id = presence["multiplayer_match_id"]
+async def match_load_complete_handler(osu_session: "OsuSession", packet_data: bytes):
+    match_id = osu_session["multiplayer_match_id"]
     if match_id is None:
         logger.warning(
             "A user attempted to tell us they have loaded but they are not in a match.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
         )
         return
 
-    slot = await multiplayer_slots.fetch_one_by_session_id(
-        match_id=match_id, session_id=session["session_id"]
+    slot = await multiplayer_slots.fetch_one_by_osu_session_id(
+        match_id=match_id, osu_session_id=osu_session["osu_session_id"]
     )
     if not slot:
         logger.warning(
             "A user attempted to tell us they have loaded but they don't have a slot.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
             match_id=match_id,
         )
         return
@@ -2157,23 +2150,22 @@ async def match_load_complete_handler(session: "Session", packet_data: bytes):
 
 
 @bancho_handler(packets.ClientPackets.MATCH_NO_BEATMAP)
-async def match_no_beatmap_handler(session: "Session", packet_data: bytes):
-    presence = session["presence"]
-    match_id = presence["multiplayer_match_id"]
+async def match_no_beatmap_handler(osu_session: "OsuSession", packet_data: bytes):
+    match_id = osu_session["multiplayer_match_id"]
     if match_id is None:
         logger.warning(
             "A user attempted to tell us they don't have the map but they are not in a match.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
         )
         return
 
-    slot = await multiplayer_slots.fetch_one_by_session_id(
-        match_id=match_id, session_id=session["session_id"]
+    slot = await multiplayer_slots.fetch_one_by_osu_session_id(
+        match_id=match_id, osu_session_id=osu_session["osu_session_id"]
     )
     if not slot:
         logger.warning(
             "A user attempted to tell us they don't have the map but they don't have a slot.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
             match_id=match_id,
         )
         return
@@ -2181,7 +2173,7 @@ async def match_no_beatmap_handler(session: "Session", packet_data: bytes):
     if slot["status"] != SlotStatus.NOT_READY:
         logger.warning(
             "A user attempted to tell us they don't have the map but they are not allowed to.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
             match_id=match_id,
             slot_id=slot["slot_id"],
             slot_status=slot["status"],
@@ -2201,23 +2193,22 @@ async def match_no_beatmap_handler(session: "Session", packet_data: bytes):
 
 
 @bancho_handler(packets.ClientPackets.MATCH_NOT_READY)
-async def match_not_ready_handler(session: "Session", packet_data: bytes):
-    presence = session["presence"]
-    match_id = presence["multiplayer_match_id"]
+async def match_not_ready_handler(osu_session: "OsuSession", packet_data: bytes):
+    match_id = osu_session["multiplayer_match_id"]
     if match_id is None:
         logger.warning(
             "A user attempted to unready but they are not in a match.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
         )
         return
 
-    slot = await multiplayer_slots.fetch_one_by_session_id(
-        match_id=match_id, session_id=session["session_id"]
+    slot = await multiplayer_slots.fetch_one_by_osu_session_id(
+        match_id=match_id, osu_session_id=osu_session["osu_session_id"]
     )
     if not slot:
         logger.warning(
             "A user attempted to unready but they don't have a slot.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
             match_id=match_id,
         )
         return
@@ -2225,7 +2216,7 @@ async def match_not_ready_handler(session: "Session", packet_data: bytes):
     if slot["status"] != SlotStatus.READY:
         logger.warning(
             "A user attempted to unready but they are not allowed to.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
             match_id=match_id,
             slot_id=slot["slot_id"],
             slot_status=slot["status"],
@@ -2245,24 +2236,23 @@ async def match_not_ready_handler(session: "Session", packet_data: bytes):
 
 
 @bancho_handler(packets.ClientPackets.MATCH_FAILED)
-async def match_failed_handler(session: "Session", packet_data: bytes):
-    presence = session["presence"]
-    match_id = presence["multiplayer_match_id"]
+async def match_failed_handler(osu_session: "OsuSession", packet_data: bytes):
+    match_id = osu_session["multiplayer_match_id"]
     if match_id is None:
         logger.warning(
             "A user attempted to fail in a match but they are not in a match.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
         )
         return
 
-    slot = await multiplayer_slots.fetch_one_by_session_id(
+    slot = await multiplayer_slots.fetch_one_by_osu_session_id(
         match_id=match_id,
-        session_id=session["session_id"],
+        osu_session_id=osu_session["osu_session_id"],
     )
     if not slot:
         logger.warning(
             "A user attempted to fail in a match but they don't have a slot.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
         )
         return
 
@@ -2278,23 +2268,22 @@ async def match_failed_handler(session: "Session", packet_data: bytes):
 
 
 @bancho_handler(packets.ClientPackets.MATCH_HAS_BEATMAP)
-async def match_has_beatmap_handler(session: "Session", packet_data: bytes):
-    presence = session["presence"]
-    match_id = presence["multiplayer_match_id"]
+async def match_has_beatmap_handler(osu_session: "OsuSession", packet_data: bytes):
+    match_id = osu_session["multiplayer_match_id"]
     if match_id is None:
         logger.warning(
             "A user attempted to tell us they have the map but they are not in a match.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
         )
         return
 
-    slot = await multiplayer_slots.fetch_one_by_session_id(
-        match_id=match_id, session_id=session["session_id"]
+    slot = await multiplayer_slots.fetch_one_by_osu_session_id(
+        match_id=match_id, osu_session_id=osu_session["osu_session_id"]
     )
     if not slot:
         logger.warning(
             "A user attempted to tell us they have the map but they don't have a slot.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
             match_id=match_id,
         )
         return
@@ -2302,7 +2291,7 @@ async def match_has_beatmap_handler(session: "Session", packet_data: bytes):
     if slot["status"] != SlotStatus.NO_BEATMAP:
         logger.warning(
             "A user attempted to tell us they have the map but they are not allowed to.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
             match_id=match_id,
             slot_id=slot["slot_id"],
             slot_status=slot["status"],
@@ -2322,23 +2311,22 @@ async def match_has_beatmap_handler(session: "Session", packet_data: bytes):
 
 
 @bancho_handler(packets.ClientPackets.MATCH_SKIP_REQUEST)
-async def match_skip_request(session: "Session", packet_data: bytes):
-    presence = session["presence"]
-    match_id = presence["multiplayer_match_id"]
+async def match_skip_request(osu_session: "OsuSession", packet_data: bytes):
+    match_id = osu_session["multiplayer_match_id"]
     if match_id is None:
         logger.warning(
             "A user attempted to skip but they are not in a match.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
         )
         return
 
-    slot = await multiplayer_slots.fetch_one_by_session_id(
-        match_id=match_id, session_id=session["session_id"]
+    slot = await multiplayer_slots.fetch_one_by_osu_session_id(
+        match_id=match_id, osu_session_id=osu_session["osu_session_id"]
     )
     if not slot:
         logger.warning(
             "A user attempted to skip but they don't have a slot.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
             match_id=match_id,
         )
         return
@@ -2366,7 +2354,7 @@ async def match_skip_request(session: "Session", packet_data: bytes):
 
 
 @bancho_handler(packets.ClientPackets.CHANNEL_JOIN)
-async def user_joins_channel_handler(session: "Session", packet_data: bytes):
+async def user_joins_channel_handler(osu_session: "OsuSession", packet_data: bytes):
     packet_reader = packets.PacketReader(packet_data)
     channel_name = packet_reader.read_string()
 
@@ -2376,26 +2364,26 @@ async def user_joins_channel_handler(session: "Session", packet_data: bytes):
 
     current_channel_members = await channel_members.members(channel["channel_id"])
 
-    if session["session_id"] in current_channel_members:
+    if osu_session["osu_session_id"] in current_channel_members:
         logger.warning(
             "A user attempted to join a channel they are already in",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
             channel_id=channel["channel_id"],
         )
         return
 
-    await channel_members.add(channel["channel_id"], session["session_id"])
+    await channel_members.add(channel["channel_id"], osu_session["osu_session_id"])
 
     await packet_bundles.enqueue(
-        session["session_id"],
+        osu_session["osu_session_id"],
         packets.write_channel_join_success_packet(channel["name"]),
     )
 
-    for other_session in await sessions.fetch_all(
+    for other_osu_session in await osu_sessions.fetch_all(
         has_any_privilege_bit=channel["read_privileges"]
     ):
         await packet_bundles.enqueue(
-            other_session["session_id"],
+            other_osu_session["osu_session_id"],
             packets.write_channel_info_packet(
                 channel["name"],
                 channel["topic"],
@@ -2405,7 +2393,7 @@ async def user_joins_channel_handler(session: "Session", packet_data: bytes):
 
     logger.info(
         "User joined channel",
-        user_id=session["account_id"],
+        user_id=osu_session["account_id"],
         channel_name=channel["name"],
     )
 
@@ -2418,13 +2406,12 @@ async def user_joins_channel_handler(session: "Session", packet_data: bytes):
 
 
 @bancho_handler(packets.ClientPackets.MATCH_TRANSFER_HOST)
-async def match_transfer_host_handler(session: "Session", packet_data: bytes):
-    presence = session["presence"]
-    match_id = presence["multiplayer_match_id"]
+async def match_transfer_host_handler(osu_session: "OsuSession", packet_data: bytes):
+    match_id = osu_session["multiplayer_match_id"]
     if match_id is None:
         logger.warning(
             "A user attempted to change hosts but they are not in a match.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
         )
         return
 
@@ -2432,15 +2419,15 @@ async def match_transfer_host_handler(session: "Session", packet_data: bytes):
     if isinstance(match, ServiceError):
         logger.warning(
             "A user attempted to change hosts but their match doesn't exist.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
         )
         return
 
     # only the host can transfer the host
-    if match["host_account_id"] != session["account_id"]:
+    if match["host_account_id"] != osu_session["account_id"]:
         logger.warning(
             "A user attempted to change hosts but they are not the host.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
             match_id=match_id,
             match_host=match["host_account_id"],
         )
@@ -2453,7 +2440,7 @@ async def match_transfer_host_handler(session: "Session", packet_data: bytes):
     if not slot:
         logger.warning(
             "A user attempted to change hosts but the slot doesn't exist.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
             match_id=match_id,
         )
         return
@@ -2462,7 +2449,7 @@ async def match_transfer_host_handler(session: "Session", packet_data: bytes):
     if new_host_id == -1:
         logger.warning(
             "A user attempted to change hosts but the slot doesn't have a user.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
             match_id=match_id,
         )
         return
@@ -2478,12 +2465,12 @@ async def match_transfer_host_handler(session: "Session", packet_data: bytes):
 
 
 @bancho_handler(packets.ClientPackets.FRIEND_ADD)
-async def friend_add_handler(session: "Session", packet_data: bytes):
+async def friend_add_handler(osu_session: "OsuSession", packet_data: bytes):
     packet_reader = packets.PacketReader(packet_data)
     target_id = packet_reader.read_i32()
 
     await relationships.create(
-        session["account_id"],
+        osu_session["account_id"],
         target_id,
         relationship="friend",
     )
@@ -2493,24 +2480,23 @@ async def friend_add_handler(session: "Session", packet_data: bytes):
 
 
 @bancho_handler(packets.ClientPackets.FRIEND_REMOVE)
-async def friend_remove_handler(session: "Session", packet_data: bytes):
+async def friend_remove_handler(osu_session: "OsuSession", packet_data: bytes):
     packet_reader = packets.PacketReader(packet_data)
     target_id = packet_reader.read_i32()
 
-    await relationships.remove(session["account_id"], target_id)
+    await relationships.remove(osu_session["account_id"], target_id)
 
 
 # MATCH_CHANGE_TEAM = 77
 
 
 @bancho_handler(packets.ClientPackets.MATCH_CHANGE_TEAM)
-async def match_change_team_handler(session: "Session", packet_data: bytes):
-    presence = session["presence"]
-    match_id = presence["multiplayer_match_id"]
+async def match_change_team_handler(osu_session: "OsuSession", packet_data: bytes):
+    match_id = osu_session["multiplayer_match_id"]
     if not match_id:
         logger.warning(
             "A user attempted to change teams but isn't in a match.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
         )
         return
 
@@ -2518,27 +2504,27 @@ async def match_change_team_handler(session: "Session", packet_data: bytes):
     if isinstance(match, ServiceError):
         logger.warning(
             "A user attempted to change teams but their match doesn't exist.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
         )
         return
 
     if match["team_type"] not in (MatchTeamTypes.TEAM_VS, MatchTeamTypes.TAG_TEAM_VS):
         logger.warning(
             "A user attempted to change teams but the match is not in versus mode.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
             match_id=match_id,
             match_team_type=match["team_type"],
         )
         return
 
-    slot = await multiplayer_slots.fetch_one_by_session_id(
+    slot = await multiplayer_slots.fetch_one_by_osu_session_id(
         match_id=match_id,
-        session_id=session["session_id"],
+        osu_session_id=osu_session["osu_session_id"],
     )
     if not slot:
         logger.warning(
             "A user attempted to change teams but their slot doesn't exist.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
             match_id=match_id,
         )
         return
@@ -2558,7 +2544,7 @@ async def match_change_team_handler(session: "Session", packet_data: bytes):
 
     logger.info(
         "User changed match teams.",
-        user_id=session["account_id"],
+        user_id=osu_session["account_id"],
         match_id=match_id,
         slot_team=new_team,
     )
@@ -2568,7 +2554,7 @@ async def match_change_team_handler(session: "Session", packet_data: bytes):
 
 
 @bancho_handler(packets.ClientPackets.CHANNEL_PART)
-async def user_leaves_channel_handler(session: "Session", packet_data: bytes):
+async def user_leaves_channel_handler(osu_session: "OsuSession", packet_data: bytes):
     packet_reader = packets.PacketReader(packet_data)
     channel_name = packet_reader.read_string()
 
@@ -2578,27 +2564,26 @@ async def user_leaves_channel_handler(session: "Session", packet_data: bytes):
 
     # NOTE: we ignore #lobby to enqueue the match updates
     # and we actually remove them from the channel on lobby part
-    presence = session["presence"]
-    if channel["name"] == "#lobby" and presence["receive_match_updates"]:
+    if channel["name"] == "#lobby" and osu_session["receive_match_updates"]:
         return
 
     current_channel_members = await channel_members.members(channel["channel_id"])
-    if session["session_id"] not in current_channel_members:
+    if osu_session["osu_session_id"] not in current_channel_members:
         logger.warning(
             "A user attempted to leave a channel they are not in",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
             channel_id=channel["channel_id"],
             channel_name=channel["name"],
         )
         return
 
-    await channel_members.remove(channel["channel_id"], session["session_id"])
+    await channel_members.remove(channel["channel_id"], osu_session["osu_session_id"])
 
-    for other_session in await sessions.fetch_all(
+    for other_osu_session in await osu_sessions.fetch_all(
         has_any_privilege_bit=channel["read_privileges"]
     ):
         await packet_bundles.enqueue(
-            other_session["session_id"],
+            other_osu_session["osu_session_id"],
             packets.write_channel_info_packet(
                 channel["name"],
                 channel["topic"],
@@ -2616,7 +2601,9 @@ async def user_leaves_channel_handler(session: "Session", packet_data: bytes):
 
 
 @bancho_handler(packets.ClientPackets.SET_AWAY_MESSAGE)
-async def set_away_message_handler(session: "Session", packet_data: bytes) -> None:
+async def set_away_message_handler(
+    osu_session: "OsuSession", packet_data: bytes
+) -> None:
     reader = packets.PacketReader(packet_data)
 
     away_osu_message = reader.read_osu_message()
@@ -2626,7 +2613,7 @@ async def set_away_message_handler(session: "Session", packet_data: bytes) -> No
 
         if len(away_message) > 500:
             await packet_bundles.enqueue(
-                session["session_id"],
+                osu_session["osu_session_id"],
                 packets.write_notification_packet(
                     f"Please keep away messages to under 500 characters."
                 ),
@@ -2636,12 +2623,12 @@ async def set_away_message_handler(session: "Session", packet_data: bytes) -> No
     else:
         away_message = None
 
-    maybe_session = await sessions.partial_update(
-        session["session_id"],
-        presence={"away_message": away_message},
+    maybe_osu_session = await osu_sessions.partial_update(
+        osu_session["osu_session_id"],
+        away_message=away_message,
     )
-    assert maybe_session is not None
-    session = maybe_session
+    assert maybe_osu_session is not None
+    osu_session = maybe_osu_session
 
     if away_message is None:
         notification_content = "Your away message has been cleared."
@@ -2651,7 +2638,8 @@ async def set_away_message_handler(session: "Session", packet_data: bytes) -> No
         )
 
     await packet_bundles.enqueue(
-        session["session_id"], packets.write_notification_packet(notification_content)
+        osu_session["osu_session_id"],
+        packets.write_notification_packet(notification_content),
     )
 
 
@@ -2663,44 +2651,44 @@ async def set_away_message_handler(session: "Session", packet_data: bytes) -> No
 
 
 @bancho_handler(packets.ClientPackets.USER_STATS_REQUEST)
-async def user_stats_request_handler(session: "Session", packet_data: bytes) -> None:
+async def user_stats_request_handler(
+    osu_session: "OsuSession", packet_data: bytes
+) -> None:
     reader = packets.PacketReader(packet_data)
 
     account_ids = reader.read_i32_list_i16_length()
 
     for account_id in account_ids:
-        if account_id == session["account_id"]:
+        if account_id == osu_session["account_id"]:
             continue
 
-        other_session = await sessions.fetch_primary_by_account_id(account_id)
-        if other_session is None:
+        other_osu_session = await osu_sessions.fetch_primary_by_account_id(account_id)
+        if other_osu_session is None:
             continue
 
         other_stats = await stats.fetch_one(
             account_id,
-            other_session["presence"]["game_mode"],
+            other_osu_session["game_mode"],
         )
         if other_stats is None:
             continue
 
-        vanilla_game_mode = game_modes.for_client(
-            other_session["presence"]["game_mode"]
-        )
+        vanilla_game_mode = game_modes.for_client(other_osu_session["game_mode"])
 
         other_global_rank = await ranking.get_global_rank(
             other_stats["account_id"],
             other_stats["game_mode"],
         )
         await packet_bundles.enqueue(
-            session["session_id"],
+            osu_session["osu_session_id"],
             data=packets.write_user_stats_packet(
                 other_stats["account_id"],
-                other_session["presence"]["action"],
-                other_session["presence"]["info_text"],
-                other_session["presence"]["beatmap_md5"],
-                other_session["presence"]["mods"],
+                other_osu_session["action"],
+                other_osu_session["info_text"],
+                other_osu_session["beatmap_md5"],
+                other_osu_session["mods"],
                 vanilla_game_mode,
-                other_session["presence"]["beatmap_id"],
+                other_osu_session["beatmap_id"],
                 other_stats["ranked_score"],
                 other_stats["accuracy"],
                 other_stats["play_count"],
@@ -2715,13 +2703,12 @@ async def user_stats_request_handler(session: "Session", packet_data: bytes) -> 
 
 
 @bancho_handler(packets.ClientPackets.MATCH_INVITE)
-async def match_invite_handler(session: "Session", packet_data: bytes):
-    presence = session["presence"]
-    match_id = presence["multiplayer_match_id"]
+async def match_invite_handler(osu_session: "OsuSession", packet_data: bytes):
+    match_id = osu_session["multiplayer_match_id"]
     if not match_id:
         logger.warning(
             "A user attempted to invite someone to a match but isn't in a match.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
         )
         return
 
@@ -2729,18 +2716,18 @@ async def match_invite_handler(session: "Session", packet_data: bytes):
     if isinstance(match, ServiceError):
         logger.warning(
             "A user attempted to invite someone to a match but their match doesn't exist.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
         )
         return
 
     reader = packets.PacketReader(packet_data)
     target_id = reader.read_i32()
 
-    target_session = await sessions.fetch_primary_by_account_id(target_id)
-    if not target_session:
+    target_osu_session = await osu_sessions.fetch_primary_by_account_id(target_id)
+    if not target_osu_session:
         logger.warning(
             "A user attempted to invite someone to a match who is offline.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
         )
         return
 
@@ -2750,21 +2737,21 @@ async def match_invite_handler(session: "Session", packet_data: bytes):
     )
 
     invite_msg_packet = packets.write_send_message_packet(
-        sender_name=presence["username"],
+        sender_name=osu_session["username"],
         message_content=invite_msg,
-        recipient_name=target_session["presence"]["username"],
-        sender_id=session["account_id"],
+        recipient_name=target_osu_session["username"],
+        sender_id=osu_session["account_id"],
     )
 
     await packet_bundles.enqueue(
-        session_id=target_session["session_id"],
+        osu_session_id=target_osu_session["osu_session_id"],
         data=invite_msg_packet,
     )
 
     logger.info(
         "User has invited another user to a match.",
-        user_id=session["account_id"],
-        target_user_id=target_session["account_id"],
+        user_id=osu_session["account_id"],
+        target_user_id=target_osu_session["account_id"],
         match_id=match_id,
     )
 
@@ -2773,13 +2760,12 @@ async def match_invite_handler(session: "Session", packet_data: bytes):
 
 
 @bancho_handler(packets.ClientPackets.MATCH_CHANGE_PASSWORD)
-async def match_change_password_handler(session: "Session", packet_data: bytes):
-    presence = session["presence"]
-    match_id = presence["multiplayer_match_id"]
+async def match_change_password_handler(osu_session: "OsuSession", packet_data: bytes):
+    match_id = osu_session["multiplayer_match_id"]
     if not match_id:
         logger.warning(
             "A user attempted to change the match password but isn't in a match.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
         )
         return
 
@@ -2787,14 +2773,14 @@ async def match_change_password_handler(session: "Session", packet_data: bytes):
     if isinstance(match, ServiceError):
         logger.warning(
             "A user attempted to change the match password but their match doesn't exist.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
         )
         return
 
-    if match["host_account_id"] != session["account_id"]:
+    if match["host_account_id"] != osu_session["account_id"]:
         logger.warning(
             "A user attempted to change the match password but they aren't the host.",
-            user_id=session["account_id"],
+            user_id=osu_session["account_id"],
             match_id=match_id,
             match_host=match["host_account_id"],
         )
@@ -2815,7 +2801,7 @@ async def match_change_password_handler(session: "Session", packet_data: bytes):
 
     logger.info(
         "User updated the match password.",
-        user_id=session["account_id"],
+        user_id=osu_session["account_id"],
         match_id=match_id,
     )
 
@@ -2824,7 +2810,9 @@ async def match_change_password_handler(session: "Session", packet_data: bytes):
 
 
 @bancho_handler(packets.ClientPackets.TOURNAMENT_MATCH_INFO_REQUEST)
-async def tournament_match_info_request_handler(session: "Session", packet_data: bytes):
+async def tournament_match_info_request_handler(
+    osu_session: "OsuSession", packet_data: bytes
+):
     packet_reader = packets.PacketReader(packet_data)
 
     match_id = packet_reader.read_i32()
@@ -2863,7 +2851,7 @@ async def tournament_match_info_request_handler(session: "Session", packet_data:
     }
 
     await packet_bundles.enqueue(
-        session["session_id"],
+        osu_session["osu_session_id"],
         packets.write_update_match_packet(
             osu_match_data,
             should_send_password=False,
@@ -2881,17 +2869,16 @@ async def tournament_match_info_request_handler(session: "Session", packet_data:
 
 
 @bancho_handler(packets.ClientPackets.TOGGLE_BLOCK_NON_FRIEND_DMS)
-async def toggle_block_non_friend_dms(session: "Session", packet_data: bytes):
-    presence = session["presence"]
-    await sessions.partial_update(
-        session_id=session["session_id"],
-        presence={"pm_private": not presence["pm_private"]},
+async def toggle_block_non_friend_dms(osu_session: "OsuSession", packet_data: bytes):
+    await osu_sessions.partial_update(
+        osu_session_id=osu_session["osu_session_id"],
+        pm_private=not osu_session["pm_private"],
     )
 
     logger.info(
         "User has toggled private dms.",
-        user_id=session["account_id"],
-        value=not presence["pm_private"],
+        user_id=osu_session["account_id"],
+        value=not osu_session["pm_private"],
     )
 
 
@@ -2900,7 +2887,7 @@ async def toggle_block_non_friend_dms(session: "Session", packet_data: bytes):
 
 @bancho_handler(packets.ClientPackets.TOURNAMENT_JOIN_MATCH_CHANNEL)
 async def tournament_join_match_channel_handler(
-    session: "Session",
+    osu_session: "OsuSession",
     packet_data: bytes,
 ):
     packet_reader = packets.PacketReader(packet_data)
@@ -2917,7 +2904,7 @@ async def tournament_join_match_channel_handler(
 
     await channel_members.add(
         match_channel["channel_id"],
-        session["session_id"],
+        osu_session["osu_session_id"],
     )
 
 
@@ -2926,7 +2913,7 @@ async def tournament_join_match_channel_handler(
 
 @bancho_handler(packets.ClientPackets.TOURNAMENT_LEAVE_MATCH_CHANNEL)
 async def tournament_leave_match_channel_handler(
-    session: "Session",
+    osu_session: "OsuSession",
     packet_data: bytes,
 ):
     packet_reader = packets.PacketReader(packet_data)
@@ -2943,5 +2930,5 @@ async def tournament_leave_match_channel_handler(
 
     await channel_members.remove(
         match_channel["channel_id"],
-        session["session_id"],
+        osu_session["osu_session_id"],
     )

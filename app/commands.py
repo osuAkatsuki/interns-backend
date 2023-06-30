@@ -21,13 +21,13 @@ from app.services import beatmaps
 from app.services import multiplayer_matches
 
 if TYPE_CHECKING:
-    from app.repositories.sessions import Session
+    from app.repositories.osu_sessions import OsuSession
 
 # TODO: create the concept of an "application", where developers can
 # register to have their own bots running on the server, which can
 # act via interactions with our rest api. re-implement this with that.
 
-CommandHandler = Callable[["Session", list[str]], Awaitable[str | None]]
+CommandHandler = Callable[["OsuSession", list[str]], Awaitable[str | None]]
 
 
 class Command:
@@ -97,7 +97,7 @@ def get_command_set(trigger: str) -> CommandSet | None:
 
 
 @command("!help")
-async def help_handler(session: "Session", args: list[str]) -> str | None:
+async def help_handler(session: "OsuSession", args: list[str]) -> str | None:
     """Display this help message."""
     response_lines = []
 
@@ -110,7 +110,7 @@ async def help_handler(session: "Session", args: list[str]) -> str | None:
 
         # don't show commands that the user can't access
         if command.privileges is not None:
-            if (session["presence"]["privileges"] & command.privileges) == 0:
+            if (session["privileges"] & command.privileges) == 0:
                 continue
 
         response_lines.append(f"* {trigger} - {documentation}")
@@ -132,7 +132,7 @@ async def help_handler(session: "Session", args: list[str]) -> str | None:
 
             # don't show commands that the user can't access
             if command.privileges is not None:
-                if (session["presence"]["privileges"] & command.privileges) == 0:
+                if (session["privileges"] & command.privileges) == 0:
                     continue
 
             response_lines.append(f"* {trigger} - {documentation}")
@@ -143,16 +143,16 @@ async def help_handler(session: "Session", args: list[str]) -> str | None:
 
 
 @command("!roll")
-async def roll_handler(session: "Session", args: list[str]) -> str | None:
+async def roll_handler(session: "OsuSession", args: list[str]) -> str | None:
     """Roll a random number between 0 and a given number."""
     random_number_max = int(args[0]) if args else 100
     return str(random.randrange(0, random_number_max))
 
 
 @command("!block")
-async def block_handler(session: "Session", args: list[str]) -> str | None:
+async def block_handler(session: "OsuSession", args: list[str]) -> str | None:
     """Block communications with another user."""
-    own_presence = session["presence"]
+    own_presence = session
 
     account_to_be_blocked = await accounts.fetch_by_username(args[0])
     if account_to_be_blocked is None:
@@ -221,28 +221,28 @@ async def _shared_base_for_edit_map_handlers(
 
 
 @command("!rank", privileges=ServerPrivileges.BEATMAP_NOMINATOR)
-async def rank_handler(session: "Session", args: list[str]) -> str | None:
+async def rank_handler(session: "OsuSession", args: list[str]) -> str | None:
     """Rank the previously /np'ed beatmap."""
     return await _shared_base_for_edit_map_handlers(
-        session["presence"]["last_np_beatmap_id"],
+        session["last_np_beatmap_id"],
         BeatmapRankedStatus.RANKED,
     )
 
 
 @command("!love", privileges=ServerPrivileges.BEATMAP_NOMINATOR)
-async def love_handler(session: "Session", args: list[str]) -> str | None:
+async def love_handler(session: "OsuSession", args: list[str]) -> str | None:
     """Love the previously /np'ed beatmap."""
     return await _shared_base_for_edit_map_handlers(
-        session["presence"]["last_np_beatmap_id"],
+        session["last_np_beatmap_id"],
         BeatmapRankedStatus.LOVED,
     )
 
 
 @command("!unrank", privileges=ServerPrivileges.BEATMAP_NOMINATOR)
-async def unrank_handler(session: "Session", args: list[str]) -> str | None:
+async def unrank_handler(session: "OsuSession", args: list[str]) -> str | None:
     """Unrank the previously /np'ed beatmap."""
     return await _shared_base_for_edit_map_handlers(
-        session["presence"]["last_np_beatmap_id"],
+        session["last_np_beatmap_id"],
         BeatmapRankedStatus.PENDING,
     )
 
@@ -254,9 +254,9 @@ command_sets[multiplayer_commands.trigger] = multiplayer_commands
 
 
 @multiplayer_commands.command("!mp start")
-async def match_start_handler(session: "Session", args: list[str]) -> str | None:
+async def match_start_handler(session: "OsuSession", args: list[str]) -> str | None:
     """Start a multiplayer match."""
-    match_id = session["presence"]["multiplayer_match_id"]
+    match_id = session["multiplayer_match_id"]
     if match_id is None:
         return "These commands only have a function in a multiplayer match"
 
@@ -265,14 +265,14 @@ async def match_start_handler(session: "Session", args: list[str]) -> str | None
         logger.warning(
             "Failed to fetch a multiplayer match",
             match_id=match_id,
-            username=session["presence"]["username"],
+            username=session["username"],
             account_id=session["account_id"],
         )
         return
 
     if (
         session["account_id"] != match["host_account_id"]
-        and not session["presence"]["privileges"] & ServerPrivileges.MULTIPLAYER_STAFF
+        and not session["privileges"] & ServerPrivileges.MULTIPLAYER_STAFF
     ):
         return "You are not the host of this match"
 
@@ -330,7 +330,7 @@ async def match_start_handler(session: "Session", args: list[str]) -> str | None
             continue
 
         await packet_bundles.enqueue(
-            slot["session_id"],
+            slot["osu_session_id"],
             data=match_started_packet,
         )
 
@@ -339,8 +339,8 @@ async def match_start_handler(session: "Session", args: list[str]) -> str | None
         logger.error("Failed to fetch #lobby channel")
         return
 
-    for session_id in await channel_members.members(lobby_channel["channel_id"]):
+    for osu_session_id in await channel_members.members(lobby_channel["channel_id"]):
         await packet_bundles.enqueue(
-            session_id,
+            osu_session_id,
             data=match_started_packet,
         )

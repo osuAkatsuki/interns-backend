@@ -29,11 +29,11 @@ async def add(
 
 async def remove(
     channel_id: int,
-    session_id: UUID,
+    osu_session_id: UUID,
 ) -> UUID | None:
     channel_key = make_key(channel_id)
-    success = await clients.redis.srem(channel_key, serialize(session_id))
-    return session_id if success == 1 else None
+    success = await clients.redis.srem(channel_key, serialize(osu_session_id))
+    return osu_session_id if success == 1 else None
 
 
 async def members(channel_id: int) -> set[UUID]:
