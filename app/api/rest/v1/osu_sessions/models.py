@@ -11,7 +11,7 @@ from pydantic import BaseModel
 
 
 class OsuSession(BaseModel):
-    session_id: UUID
+    osu_session_id: UUID
     account_id: int
     username: str
     utc_offset: int
