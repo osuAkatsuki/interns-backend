@@ -13,13 +13,8 @@ class ServiceError(str, Enum):
     ACCOUNTS_COUNTRY_INVALID = "accounts.country_invalid"
 
     OSU_SESSIONS_NOT_FOUND = "osu_sessions.not_found"
-    OSU_SESSIONS_CREATE_FAILED = "osu_sessions.create_failed"
-    OSU_SESSIONS_FETCH_BY_ID_FAILED = "osu_sessions.fetch_by_id_failed"
-    OSU_SESSIONS_FETCH_MANY_FAILED = "osu_sessions.fetch_many_failed"
-    OSU_SESSIONS_FETCH_TOTAL_COUNT_FAILED = "osu_sessions.fetch_total_count_failed"
-    OSU_SESSIONS_FETCH_ALL_FAILED = "osu_sessions.fetch_all_failed"
-    OSU_SESSIONS_UPDATE_FAILED = "osu_sessions.update_failed"
-    OSU_SESSIONS_DELETE_FAILED = "osu_sessions.delete_failed"
+
+    WEB_SESSIONS_NOT_FOUND = "web_sessions.not_found"
 
     CREDENTIALS_NOT_FOUND = "credentials.incorrect_credentials"
     CREDENTIALS_INCORRECT = "credentials.incorrect_credentials"

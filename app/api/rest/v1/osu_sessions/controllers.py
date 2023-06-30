@@ -16,19 +16,10 @@ router = APIRouter()
 
 def determine_status_code(error: ServiceError) -> int:
     match error:
-        case (
-            ServiceError.INTERNAL_SERVER_ERROR
-            | ServiceError.OSU_SESSIONS_FETCH_BY_ID_FAILED
-            | ServiceError.OSU_SESSIONS_FETCH_MANY_FAILED
-            | ServiceError.OSU_SESSIONS_FETCH_TOTAL_COUNT_FAILED
-            | ServiceError.OSU_SESSIONS_FETCH_ALL_FAILED
-            | ServiceError.OSU_SESSIONS_CREATE_FAILED
-            | ServiceError.OSU_SESSIONS_UPDATE_FAILED
-            | ServiceError.OSU_SESSIONS_DELETE_FAILED
-        ):
-            return status.HTTP_500_INTERNAL_SERVER_ERROR
         case ServiceError.OSU_SESSIONS_NOT_FOUND:
             return status.HTTP_404_NOT_FOUND
+        case (ServiceError.INTERNAL_SERVER_ERROR):
+            return status.HTTP_500_INTERNAL_SERVER_ERROR
         case _:
             logger.warning(
                 "Unhandled error code in osu! sessions rest api controller",
