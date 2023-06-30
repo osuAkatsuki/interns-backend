@@ -7,6 +7,11 @@ from pydantic import BaseModel
 # input models
 
 
+class LoginCredentials(BaseModel):
+    username: str
+    password: str
+
+
 # output models
 
 

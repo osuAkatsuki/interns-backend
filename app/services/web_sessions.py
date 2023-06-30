@@ -1,24 +1,37 @@
+import hashlib
 import uuid
 from datetime import datetime
 from uuid import UUID
 
 from app import logger
+from app import security
 from app._typing import UNSET
 from app._typing import Unset
 from app.errors import ServiceError
+from app.repositories import accounts
 from app.repositories import web_sessions
 from app.repositories.web_sessions import WebSession
 
 
-async def create(
-    account_id: int,
+async def authenticate(
+    username: str,
+    password: str,
 ) -> WebSession | ServiceError:
     session_id = uuid.uuid4()
-
     try:
+        account = await accounts.fetch_by_username(username)
+        if account is None:
+            return ServiceError.CREDENTIALS_NOT_FOUND
+
+        # compensate for osu! password hashing
+        password = hashlib.md5(password.encode()).hexdigest()
+
+        if not security.check_password(password, account["password"].encode()):
+            return ServiceError.CREDENTIALS_INCORRECT
+
         web_session = await web_sessions.create(
             session_id,
-            account_id=account_id,
+            account_id=account["account_id"],
         )
     except Exception as exc:  # pragma: no cover
         logger.error("Failed to create web session", exc_info=exc)

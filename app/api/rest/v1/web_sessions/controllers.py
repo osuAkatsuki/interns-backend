@@ -6,6 +6,7 @@ from fastapi import status
 from app import logger
 from app.api.rest import responses
 from app.api.rest.responses import Success
+from app.api.rest.v1.web_sessions.models import LoginCredentials
 from app.api.rest.v1.web_sessions.models import WebSession
 from app.errors import ServiceError
 from app.services import web_sessions
@@ -18,6 +19,10 @@ def determine_status_code(error: ServiceError) -> int:
     match error:
         case ServiceError.WEB_SESSIONS_NOT_FOUND:
             return status.HTTP_404_NOT_FOUND
+        case ServiceError.ACCOUNTS_NOT_FOUND:
+            return status.HTTP_401_UNAUTHORIZED
+        case ServiceError.CREDENTIALS_INCORRECT:
+            return status.HTTP_401_UNAUTHORIZED
         case (ServiceError.INTERNAL_SERVER_ERROR):
             return status.HTTP_500_INTERNAL_SERVER_ERROR
         case _:
@@ -26,6 +31,24 @@ def determine_status_code(error: ServiceError) -> int:
                 service_error=error,
             )
             return status.HTTP_500_INTERNAL_SERVER_ERROR
+
+
+@router.post("/v1/web_sessions")
+async def authenticate(credentials: LoginCredentials) -> Success[WebSession]:
+    data = await web_sessions.authenticate(
+        username=credentials.username,
+        password=credentials.password,
+    )
+    if isinstance(data, ServiceError):
+        status_code = determine_status_code(data)
+        return responses.failure(
+            error=data,
+            message="Failed to login",
+            status_code=status_code,
+        )
+
+    resp = WebSession.parse_obj(data)
+    return responses.success(content=resp)
 
 
 @router.get("/v1/web_sessions")
