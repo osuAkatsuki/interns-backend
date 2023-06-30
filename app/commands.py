@@ -152,8 +152,6 @@ async def roll_handler(session: "OsuSession", args: list[str]) -> str | None:
 @command("!block")
 async def block_handler(session: "OsuSession", args: list[str]) -> str | None:
     """Block communications with another user."""
-    own_presence = session
-
     account_to_be_blocked = await accounts.fetch_by_username(args[0])
     if account_to_be_blocked is None:
         return f"{args[0]} could not be blocked"
@@ -170,7 +168,7 @@ async def block_handler(session: "OsuSession", args: list[str]) -> str | None:
         relationship="blocked",
     )
 
-    return f"{own_presence['username']} successfully blocked {args[0]}"
+    return f"{session['username']} successfully blocked {args[0]}"
 
 
 async def _shared_base_for_edit_map_handlers(

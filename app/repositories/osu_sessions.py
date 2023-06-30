@@ -3,13 +3,14 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from datetime import timedelta
-from typing import Any
 from typing import cast
 from typing import Literal
 from typing import TypedDict
 from uuid import UUID
 
 from app import clients
+from app._typing import UNSET
+from app._typing import Unset
 
 
 OSU_SESSION_TTL = 60 * 60  # 1 hour
@@ -331,9 +332,6 @@ async def fetch_all(has_any_privilege_bit: int | None = None) -> list[OsuSession
             osu_sessions.append(osu_session)
 
     return osu_sessions
-
-
-from app._typing import Unset, UNSET
 
 
 async def partial_update(

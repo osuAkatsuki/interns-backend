@@ -119,7 +119,7 @@ class Achievement(IntEnum):
 
 @achievement_handler(Achievement.OSU_PASS_1_STAR)
 async def osu_pass_1_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -132,7 +132,7 @@ async def osu_pass_1_star(
 
 @achievement_handler(Achievement.OSU_PASS_2_STAR)
 async def osu_pass_2_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -145,7 +145,7 @@ async def osu_pass_2_star(
 
 @achievement_handler(Achievement.OSU_PASS_3_STAR)
 async def osu_pass_3_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -158,7 +158,7 @@ async def osu_pass_3_star(
 
 @achievement_handler(Achievement.OSU_PASS_4_STAR)
 async def osu_pass_4_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -171,7 +171,7 @@ async def osu_pass_4_star(
 
 @achievement_handler(Achievement.OSU_PASS_5_STAR)
 async def osu_pass_5_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -184,7 +184,7 @@ async def osu_pass_5_star(
 
 @achievement_handler(Achievement.OSU_PASS_6_STAR)
 async def osu_pass_6_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -197,7 +197,7 @@ async def osu_pass_6_star(
 
 @achievement_handler(Achievement.OSU_PASS_7_STAR)
 async def osu_pass_7_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -210,7 +210,7 @@ async def osu_pass_7_star(
 
 @achievement_handler(Achievement.OSU_PASS_8_STAR)
 async def osu_pass_8_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -223,7 +223,7 @@ async def osu_pass_8_star(
 
 @achievement_handler(Achievement.OSU_PASS_9_STAR)
 async def osu_pass_9_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -236,7 +236,7 @@ async def osu_pass_9_star(
 
 @achievement_handler(Achievement.OSU_PASS_10_STAR)
 async def osu_pass_10_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -249,7 +249,7 @@ async def osu_pass_10_star(
 
 @achievement_handler(Achievement.OSU_FULL_COMBO_1_STAR)
 async def osu_full_combo_1_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -262,7 +262,7 @@ async def osu_full_combo_1_star(
 
 @achievement_handler(Achievement.OSU_FULL_COMBO_2_STAR)
 async def osu_full_combo_2_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -275,7 +275,7 @@ async def osu_full_combo_2_star(
 
 @achievement_handler(Achievement.OSU_FULL_COMBO_3_STAR)
 async def osu_full_combo_3_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -288,7 +288,7 @@ async def osu_full_combo_3_star(
 
 @achievement_handler(Achievement.OSU_FULL_COMBO_4_STAR)
 async def osu_full_combo_4_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -301,7 +301,7 @@ async def osu_full_combo_4_star(
 
 @achievement_handler(Achievement.OSU_FULL_COMBO_5_STAR)
 async def osu_full_combo_5_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -314,7 +314,7 @@ async def osu_full_combo_5_star(
 
 @achievement_handler(Achievement.OSU_FULL_COMBO_6_STAR)
 async def osu_full_combo_6_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -327,7 +327,7 @@ async def osu_full_combo_6_star(
 
 @achievement_handler(Achievement.OSU_FULL_COMBO_7_STAR)
 async def osu_full_combo_7_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -340,7 +340,7 @@ async def osu_full_combo_7_star(
 
 @achievement_handler(Achievement.OSU_FULL_COMBO_8_STAR)
 async def osu_full_combo_8_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -353,7 +353,7 @@ async def osu_full_combo_8_star(
 
 @achievement_handler(Achievement.OSU_FULL_COMBO_9_STAR)
 async def osu_full_combo_9_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -366,7 +366,7 @@ async def osu_full_combo_9_star(
 
 @achievement_handler(Achievement.OSU_FULL_COMBO_10_STAR)
 async def osu_full_combo_10_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -379,7 +379,7 @@ async def osu_full_combo_10_star(
 
 @achievement_handler(Achievement.OSU_COMBO_500)
 async def osu_combo_500(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -388,7 +388,7 @@ async def osu_combo_500(
 
 @achievement_handler(Achievement.OSU_COMBO_750)
 async def osu_combo_750(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -397,7 +397,7 @@ async def osu_combo_750(
 
 @achievement_handler(Achievement.OSU_COMBO_1000)
 async def osu_combo_1000(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -406,7 +406,7 @@ async def osu_combo_1000(
 
 @achievement_handler(Achievement.OSU_COMBO_2000)
 async def osu_combo_2000(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -415,7 +415,7 @@ async def osu_combo_2000(
 
 @achievement_handler(Achievement.TAIKO_PASS_1_STAR)
 async def taiko_pass_1_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -428,7 +428,7 @@ async def taiko_pass_1_star(
 
 @achievement_handler(Achievement.TAIKO_PASS_2_STAR)
 async def taiko_pass_2_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -441,7 +441,7 @@ async def taiko_pass_2_star(
 
 @achievement_handler(Achievement.TAIKO_PASS_3_STAR)
 async def taiko_pass_3_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -454,7 +454,7 @@ async def taiko_pass_3_star(
 
 @achievement_handler(Achievement.TAIKO_PASS_4_STAR)
 async def taiko_pass_4_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -467,7 +467,7 @@ async def taiko_pass_4_star(
 
 @achievement_handler(Achievement.TAIKO_PASS_5_STAR)
 async def taiko_pass_5_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -480,7 +480,7 @@ async def taiko_pass_5_star(
 
 @achievement_handler(Achievement.TAIKO_PASS_6_STAR)
 async def taiko_pass_6_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -493,7 +493,7 @@ async def taiko_pass_6_star(
 
 @achievement_handler(Achievement.TAIKO_PASS_7_STAR)
 async def taiko_pass_7_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -506,7 +506,7 @@ async def taiko_pass_7_star(
 
 @achievement_handler(Achievement.TAIKO_PASS_8_STAR)
 async def taiko_pass_8_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -519,7 +519,7 @@ async def taiko_pass_8_star(
 
 @achievement_handler(Achievement.TAIKO_FULL_COMBO_1_STAR)
 async def taiko_full_combo_1_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -532,7 +532,7 @@ async def taiko_full_combo_1_star(
 
 @achievement_handler(Achievement.TAIKO_FULL_COMBO_2_STAR)
 async def taiko_full_combo_2_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -545,7 +545,7 @@ async def taiko_full_combo_2_star(
 
 @achievement_handler(Achievement.TAIKO_FULL_COMBO_3_STAR)
 async def taiko_full_combo_3_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -558,7 +558,7 @@ async def taiko_full_combo_3_star(
 
 @achievement_handler(Achievement.TAIKO_FULL_COMBO_4_STAR)
 async def taiko_full_combo_4_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -571,7 +571,7 @@ async def taiko_full_combo_4_star(
 
 @achievement_handler(Achievement.TAIKO_FULL_COMBO_5_STAR)
 async def taiko_full_combo_5_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -584,7 +584,7 @@ async def taiko_full_combo_5_star(
 
 @achievement_handler(Achievement.TAIKO_FULL_COMBO_6_STAR)
 async def taiko_full_combo_6_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -597,7 +597,7 @@ async def taiko_full_combo_6_star(
 
 @achievement_handler(Achievement.TAIKO_FULL_COMBO_7_STAR)
 async def taiko_full_combo_7_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -610,7 +610,7 @@ async def taiko_full_combo_7_star(
 
 @achievement_handler(Achievement.TAIKO_FULL_COMBO_8_STAR)
 async def taiko_full_combo_8_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -623,7 +623,7 @@ async def taiko_full_combo_8_star(
 
 @achievement_handler(Achievement.CTB_PASS_1_STAR)
 async def ctb_pass_1_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -636,7 +636,7 @@ async def ctb_pass_1_star(
 
 @achievement_handler(Achievement.CTB_PASS_2_STAR)
 async def ctb_pass_2_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -649,7 +649,7 @@ async def ctb_pass_2_star(
 
 @achievement_handler(Achievement.CTB_PASS_3_STAR)
 async def ctb_pass_3_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -662,7 +662,7 @@ async def ctb_pass_3_star(
 
 @achievement_handler(Achievement.CTB_PASS_4_STAR)
 async def ctb_pass_4_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -675,7 +675,7 @@ async def ctb_pass_4_star(
 
 @achievement_handler(Achievement.CTB_PASS_5_STAR)
 async def ctb_pass_5_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -688,7 +688,7 @@ async def ctb_pass_5_star(
 
 @achievement_handler(Achievement.CTB_PASS_6_STAR)
 async def ctb_pass_6_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -701,7 +701,7 @@ async def ctb_pass_6_star(
 
 @achievement_handler(Achievement.CTB_PASS_7_STAR)
 async def ctb_pass_7_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -714,7 +714,7 @@ async def ctb_pass_7_star(
 
 @achievement_handler(Achievement.CTB_PASS_8_STAR)
 async def ctb_pass_8_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -727,7 +727,7 @@ async def ctb_pass_8_star(
 
 @achievement_handler(Achievement.CTB_FULL_COMBO_1_STAR)
 async def ctb_full_combo_1_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -740,7 +740,7 @@ async def ctb_full_combo_1_star(
 
 @achievement_handler(Achievement.CTB_FULL_COMBO_2_STAR)
 async def ctb_full_combo_2_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -753,7 +753,7 @@ async def ctb_full_combo_2_star(
 
 @achievement_handler(Achievement.CTB_FULL_COMBO_3_STAR)
 async def ctb_full_combo_3_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -766,7 +766,7 @@ async def ctb_full_combo_3_star(
 
 @achievement_handler(Achievement.CTB_FULL_COMBO_4_STAR)
 async def ctb_full_combo_4_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -779,7 +779,7 @@ async def ctb_full_combo_4_star(
 
 @achievement_handler(Achievement.CTB_FULL_COMBO_5_STAR)
 async def ctb_full_combo_5_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -792,7 +792,7 @@ async def ctb_full_combo_5_star(
 
 @achievement_handler(Achievement.CTB_FULL_COMBO_6_STAR)
 async def ctb_full_combo_6_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -805,7 +805,7 @@ async def ctb_full_combo_6_star(
 
 @achievement_handler(Achievement.CTB_FULL_COMBO_7_STAR)
 async def ctb_full_combo_7_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -818,7 +818,7 @@ async def ctb_full_combo_7_star(
 
 @achievement_handler(Achievement.CTB_FULL_COMBO_8_STAR)
 async def ctb_full_combo_8_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -831,7 +831,7 @@ async def ctb_full_combo_8_star(
 
 @achievement_handler(Achievement.MANIA_PASS_1_STAR)
 async def mania_pass_1_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -844,7 +844,7 @@ async def mania_pass_1_star(
 
 @achievement_handler(Achievement.MANIA_PASS_2_STAR)
 async def mania_pass_2_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -857,7 +857,7 @@ async def mania_pass_2_star(
 
 @achievement_handler(Achievement.MANIA_PASS_3_STAR)
 async def mania_pass_3_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -870,7 +870,7 @@ async def mania_pass_3_star(
 
 @achievement_handler(Achievement.MANIA_PASS_4_STAR)
 async def mania_pass_4_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -883,7 +883,7 @@ async def mania_pass_4_star(
 
 @achievement_handler(Achievement.MANIA_PASS_5_STAR)
 async def mania_pass_5_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -896,7 +896,7 @@ async def mania_pass_5_star(
 
 @achievement_handler(Achievement.MANIA_PASS_6_STAR)
 async def mania_pass_6_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -909,7 +909,7 @@ async def mania_pass_6_star(
 
 @achievement_handler(Achievement.MANIA_PASS_7_STAR)
 async def mania_pass_7_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -922,7 +922,7 @@ async def mania_pass_7_star(
 
 @achievement_handler(Achievement.MANIA_PASS_8_STAR)
 async def mania_pass_8_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -935,7 +935,7 @@ async def mania_pass_8_star(
 
 @achievement_handler(Achievement.MANIA_FULL_COMBO_1_STAR)
 async def mania_full_combo_1_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -948,7 +948,7 @@ async def mania_full_combo_1_star(
 
 @achievement_handler(Achievement.MANIA_FULL_COMBO_2_STAR)
 async def mania_full_combo_2_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -961,7 +961,7 @@ async def mania_full_combo_2_star(
 
 @achievement_handler(Achievement.MANIA_FULL_COMBO_3_STAR)
 async def mania_full_combo_3_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -974,7 +974,7 @@ async def mania_full_combo_3_star(
 
 @achievement_handler(Achievement.MANIA_FULL_COMBO_4_STAR)
 async def mania_full_combo_4_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -987,7 +987,7 @@ async def mania_full_combo_4_star(
 
 @achievement_handler(Achievement.MANIA_FULL_COMBO_5_STAR)
 async def mania_full_combo_5_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -1000,7 +1000,7 @@ async def mania_full_combo_5_star(
 
 @achievement_handler(Achievement.MANIA_FULL_COMBO_6_STAR)
 async def mania_full_combo_6_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -1013,7 +1013,7 @@ async def mania_full_combo_6_star(
 
 @achievement_handler(Achievement.MANIA_FULL_COMBO_7_STAR)
 async def mania_full_combo_7_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -1026,7 +1026,7 @@ async def mania_full_combo_7_star(
 
 @achievement_handler(Achievement.MANIA_FULL_COMBO_8_STAR)
 async def mania_full_combo_8_star(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -1039,7 +1039,7 @@ async def mania_full_combo_8_star(
 
 @achievement_handler(Achievement.ALL_INTRO_SUDDENDEATH)
 async def all_intro_suddendeath(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -1048,7 +1048,7 @@ async def all_intro_suddendeath(
 
 @achievement_handler(Achievement.ALL_INTRO_HIDDEN)
 async def all_intro_hidden(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -1057,7 +1057,7 @@ async def all_intro_hidden(
 
 @achievement_handler(Achievement.ALL_INTRO_PERFECT)
 async def all_intro_perfect(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -1066,7 +1066,7 @@ async def all_intro_perfect(
 
 @achievement_handler(Achievement.ALL_INTRO_HARDROCK)
 async def all_intro_hardrock(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -1075,7 +1075,7 @@ async def all_intro_hardrock(
 
 @achievement_handler(Achievement.ALL_INTRO_DOUBLETIME)
 async def all_intro_doubletime(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -1084,7 +1084,7 @@ async def all_intro_doubletime(
 
 @achievement_handler(Achievement.ALL_INTRO_FLASHLIGHT)
 async def all_intro_flashlight(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -1093,7 +1093,7 @@ async def all_intro_flashlight(
 
 @achievement_handler(Achievement.ALL_INTRO_EASY)
 async def all_intro_easy(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -1102,7 +1102,7 @@ async def all_intro_easy(
 
 @achievement_handler(Achievement.ALL_INTRO_NOFAIL)
 async def all_intro_nofail(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -1111,7 +1111,7 @@ async def all_intro_nofail(
 
 @achievement_handler(Achievement.ALL_INTRO_NIGHT_CORE)
 async def all_intro_night_core(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -1120,7 +1120,7 @@ async def all_intro_night_core(
 
 @achievement_handler(Achievement.ALL_INTRO_HALFTIME)
 async def all_intro_halftime(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
@@ -1129,7 +1129,7 @@ async def all_intro_halftime(
 
 @achievement_handler(Achievement.ALL_INTRO_SPUNOUT)
 async def all_intro_spunout(
-    session: "OsuSession",
+    osu_session: "OsuSession",
     beatmap: "Beatmap",
     score: "Score",
 ) -> bool:
