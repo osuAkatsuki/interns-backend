@@ -24,7 +24,8 @@ READ_PARAMS = """\
     s.a_count,
 
     -- account fields for convenience
-    a.username
+    a.username,
+    a.country
 """
 
 
@@ -50,6 +51,7 @@ class Stats(TypedDict):
 
     # account fields for convenience
     username: str
+    country: str
 
 
 class StatsUpdateFields(TypedDict, total=False):
@@ -88,6 +90,7 @@ def serialize(stats: Stats) -> dict:
         "s_count": stats["s_count"],
         "a_count": stats["a_count"],
         "username": stats["username"],
+        "country": stats["country"],
     }
 
 
@@ -110,6 +113,7 @@ def deserialize(stats: dict) -> Stats:
         "s_count": stats["s_count"],
         "a_count": stats["a_count"],
         "username": stats["username"],
+        "country": stats["country"],
     }
 
 
@@ -314,8 +318,8 @@ async def partial_update(
             UPDATE stats s
                SET {",".join(f"{k} = :{k}" for k in update_fields)}
               FROM accounts a
-         LEFT JOIN accounts a ON s.account_id = a.account_id
-             WHERE s.account_id = :account_id
+             WHERE s.account_id = a.accounts_id
+               AND s.account_id = :account_id
                AND s.game_mode = :game_mode
          RETURNING {READ_PARAMS}
         """,
