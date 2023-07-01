@@ -7,7 +7,7 @@ from pydantic import BaseModel
 # input models
 
 
-class LoginCredentials(BaseModel):
+class APIv1LoginCredentials(BaseModel):
     username: str
     password: str
 
@@ -15,7 +15,7 @@ class LoginCredentials(BaseModel):
 # output models
 
 
-class WebSession(BaseModel):
+class APIv1WebSession(BaseModel):
     web_session_id: UUID
     account_id: int
     expires_at: datetime
