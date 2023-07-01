@@ -8,10 +8,10 @@ from app import logger
 from app.api.rest import responses
 from app.api.rest.authentication import http_bearer_authentication
 from app.api.rest.responses import Success
-from app.api.rest.v1.web_sessions.models import LoginCredentials
-from app.api.rest.v1.web_sessions.models import WebSession
+from app.api.rest.v1.web_sessions.models import APIv1LoginCredentials
+from app.api.rest.v1.web_sessions.models import APIv1WebSession
 from app.errors import ServiceError
-from app.repositories.web_sessions import WebSession as InternalWebSessionModel
+from app.repositories.web_sessions import WebSession
 from app.services import web_sessions
 
 
@@ -37,7 +37,7 @@ def determine_status_code(error: ServiceError) -> int:
 
 
 @router.post("/v1/web_sessions")
-async def authenticate(credentials: LoginCredentials) -> Success[WebSession]:
+async def authenticate(credentials: APIv1LoginCredentials) -> Success[APIv1WebSession]:
     data = await web_sessions.authenticate(
         username=credentials.username,
         password=credentials.password,
@@ -50,7 +50,7 @@ async def authenticate(credentials: LoginCredentials) -> Success[WebSession]:
             status_code=status_code,
         )
 
-    resp = WebSession.parse_obj(data)
+    resp = APIv1WebSession.parse_obj(data)
     return responses.success(content=resp)
 
 
@@ -58,7 +58,7 @@ async def authenticate(credentials: LoginCredentials) -> Success[WebSession]:
 async def fetch_many(
     page: int = 1,
     page_size: int = 50,
-) -> Success[list[WebSession]]:
+) -> Success[list[APIv1WebSession]]:
     data = await web_sessions.fetch_many(
         page=page,
         page_size=page_size,
@@ -80,7 +80,7 @@ async def fetch_many(
             status_code=status_code,
         )
 
-    resp = [WebSession.parse_obj(rec) for rec in data]
+    resp = [APIv1WebSession.parse_obj(rec) for rec in data]
     return responses.success(
         content=resp,
         meta={
@@ -92,7 +92,7 @@ async def fetch_many(
 
 
 @router.get("/v1/web_sessions/{web_session_id}")
-async def fetch_one(web_session_id: UUID) -> Success[WebSession]:
+async def fetch_one(web_session_id: UUID) -> Success[APIv1WebSession]:
     data = await web_sessions.fetch_by_id(web_session_id)
     if isinstance(data, ServiceError):
         status_code = determine_status_code(data)
@@ -102,13 +102,13 @@ async def fetch_one(web_session_id: UUID) -> Success[WebSession]:
             status_code=status_code,
         )
 
-    resp = WebSession.parse_obj(data)
+    resp = APIv1WebSession.parse_obj(data)
     return responses.success(content=resp)
 
 
 @router.delete("/v1/web_sessions")
 async def delete_one(
-    current_web_session: InternalWebSessionModel = Depends(http_bearer_authentication),
+    current_web_session: WebSession = Depends(http_bearer_authentication),
 ) -> Success[None]:
     data = await web_sessions.delete_by_id(
         web_session_id=current_web_session["web_session_id"],

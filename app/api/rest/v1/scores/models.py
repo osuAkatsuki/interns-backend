@@ -34,3 +34,7 @@ class Score(BaseModel):
     # client_anticheat_flags: int
     created_at: datetime
     updated_at: datetime
+
+    # beatmap attrs; here for convenience
+    beatmap_set_id: int
+    ranked_status: int
