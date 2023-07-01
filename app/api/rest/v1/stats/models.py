@@ -23,3 +23,7 @@ class Stats(BaseModel):
     sh_count: int
     s_count: int
     a_count: int
+
+    # account info; here for convenience
+    username: str
+    country: str
