@@ -37,4 +37,15 @@ class Score(BaseModel):
 
     # beatmap attrs; here for convenience
     beatmap_set_id: int
-    ranked_status: int
+    beatmap_ranked_status: int
+    beatmap_artist: str
+    beatmap_title: str
+    beatmap_version: str
+    beatmap_creator: str
+    beatmap_max_combo: int
+    beatmap_bpm: float
+    beatmap_cs: float
+    beatmap_ar: float
+    beatmap_od: float
+    beatmap_hp: float
+    beatmap_star_rating: float

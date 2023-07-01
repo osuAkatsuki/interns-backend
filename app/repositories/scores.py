@@ -31,8 +31,19 @@ READ_PARAMS = """\
     s.created_at,
     s.updated_at,
 
-    b.beatmap_set_id,
-    b.ranked_status
+    b.beatmap_set_id AS beatmap_set_id,
+    b.ranked_status AS beatmap_ranked_status,
+    b.artist AS beatmap_artist,
+    b.title AS beatmap_title,
+    b.version AS beatmap_version,
+    b.creator AS beatmap_creator,
+    b.max_combo AS beatmap_max_combo,
+    b.bpm AS beatmap_bpm,
+    b.cs AS beatmap_cs,
+    b.ar AS beatmap_ar,
+    b.od AS beatmap_od,
+    b.hp AS beatmap_hp,
+    b.star_rating AS beatmap_star_rating
 """
 
 
@@ -71,7 +82,18 @@ class Score(TypedDict):
 
     # beatmap attrs; here for convenience
     beatmap_set_id: int
-    ranked_status: int
+    beatmap_ranked_status: int
+    beatmap_artist: str
+    beatmap_title: str
+    beatmap_version: str
+    beatmap_creator: str
+    beatmap_max_combo: int
+    beatmap_bpm: float
+    beatmap_cs: float
+    beatmap_ar: float
+    beatmap_od: float
+    beatmap_hp: float
+    beatmap_star_rating: float
 
 
 def deserialize(score: dict) -> Score:
@@ -103,7 +125,18 @@ def deserialize(score: dict) -> Score:
         "updated_at": score["updated_at"],
         # beatmap attrs; here for convenience
         "beatmap_set_id": score["beatmap_set_id"],
-        "ranked_status": score["ranked_status"],
+        "beatmap_ranked_status": score["beatmap_ranked_status"],
+        "beatmap_artist": score["beatmap_artist"],
+        "beatmap_title": score["beatmap_title"],
+        "beatmap_version": score["beatmap_version"],
+        "beatmap_creator": score["beatmap_creator"],
+        "beatmap_max_combo": score["beatmap_max_combo"],
+        "beatmap_bpm": score["beatmap_bpm"],
+        "beatmap_cs": score["beatmap_cs"],
+        "beatmap_ar": score["beatmap_ar"],
+        "beatmap_od": score["beatmap_od"],
+        "beatmap_hp": score["beatmap_hp"],
+        "beatmap_star_rating": score["beatmap_star_rating"],
     }
 
 
@@ -136,7 +169,18 @@ def serialize(score: Score) -> dict:
         "updated_at": score["updated_at"],
         # beatmap attrs; here for convenience
         "beatmap_set_id": score["beatmap_set_id"],
-        "ranked_status": score["ranked_status"],
+        "beatmap_ranked_status": score["beatmap_ranked_status"],
+        "beatmap_artist": score["beatmap_artist"],
+        "beatmap_title": score["beatmap_title"],
+        "beatmap_version": score["beatmap_version"],
+        "beatmap_creator": score["beatmap_creator"],
+        "beatmap_max_combo": score["beatmap_max_combo"],
+        "beatmap_bpm": score["beatmap_bpm"],
+        "beatmap_cs": score["beatmap_cs"],
+        "beatmap_ar": score["beatmap_ar"],
+        "beatmap_od": score["beatmap_od"],
+        "beatmap_hp": score["beatmap_hp"],
+        "beatmap_star_rating": score["beatmap_star_rating"],
     }
 
 
@@ -307,6 +351,7 @@ async def fetch_total_count(
     submission_statuses: list[int] | None = None,
     friends: list[int] | None = None,
     beatmap_ranked_status: int | None = None,
+    beatmap_set_id: int | None = None,
 ) -> int:
     query = f"""\
         SELECT COUNT(*) AS count
@@ -320,6 +365,7 @@ async def fetch_total_count(
         AND s.game_mode = COALESCE(:game_mode, s.game_mode)
         AND s.mods = COALESCE(:mods, s.mods)
         AND b.ranked_status = COALESCE(:beatmap_ranked_status, b.ranked_status)
+        AND b.beatmap_set_id = COALESCE(:beatmap_set_id, b.beatmap_set_id)
     """
     values = {
         "beatmap_md5": beatmap_md5,
@@ -330,6 +376,7 @@ async def fetch_total_count(
         "game_mode": game_mode,
         "mods": mods,
         "beatmap_ranked_status": beatmap_ranked_status,
+        "beatmap_set_id": beatmap_set_id,
     }
 
     if submission_statuses is not None:
@@ -361,6 +408,7 @@ async def fetch_best_for_each_account(
     mods: int | None = None,
     friends: list[int] | None = None,
     beatmap_ranked_status: int | None = None,
+    beatmap_set_id: int | None = None,
     sort_by: Literal[
         "score",
         "performance_points",
@@ -393,6 +441,7 @@ async def fetch_best_for_each_account(
             AND s.game_mode = COALESCE(:game_mode, s.game_mode)
             AND s.mods = COALESCE(:mods, s.mods)
             AND b.ranked_status = COALESCE(:beatmap_ranked_status, b.ranked_status)
+            AND b.beatmap_set_id = COALESCE(:beatmap_set_id, b.beatmap_set_id)
     """
     values = {
         "beatmap_md5": beatmap_md5,
@@ -403,6 +452,7 @@ async def fetch_best_for_each_account(
         "game_mode": game_mode,
         "mods": mods,
         "beatmap_ranked_status": beatmap_ranked_status,
+        "beatmap_set_id": beatmap_set_id,
     }
 
     if submission_statuses is not None:
