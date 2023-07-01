@@ -150,7 +150,7 @@ async def fetch_all(
         query=f"""
             SELECT {READ_PARAMS}
               FROM stats s
-         LEFT JOIN accounts a ON s.account_id = a.accounts_id
+         LEFT JOIN accounts a ON s.account_id = a.account_id
              WHERE s.account_id = COALESCE(:account_id, s.account_id)
                AND s.game_mode = COALESCE(:game_mode, s.game_mode)
         """,
@@ -256,7 +256,7 @@ async def fetch_one(account_id: int, game_mode: int) -> Stats | None:
         query=f"""\
             SELECT {READ_PARAMS}
               FROM stats s
-         LEFT JOIN accounts a ON s.account_id = a.accounts_id
+         LEFT JOIN accounts a ON s.account_id = a.account_id
              WHERE s.account_id = :account_id
                AND s.game_mode = :game_mode
         """,
@@ -318,7 +318,7 @@ async def partial_update(
             UPDATE stats s
                SET {",".join(f"{k} = :{k}" for k in update_fields)}
               FROM accounts a
-             WHERE s.account_id = a.accounts_id
+             WHERE s.account_id = a.account_id
                AND s.account_id = :account_id
                AND s.game_mode = :game_mode
          RETURNING {READ_PARAMS}
