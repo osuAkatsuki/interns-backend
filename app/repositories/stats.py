@@ -6,22 +6,25 @@ from app._typing import UNSET
 from app._typing import Unset
 
 READ_PARAMS = """\
-    account_id,
-    game_mode,
-    total_score,
-    ranked_score,
-    performance_points,
-    play_count,
-    play_time,
-    accuracy,
-    highest_combo,
-    total_hits,
-    replay_views,
-    xh_count,
-    x_count,
-    sh_count,
-    s_count,
-    a_count
+    s.account_id,
+    s.game_mode,
+    s.total_score,
+    s.ranked_score,
+    s.performance_points,
+    s.play_count,
+    s.play_time,
+    s.accuracy,
+    s.highest_combo,
+    s.total_hits,
+    s.replay_views,
+    s.xh_count,
+    s.x_count,
+    s.sh_count,
+    s.s_count,
+    s.a_count,
+
+    -- account fields for convenience
+    a.username
 """
 
 
@@ -44,6 +47,9 @@ class Stats(TypedDict):
     a_count: int
 
     # TODO: track updated_at?
+
+    # account fields for convenience
+    username: str
 
 
 class StatsUpdateFields(TypedDict, total=False):
@@ -81,6 +87,7 @@ def serialize(stats: Stats) -> dict:
         "sh_count": stats["sh_count"],
         "s_count": stats["s_count"],
         "a_count": stats["a_count"],
+        "username": stats["username"],
     }
 
 
@@ -102,15 +109,21 @@ def deserialize(stats: dict) -> Stats:
         "sh_count": stats["sh_count"],
         "s_count": stats["s_count"],
         "a_count": stats["a_count"],
+        "username": stats["username"],
     }
 
 
 async def create(account_id: int, game_mode: int) -> Stats:
     stats = await clients.database.fetch_one(
         query=f"""\
-            INSERT INTO stats (account_id, game_mode)
-            VALUES (:account_id, :game_mode)
-            RETURNING {READ_PARAMS}
+            WITH inserted AS (
+                INSERT INTO stats (account_id, game_mode)
+                VALUES (:account_id, :game_mode)
+                RETURNING *
+            )
+            SELECT {READ_PARAMS}
+              FROM inserted s
+         LEFT JOIN accounts a ON s.account_id = a.account_id
         """,
         values={
             "account_id": account_id,
@@ -132,9 +145,10 @@ async def fetch_all(
     all_stats = await clients.database.fetch_all(
         query=f"""
             SELECT {READ_PARAMS}
-            FROM stats
-            WHERE account_id = COALESCE(:account_id, account_id)
-            AND game_mode = COALESCE(:game_mode, game_mode)
+              FROM stats s
+         LEFT JOIN accounts a ON s.account_id = a.accounts_id
+             WHERE s.account_id = COALESCE(:account_id, s.account_id)
+               AND s.game_mode = COALESCE(:game_mode, s.game_mode)
         """,
         values={
             "account_id": account_id,
@@ -194,11 +208,12 @@ async def fetch_many(
     all_stats = await clients.database.fetch_all(
         query=f"""
             SELECT {READ_PARAMS}
-            FROM stats
-            WHERE account_id = COALESCE(:account_id, account_id)
-            AND game_mode = COALESCE(:game_mode, game_mode)
-            ORDER BY {sort_by} {sort_order}
-            LIMIT :limit
+              FROM stats s
+         LEFT JOIN accounts a ON s.account_id = a.account_id
+             WHERE s.account_id = COALESCE(:account_id, s.account_id)
+               AND s.game_mode = COALESCE(:game_mode, s.game_mode)
+             ORDER BY s.{sort_by} {sort_order}
+             LIMIT :limit
             OFFSET :offset
         """,
         values={
@@ -218,9 +233,10 @@ async def fetch_total_count(
     rec = await clients.database.fetch_one(
         query=f"""
             SELECT COUNT(*) AS count
-            FROM stats
-            WHERE account_id = COALESCE(:account_id, account_id)
-            AND game_mode = COALESCE(:game_mode, game_mode)
+              FROM stats s
+         LEFT JOIN accounts a ON s.account_id = a.account_id
+             WHERE s.account_id = COALESCE(:account_id, s.account_id)
+               AND s.game_mode = COALESCE(:game_mode, s.game_mode)
         """,
         values={
             "account_id": account_id,
@@ -235,9 +251,10 @@ async def fetch_one(account_id: int, game_mode: int) -> Stats | None:
     stats = await clients.database.fetch_one(
         query=f"""\
             SELECT {READ_PARAMS}
-            FROM stats
-            WHERE account_id = :account_id
-            AND game_mode = :game_mode
+              FROM stats s
+         LEFT JOIN accounts a ON s.account_id = a.accounts_id
+             WHERE s.account_id = :account_id
+               AND s.game_mode = :game_mode
         """,
         values={"account_id": account_id, "game_mode": game_mode},
     )
@@ -294,9 +311,12 @@ async def partial_update(
 
     stats = await clients.database.fetch_one(
         query=f"""\
-            UPDATE stats
+            UPDATE stats s
                SET {",".join(f"{k} = :{k}" for k in update_fields)}
-             WHERE account_id = :account_id
+              FROM accounts a
+         LEFT JOIN accounts a ON s.account_id = a.accounts_id
+             WHERE a.account_id = s.account_id
+               AND account_id = :account_id
                AND game_mode = :game_mode
          RETURNING {READ_PARAMS}
         """,
