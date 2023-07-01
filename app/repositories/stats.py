@@ -314,7 +314,7 @@ async def partial_update(
             UPDATE stats s
                SET {",".join(f"{k} = :{k}" for k in update_fields)}
               FROM accounts a
-         LEFT JOIN accounts a ON s.account_id = a.accounts_id
+         LEFT JOIN accounts a ON s.account_id = a.account_id
              WHERE s.account_id = :account_id
                AND s.game_mode = :game_mode
          RETURNING {READ_PARAMS}
