@@ -30,6 +30,7 @@ async def create(
     if not validation.validate_password(password):
         return ServiceError.ACCOUNTS_PASSWORD_INVALID
 
+    country = country.upper()  # "ca" -> "CA"
     if not validation.validate_country(country):
         return ServiceError.ACCOUNTS_COUNTRY_INVALID
 

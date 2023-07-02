@@ -92,9 +92,9 @@ async def main() -> int:
         break
 
     while True:
-        country = input("Country: ")
+        country = input("Country: ").upper()
 
-        if geolocation.COUNTRY_STR_TO_INT.get(country.lower()) is None:
+        if geolocation.COUNTRY_STR_TO_INT.get(country) is None:
             print("Invalid Country! Retry!")
         else:
             break
@@ -113,7 +113,7 @@ async def main() -> int:
                 "email_address": email_address,
                 "privileges": privileges,
                 "password": password,
-                "country": country.upper(),
+                "country": country,
             },
         )
         for game_mode in [
