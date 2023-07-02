@@ -10,6 +10,7 @@ from pydantic import BaseModel
 class APIv1LoginCredentials(BaseModel):
     username: str
     password: str
+    recaptcha_token: str
 
 
 # output models

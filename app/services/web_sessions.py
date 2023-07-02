@@ -7,6 +7,7 @@ from app import logger
 from app import security
 from app._typing import UNSET
 from app._typing import Unset
+from app.adapters import recaptcha
 from app.errors import ServiceError
 from app.repositories import accounts
 from app.repositories import web_sessions
@@ -16,9 +17,13 @@ from app.repositories.web_sessions import WebSession
 async def authenticate(
     username: str,
     password: str,
+    recaptcha_token: str,
 ) -> WebSession | ServiceError:
     session_id = uuid.uuid4()
     try:
+        if not await recaptcha.verify_recaptcha(recaptcha_token):
+            return ServiceError.RECAPTCHA_VERIFICATION_FAILED
+
         account = await accounts.fetch_by_username(username)
         if account is None:
             return ServiceError.CREDENTIALS_NOT_FOUND
