@@ -18,6 +18,9 @@ async def create(
     country: str,
     recaptcha_token: str,
 ) -> Account | ServiceError:
+    if not await recaptcha.verify_recaptcha(recaptcha_token):
+        return ServiceError.RECAPTCHA_VERIFICATION_FAILED
+
     if not validation.validate_username(username):
         return ServiceError.ACCOUNTS_USERNAME_INVALID
 
@@ -29,9 +32,6 @@ async def create(
 
     if not validation.validate_country(country):
         return ServiceError.ACCOUNTS_COUNTRY_INVALID
-
-    if not await recaptcha.verify_recaptcha(recaptcha_token):
-        return ServiceError.RECAPTCHA_VERIFICATION_FAILED
 
     try:
         account = await accounts.create(
