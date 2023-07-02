@@ -7,7 +7,9 @@ from app._typing import UNSET
 from app._typing import Unset
 from app.adapters import recaptcha
 from app.errors import ServiceError
+from app.game_modes import GameMode
 from app.repositories import accounts
+from app.repositories import stats
 from app.repositories.accounts import Account
 
 
@@ -44,6 +46,19 @@ async def create(
             privileges=privileges,
             country=country,
         )
+
+        for game_mode in [
+            GameMode.VN_OSU,
+            GameMode.VN_TAIKO,
+            GameMode.VN_CATCH,
+            GameMode.VN_MANIA,
+            GameMode.RX_OSU,
+            GameMode.RX_TAIKO,
+            GameMode.RX_CATCH,
+            GameMode.AP_OSU,
+        ]:
+            await stats.create(account["account_id"], game_mode)
+
     except Exception as exc:  # pragma: no cover
         logger.error("Failed to create account", exc_info=exc)
         return ServiceError.INTERNAL_SERVER_ERROR
