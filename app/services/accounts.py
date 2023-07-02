@@ -69,6 +69,13 @@ async def create(
         logger.error("Failed to create account", exc_info=exc)
         return ServiceError.INTERNAL_SERVER_ERROR
 
+    logger.info(
+        "Successfully created an account",
+        account_id=account["account_id"],
+        username=username,
+        country=country,
+    )
+
     return account
 
 
