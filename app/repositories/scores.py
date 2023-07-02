@@ -223,6 +223,7 @@ async def create(
                         :num_misses, :num_gekis, :num_katus, :grade,
                         :submission_status, :game_mode, :country,
                         :time_elapsed, :client_anticheat_flags, :client_anticheat_token)
+             RETURNING *
             )
             SELECT {READ_PARAMS}
               FROM inserted s
