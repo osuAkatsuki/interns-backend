@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from app import logger
+from app import security
 from app import validation
 from app._typing import UNSET
 from app._typing import Unset
@@ -35,10 +36,11 @@ async def create(
         return ServiceError.ACCOUNTS_COUNTRY_INVALID
 
     try:
+        hashed_password = security.hash_password(password).decode()
         account = await accounts.create(
             username=username,
             email_address=email_address,
-            password=password,
+            password=hashed_password,
             privileges=privileges,
             country=country,
         )
