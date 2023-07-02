@@ -3,6 +3,7 @@ from enum import Enum
 
 class ServiceError(str, Enum):
     INTERNAL_SERVER_ERROR = "global.internal_server_error"
+    RECAPTCHA_VERIFICATION_FAILED = "global.recaptcha_verification_failed"
 
     ACCOUNTS_NOT_FOUND = "accounts.not_found"
     ACCOUNTS_USERNAME_INVALID = "accounts.username_invalid"
