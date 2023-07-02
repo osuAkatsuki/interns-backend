@@ -49,8 +49,10 @@ async def create(
 ) -> Account:
     account = await clients.database.fetch_one(
         query=f"""\
-            INSERT INTO accounts (username, email_address, password, privileges, country)
-            VALUES (:username, :email_address, :password, :privileges, :country)
+            INSERT INTO accounts (username, email_address, password, privileges, country,
+                                  created_at, updated_at)
+            VALUES (:username, :email_address, :password, :privileges, :country,
+                    NOW(), NOW())
             RETURNING {READ_PARAMS}
         """,
         values={
