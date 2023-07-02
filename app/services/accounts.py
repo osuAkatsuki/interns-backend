@@ -37,6 +37,12 @@ async def create(
     if not validation.validate_country(country):
         return ServiceError.ACCOUNTS_COUNTRY_INVALID
 
+    if await accounts.fetch_by_username(username):
+        return ServiceError.ACCOUNTS_USERNAME_EXISTS
+
+    if await accounts.fetch_by_email_address(email_address):
+        return ServiceError.ACCOUNTS_EMAIL_ADDRESS_EXISTS
+
     try:
         hashed_password = security.hash_password(password).decode()
         account = await accounts.create(

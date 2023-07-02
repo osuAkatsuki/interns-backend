@@ -23,12 +23,16 @@ def determine_status_code(error: ServiceError) -> int:
             return status.HTTP_422_UNPROCESSABLE_ENTITY
         case ServiceError.ACCOUNTS_USERNAME_INVALID:
             return status.HTTP_422_UNPROCESSABLE_ENTITY
-        case ServiceError.INTERNAL_SERVER_ERROR:
-            return status.HTTP_500_INTERNAL_SERVER_ERROR
+        case ServiceError.ACCOUNTS_USERNAME_EXISTS:
+            return status.HTTP_409_CONFLICT
+        case ServiceError.ACCOUNTS_EMAIL_ADDRESS_EXISTS:
+            return status.HTTP_409_CONFLICT
         case ServiceError.ACCOUNTS_NOT_FOUND:
             return status.HTTP_404_NOT_FOUND
         case ServiceError.RECAPTCHA_VERIFICATION_FAILED:
             return status.HTTP_400_BAD_REQUEST
+        case ServiceError.INTERNAL_SERVER_ERROR:
+            return status.HTTP_500_INTERNAL_SERVER_ERROR
         case _:
             logger.warning(
                 "Unhandled error code in accounts rest api controller",

@@ -131,6 +131,18 @@ async def fetch_by_username(username: str) -> Account | None:
     return cast(Account, account) if account is not None else None
 
 
+async def fetch_by_email_address(email_address: str) -> Account | None:
+    account = await clients.database.fetch_one(
+        query=f"""\
+            SELECT {READ_PARAMS}
+            FROM accounts
+            WHERE email_address = :email_address
+        """,
+        values={"email_address": email_address},
+    )
+    return cast(Account, account) if account is not None else None
+
+
 async def partial_update(
     account_id: int,
     username: str | Unset = UNSET,
