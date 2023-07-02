@@ -28,6 +28,8 @@ def determine_status_code(error: ServiceError) -> int:
             return status.HTTP_401_UNAUTHORIZED
         case (ServiceError.INTERNAL_SERVER_ERROR):
             return status.HTTP_500_INTERNAL_SERVER_ERROR
+        case ServiceError.RECAPTCHA_VERIFICATION_FAILED:
+            return status.HTTP_400_BAD_REQUEST
         case _:
             logger.warning(
                 "Unhandled error code in web sessions rest api controller",
@@ -41,6 +43,7 @@ async def authenticate(credentials: APIv1LoginCredentials) -> Success[APIv1WebSe
     data = await web_sessions.authenticate(
         username=credentials.username,
         password=credentials.password,
+        recaptcha_token=credentials.recaptcha_token,
     )
     if isinstance(data, ServiceError):
         status_code = determine_status_code(data)

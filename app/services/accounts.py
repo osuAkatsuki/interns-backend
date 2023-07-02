@@ -4,6 +4,7 @@ from app import logger
 from app import validation
 from app._typing import UNSET
 from app._typing import Unset
+from app.adapters import recaptcha
 from app.errors import ServiceError
 from app.repositories import accounts
 from app.repositories.accounts import Account
@@ -15,7 +16,11 @@ async def create(
     privileges: int,
     password: str,
     country: str,
+    recaptcha_token: str,
 ) -> Account | ServiceError:
+    if not await recaptcha.verify_recaptcha(recaptcha_token):
+        return ServiceError.RECAPTCHA_VERIFICATION_FAILED
+
     if not validation.validate_username(username):
         return ServiceError.ACCOUNTS_USERNAME_INVALID
 
