@@ -210,19 +210,23 @@ async def create(
 ) -> Score:
     _score = await clients.database.fetch_one(
         query=f"""
-            INSERT INTO scores (account_id, online_checksum, beatmap_md5, score,
-                                performance_points, accuracy, highest_combo,
-                                full_combo, mods, num_300s, num_100s, num_50s,
-                                num_misses, num_gekis, num_katus, grade,
-                                submission_status, game_mode, country,
-                                time_elapsed, client_anticheat_flags, client_anticheat_token)
-            VALUES (:account_id, :online_checksum, :beatmap_md5, :score,
-                    :performance_points, :accuracy, :highest_combo,
-                    :full_combo, :mods, :num_300s, :num_100s, :num_50s,
-                    :num_misses, :num_gekis, :num_katus, :grade,
-                    :submission_status, :game_mode, :country,
-                    :time_elapsed, :client_anticheat_flags, :client_anticheat_token)
-            RETURNING {READ_PARAMS}
+            WITH inserted AS (
+                INSERT INTO scores (account_id, online_checksum, beatmap_md5, score,
+                                    performance_points, accuracy, highest_combo,
+                                    full_combo, mods, num_300s, num_100s, num_50s,
+                                    num_misses, num_gekis, num_katus, grade,
+                                    submission_status, game_mode, country,
+                                    time_elapsed, client_anticheat_flags, client_anticheat_token)
+                VALUES (:account_id, :online_checksum, :beatmap_md5, :score,
+                        :performance_points, :accuracy, :highest_combo,
+                        :full_combo, :mods, :num_300s, :num_100s, :num_50s,
+                        :num_misses, :num_gekis, :num_katus, :grade,
+                        :submission_status, :game_mode, :country,
+                        :time_elapsed, :client_anticheat_flags, :client_anticheat_token)
+            )
+            SELECT {READ_PARAMS}
+              FROM inserted s
+         LEFT JOIN beatmaps b ON s.beatmap_md5 = b.beatmap_md5
         """,
         values={
             "account_id": account_id,
@@ -490,8 +494,9 @@ async def fetch_one_by_id(score_id: int) -> Score | None:
     score = await clients.database.fetch_one(
         query=f"""\
             SELECT {READ_PARAMS}
-            FROM scores
-            WHERE score_id = :score_id
+              FROM scores s
+         LEFT JOIN beatmaps b ON s.beatmap_md5 = b.beatmap_md5
+             WHERE score_id = :score_id
         """,
         values={
             "score_id": score_id,
@@ -525,7 +530,7 @@ async def partial_update(
 ) -> Score | None:
     _score = await clients.database.fetch_one(
         query=f"""
-            UPDATE scores
+            UPDATE scores s
             SET score = COALESCE(:score, score),
                 performance_points = COALESCE(:performance_points, performance_points),
                 accuracy = COALESCE(:accuracy, accuracy),
@@ -545,8 +550,10 @@ async def partial_update(
                 time_elapsed = COALESCE(:time_elapsed, time_elapsed),
                 client_anticheat_flags = COALESCE(:client_anticheat_flags, client_anticheat_flags),
                 client_anticheat_token = COALESCE(:client_anticheat_token, client_anticheat_token)
-            WHERE score_id = :score_id
-            RETURNING {READ_PARAMS}
+           FROM beatmaps b
+          WHERE s.beatmap_md5 = b.beatmap_md5
+            AND score_id = :score_id
+      RETURNING {READ_PARAMS}
         """,
         values={
             "score_id": score_id,
