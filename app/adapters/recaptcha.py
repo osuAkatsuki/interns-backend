@@ -12,6 +12,8 @@ async def verify_recaptcha(recaptcha_token: str) -> bool:
         },
     )
     response.raise_for_status()
+
+    # {'success': True, 'challenge_ts': '2023-07-02T06:48:15Z', 'hostname': 'localhost'}
     response_data = response.json()
     if not isinstance(response_data, dict):
         raise ValueError("Invalid response from recaptcha")
