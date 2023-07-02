@@ -65,6 +65,7 @@ services:
       - S3_BUCKET_REGION=${S3_BUCKET_REGION}
       - S3_BUCKET_NAME=${S3_BUCKET_NAME}
       - S3_ENDPOINT_URL=${S3_ENDPOINT_URL}
+      - RECAPTCHA_SECRET_KEY=${RECAPTCHA_SECRET_KEY}
     volumes:
       - .:/srv/root
       - ./scripts:/scripts
