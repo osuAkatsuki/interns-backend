@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - all-origins-cors
+      - recaptcha
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
