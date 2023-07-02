@@ -38,4 +38,4 @@ COUNTRY_STR_TO_INT = {
 
 # TODO: more formal/correct naming
 def country_str_to_int(value: str) -> int:
-    return COUNTRY_STR_TO_INT[value.lower()]
+    return COUNTRY_STR_TO_INT[value]
