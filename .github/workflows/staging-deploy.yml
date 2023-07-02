@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - all-origins-cors
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
