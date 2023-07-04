@@ -2,9 +2,11 @@ from datetime import datetime
 
 from app import logger
 from app import security
+from app import settings
 from app import validation
 from app._typing import UNSET
 from app._typing import Unset
+from app.adapters import ip_geolocation
 from app.adapters import recaptcha
 from app.errors import ServiceError
 from app.game_modes import GameMode
@@ -18,7 +20,9 @@ async def create(
     email_address: str,
     privileges: int,
     password: str,
-    country: str,
+    cf_ipcountry: str | None,
+    cf_connecting_ip: str | None,
+    x_forwarded_for: str | None,
     recaptcha_token: str,
 ) -> Account | ServiceError:
     if not await recaptcha.verify_recaptcha(recaptcha_token):
@@ -33,9 +37,43 @@ async def create(
     if not validation.validate_password(password):
         return ServiceError.ACCOUNTS_PASSWORD_INVALID
 
+    if settings.APP_ENV not in ("staging", "production"):
+        country = "US"  # XXX:HACK for development purposes
+    else:
+        if cf_ipcountry is not None:
+            # use cloudflare geolocation headers
+            country = cf_ipcountry
+        else:
+            # resolve country from ip address
+            ip_address = None
+
+            # use cloudflare origin ip header
+            if cf_connecting_ip is not None:
+                ip_address = cf_connecting_ip
+
+            # use x-forwarded-for header
+            elif x_forwarded_for is not None:
+                forwards = x_forwarded_for.split(",")
+                if len(forwards) > 0:
+                    # use the origin ip address
+                    ip_address = forwards[0].strip()
+
+            if ip_address is None:
+                # client gave us no way to determine country
+                return ServiceError.INTERNAL_SERVER_ERROR
+
+            geolocation = await ip_geolocation.get_geolocation(ip_address)
+            if geolocation is None:
+                return ServiceError.INTERNAL_SERVER_ERROR
+
+            country = geolocation.country_code
+
     country = country.upper()  # "ca" -> "CA"
+
     if not validation.validate_country(country):
-        return ServiceError.ACCOUNTS_COUNTRY_INVALID
+        # If this is hit, something is probably wrong
+        logger.warning("Invalid country code", country=country)
+        return ServiceError.INTERNAL_SERVER_ERROR
 
     if await accounts.fetch_by_username(username):
         return ServiceError.ACCOUNTS_USERNAME_EXISTS

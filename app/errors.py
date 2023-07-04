@@ -2,8 +2,8 @@ from enum import Enum
 
 
 class ServiceError(str, Enum):
-    INTERNAL_SERVER_ERROR = "global.internal_server_error"
-    RECAPTCHA_VERIFICATION_FAILED = "global.recaptcha_verification_failed"
+    INTERNAL_SERVER_ERROR = "internal_server_error"
+    RECAPTCHA_VERIFICATION_FAILED = "recaptcha_verification_failed"
 
     ACCOUNTS_NOT_FOUND = "accounts.not_found"
     ACCOUNTS_USERNAME_INVALID = "accounts.username_invalid"
@@ -11,7 +11,6 @@ class ServiceError(str, Enum):
     ACCOUNTS_EMAIL_ADDRESS_INVALID = "accounts.email_address_invalid"
     ACCOUNTS_EMAIL_ADDRESS_EXISTS = "accounts.email_address_exists"
     ACCOUNTS_USERNAME_EXISTS = "accounts.username_exists"
-    ACCOUNTS_COUNTRY_INVALID = "accounts.country_invalid"
 
     OSU_SESSIONS_NOT_FOUND = "osu_sessions.not_found"
 
