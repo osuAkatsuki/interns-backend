@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+from fastapi import Header
 from fastapi import status
 
 from app import logger
@@ -9,6 +10,7 @@ from app.api.rest.v1.accounts.models import AccountInput
 from app.errors import ServiceError
 from app.privileges import ServerPrivileges
 from app.services import accounts
+
 
 router = APIRouter()
 
@@ -44,13 +46,18 @@ def determine_status_code(error: ServiceError) -> int:
 @router.post("/v1/accounts")
 async def create(
     args: AccountInput,
+    cf_ipcountry: str | None = Header(None, alias="cf-ipcountry"),
+    cf_connecting_ip: str | None = Header(None, alias="cf-connecting-ip"),
+    x_forwarded_for: str | None = Header(None, alias="x-forwarded-for"),
 ) -> Success[Account]:
     data = await accounts.create(
         username=args.username,
         email_address=args.email_address,
         password=args.password,
         privileges=ServerPrivileges.UNRESTRICTED,
-        country=args.country,
+        cf_ipcountry=cf_ipcountry,
+        cf_connecting_ip=cf_connecting_ip,
+        x_forwarded_for=x_forwarded_for,
         recaptcha_token=args.recaptcha_token,
     )
     if isinstance(data, ServiceError):

@@ -10,7 +10,6 @@ class AccountInput(BaseModel):
     username: str
     email_address: str
     password: str
-    country: str
     recaptcha_token: str
 
 
