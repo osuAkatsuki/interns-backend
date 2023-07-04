@@ -17,6 +17,8 @@ router = APIRouter()
 
 def determine_status_code(error: ServiceError) -> int:
     match error:
+        case ServiceError.ACCOUNTS_COUNTRY_INVALID:
+            return status.HTTP_422_UNPROCESSABLE_ENTITY
         case ServiceError.ACCOUNTS_EMAIL_ADDRESS_INVALID:
             return status.HTTP_422_UNPROCESSABLE_ENTITY
         case ServiceError.ACCOUNTS_PASSWORD_INVALID:
