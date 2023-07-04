@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - dynamic-country-resolution
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
