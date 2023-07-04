@@ -1,7 +1,11 @@
 from fastapi import APIRouter
+from fastapi import Depends
+from fastapi import Header
+from fastapi import HTTPException
 from fastapi import status
 
 from app import logger
+from app import settings
 from app.api.rest import responses
 from app.api.rest.responses import Success
 from app.api.rest.v1.accounts.models import Account
@@ -9,6 +13,7 @@ from app.api.rest.v1.accounts.models import AccountInput
 from app.errors import ServiceError
 from app.privileges import ServerPrivileges
 from app.services import accounts
+
 
 router = APIRouter()
 
@@ -41,16 +46,41 @@ def determine_status_code(error: ServiceError) -> int:
             return status.HTTP_500_INTERNAL_SERVER_ERROR
 
 
+def resolve_country_from_headers(
+    cf_ipcountry: str | None = Header(None, alias="cf-ipcountry"),
+    cf_connecting_ip: str | None = Header(None, alias="cf-connecting-ip"),
+    x_forwarded_for: str | None = Header(None, alias="x-forwarded-for"),
+):
+    if settings.APP_ENV not in ("staging", "production"):
+        return "US"  # XXX:HACK for development purposes
+
+    if cf_ipcountry is not None:
+        return cf_ipcountry
+    elif cf_connecting_ip is not None:
+        return cf_connecting_ip
+    elif x_forwarded_for is not None:
+        forwards = x_forwarded_for.split(",")
+        if len(forwards) > 0:
+            # use the origin ip address
+            return forwards[0].strip()
+
+    raise HTTPException(
+        status_code=400,
+        detail="Must provide additional geolocation information",
+    )
+
+
 @router.post("/v1/accounts")
 async def create(
     args: AccountInput,
+    country: str = Depends(resolve_country_from_headers),
 ) -> Success[Account]:
     data = await accounts.create(
         username=args.username,
         email_address=args.email_address,
         password=args.password,
         privileges=ServerPrivileges.UNRESTRICTED,
-        country=args.country,
+        country=country,
         recaptcha_token=args.recaptcha_token,
     )
     if isinstance(data, ServiceError):
