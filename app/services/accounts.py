@@ -60,11 +60,11 @@ async def create(
 
             if ip_address is None:
                 # client gave us no way to determine country
-                return ServiceError.INTERNAL_SERVER_ERROR
+                return ServiceError.ACCOUNTS_COUNTRY_INVALID
 
             geolocation = await ip_geolocation.get_geolocation(ip_address)
             if geolocation is None:
-                return ServiceError.INTERNAL_SERVER_ERROR
+                return ServiceError.ACCOUNTS_COUNTRY_INVALID
 
             country = geolocation.country_code
 
@@ -73,7 +73,7 @@ async def create(
     if not validation.validate_country(country):
         # If this is hit, something is probably wrong
         logger.warning("Invalid country code", country=country)
-        return ServiceError.INTERNAL_SERVER_ERROR
+        return ServiceError.ACCOUNTS_COUNTRY_INVALID
 
     if await accounts.fetch_by_username(username):
         return ServiceError.ACCOUNTS_USERNAME_EXISTS
