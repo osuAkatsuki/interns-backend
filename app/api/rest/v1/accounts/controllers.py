@@ -41,10 +41,17 @@ def determine_status_code(error: ServiceError) -> int:
             return status.HTTP_500_INTERNAL_SERVER_ERROR
 
 
+from fastapi import Request
+
+
 @router.post("/v1/accounts")
 async def create(
     args: AccountInput,
+    request: Request,
 ) -> Success[Account]:
+    from app import logger
+
+    logger.info("Headers for debugging", headers=dict(request.headers))
     data = await accounts.create(
         username=args.username,
         email_address=args.email_address,
