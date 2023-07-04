@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - ip-debugging
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
