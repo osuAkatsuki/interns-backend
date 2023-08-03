@@ -666,7 +666,7 @@ async def send_private_message_handler(osu_session: "OsuSession", packet_data: b
         if seconds_remaining > 0:
             logger.warning(
                 "A user attempted to send a message but they are silenced.",
-                user_id=osu_session["account_id"],
+                account_id=osu_session["account_id"],
                 silence_end=account["silence_end"],
             )
             return
@@ -1039,7 +1039,7 @@ async def create_match_handler(osu_session: "OsuSession", packet_data: bytes):
         logger.error(
             "Failed to create multiplayer match",
             error=match,
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
         )
         await packet_bundles.enqueue(
             osu_session["osu_session_id"],
@@ -1321,7 +1321,7 @@ async def part_match_handler(osu_session: "OsuSession", packet_data: bytes) -> N
         # NOTE: this typically happens when a osu_session is kicked from a match
         logger.warning(
             "A user attempted to leave their match but they don't have a slot.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
             match_id=match["match_id"],
         )
         return
@@ -1546,7 +1546,7 @@ async def match_ready_handler(osu_session: "OsuSession", packet_data: bytes):
     if match_id is None:
         logger.warning(
             "A user attempted to get ready but they are not in a match.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
         )
         return
 
@@ -1556,7 +1556,7 @@ async def match_ready_handler(osu_session: "OsuSession", packet_data: bytes):
     if not slot:
         logger.warning(
             "A user attempted to get ready but they don't have a slot.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
             match_id=match_id,
         )
         return
@@ -1564,7 +1564,7 @@ async def match_ready_handler(osu_session: "OsuSession", packet_data: bytes):
     if slot["status"] != SlotStatus.NOT_READY:
         logger.warning(
             "A user attempted to get ready but they are not allowed to.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
             match_id=match_id,
             slot_id=slot["slot_id"],
             slot_status=slot["status"],
@@ -1592,7 +1592,7 @@ async def match_lock_handler(osu_session: "OsuSession", packet_data: bytes):
     if match_id is None:
         logger.warning(
             "A user attempted to (un)lock a slot but they are not in a match.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
         )
         return
 
@@ -1600,7 +1600,7 @@ async def match_lock_handler(osu_session: "OsuSession", packet_data: bytes):
     if isinstance(match, ServiceError):
         logger.warning(
             "A user attempted to (un)lock a slot but their match doesn't exist.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
         )
         return
 
@@ -1608,7 +1608,7 @@ async def match_lock_handler(osu_session: "OsuSession", packet_data: bytes):
     if match["host_account_id"] != osu_session["account_id"]:
         logger.warning(
             "A user attempted to (un)lock a slot but they are not the host.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
             match_id=match_id,
             match_host=match["host_account_id"],
         )
@@ -1621,7 +1621,7 @@ async def match_lock_handler(osu_session: "OsuSession", packet_data: bytes):
     if not slot:
         logger.warning(
             "A user attempted to (un)lock a slot that does not exist.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
             match_id=match_id,
         )
         return
@@ -1631,7 +1631,7 @@ async def match_lock_handler(osu_session: "OsuSession", packet_data: bytes):
         if slot["account_id"] == osu_session["account_id"]:
             logger.warning(
                 "A user attempted to lock their own slot.",
-                user_id=osu_session["account_id"],
+                account_id=osu_session["account_id"],
                 match_id=match_id,
             )
             return
@@ -1706,7 +1706,7 @@ async def match_change_settings_handler(osu_session: "OsuSession", packet_data: 
     if match_id is None:
         logger.warning(
             "A user attempted to change match settings but they are not in a match.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
         )
         return
 
@@ -1714,7 +1714,7 @@ async def match_change_settings_handler(osu_session: "OsuSession", packet_data: 
     if isinstance(match, ServiceError):
         logger.warning(
             "A user attempted to change match settings but their match doesn't exist.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
         )
         return
 
@@ -1722,7 +1722,7 @@ async def match_change_settings_handler(osu_session: "OsuSession", packet_data: 
     if match["host_account_id"] != osu_session["account_id"]:
         logger.warning(
             "A user attempted to change match settings but they are not the host.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
             match_id=match_id,
             match_host=match["host_account_id"],
         )
@@ -1806,7 +1806,7 @@ async def match_change_settings_handler(osu_session: "OsuSession", packet_data: 
     del match_params["match_password"]
     logger.info(
         "User changed match settings.",
-        user_id=osu_session["account_id"],
+        account_id=osu_session["account_id"],
         match_id=match_id,
         **match_params,
     )
@@ -1821,7 +1821,7 @@ async def match_start_handler(osu_session: "OsuSession", packet_data: bytes):
     if not match_id:
         logger.warning(
             "A user attempted to start a match but they aren't in a match.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
         )
         return
 
@@ -1829,14 +1829,14 @@ async def match_start_handler(osu_session: "OsuSession", packet_data: bytes):
     if isinstance(match, ServiceError):
         logger.warning(
             "A user attempted to start a match but their match doesn't exist.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
         )
         return
 
     if match["host_account_id"] != osu_session["account_id"]:
         logger.warning(
             "A user attempted to start a match but they aren't the host.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
             match_id=match_id,
             match_host=match["host_account_id"],
         )
@@ -1900,7 +1900,7 @@ async def match_start_handler(osu_session: "OsuSession", packet_data: bytes):
 
     logger.info(
         "User started a multiplayer match.",
-        user_id=osu_session["account_id"],
+        account_id=osu_session["account_id"],
         match_id=match_id,
     )
 
@@ -1914,7 +1914,7 @@ async def match_score_update_handler(osu_session: "OsuSession", packet_data: byt
     if match_id is None:
         logger.warning(
             "A user sent a match score frame but they are not in a match.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
         )
         return
 
@@ -1922,7 +1922,7 @@ async def match_score_update_handler(osu_session: "OsuSession", packet_data: byt
     if isinstance(match, ServiceError):
         logger.warning(
             "A user sent a match score frame but their match doesn't exist.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
         )
         return
 
@@ -1932,7 +1932,7 @@ async def match_score_update_handler(osu_session: "OsuSession", packet_data: byt
     if not slot:
         logger.warning(
             "A user sent a match score frame but they don't have a slot.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
         )
         return
 
@@ -1955,7 +1955,7 @@ async def match_complete_handler(osu_session: "OsuSession", packet_data: bytes):
     if match_id is None:
         logger.warning(
             "A user attempted to tell us they completed but they are not in a match.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
         )
         return
 
@@ -1965,7 +1965,7 @@ async def match_complete_handler(osu_session: "OsuSession", packet_data: bytes):
     if not slot:
         logger.warning(
             "A user attempted to tell us they completed but they don't have a slot.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
             match_id=match_id,
         )
         return
@@ -2015,7 +2015,7 @@ async def match_change_mods_handler(osu_session: "OsuSession", packet_data: byte
     if not match_id:
         logger.warning(
             "A user attempted to change mods but they aren't in a match.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
         )
         return
 
@@ -2023,7 +2023,7 @@ async def match_change_mods_handler(osu_session: "OsuSession", packet_data: byte
     if isinstance(match, ServiceError):
         logger.warning(
             "A user attempted to change mods but their match doesn't exist.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
         )
         return
 
@@ -2053,7 +2053,7 @@ async def match_change_mods_handler(osu_session: "OsuSession", packet_data: byte
         if not slot:
             logger.warning(
                 "A user attempted to change mods but their slot doesn't exist.",
-                user_id=osu_session["account_id"],
+                account_id=osu_session["account_id"],
                 match_id=match_id,
             )
             return
@@ -2089,7 +2089,7 @@ async def match_change_mods_handler(osu_session: "OsuSession", packet_data: byte
     else:
         logger.warning(
             "A user attempted to change the match mods but they aren't allowed to.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
             match_id=match_id,
         )
         return
@@ -2098,7 +2098,7 @@ async def match_change_mods_handler(osu_session: "OsuSession", packet_data: byte
 
     logger.info(
         "User changed match mods.",
-        user_id=osu_session["account_id"],
+        account_id=osu_session["account_id"],
         match_id=match_id,
         mods=mods,
     )
@@ -2113,7 +2113,7 @@ async def match_load_complete_handler(osu_session: "OsuSession", packet_data: by
     if match_id is None:
         logger.warning(
             "A user attempted to tell us they have loaded but they are not in a match.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
         )
         return
 
@@ -2123,7 +2123,7 @@ async def match_load_complete_handler(osu_session: "OsuSession", packet_data: by
     if not slot:
         logger.warning(
             "A user attempted to tell us they have loaded but they don't have a slot.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
             match_id=match_id,
         )
         return
@@ -2155,7 +2155,7 @@ async def match_no_beatmap_handler(osu_session: "OsuSession", packet_data: bytes
     if match_id is None:
         logger.warning(
             "A user attempted to tell us they don't have the map but they are not in a match.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
         )
         return
 
@@ -2165,7 +2165,7 @@ async def match_no_beatmap_handler(osu_session: "OsuSession", packet_data: bytes
     if not slot:
         logger.warning(
             "A user attempted to tell us they don't have the map but they don't have a slot.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
             match_id=match_id,
         )
         return
@@ -2173,7 +2173,7 @@ async def match_no_beatmap_handler(osu_session: "OsuSession", packet_data: bytes
     if slot["status"] != SlotStatus.NOT_READY:
         logger.warning(
             "A user attempted to tell us they don't have the map but they are not allowed to.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
             match_id=match_id,
             slot_id=slot["slot_id"],
             slot_status=slot["status"],
@@ -2198,7 +2198,7 @@ async def match_not_ready_handler(osu_session: "OsuSession", packet_data: bytes)
     if match_id is None:
         logger.warning(
             "A user attempted to unready but they are not in a match.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
         )
         return
 
@@ -2208,7 +2208,7 @@ async def match_not_ready_handler(osu_session: "OsuSession", packet_data: bytes)
     if not slot:
         logger.warning(
             "A user attempted to unready but they don't have a slot.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
             match_id=match_id,
         )
         return
@@ -2216,7 +2216,7 @@ async def match_not_ready_handler(osu_session: "OsuSession", packet_data: bytes)
     if slot["status"] != SlotStatus.READY:
         logger.warning(
             "A user attempted to unready but they are not allowed to.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
             match_id=match_id,
             slot_id=slot["slot_id"],
             slot_status=slot["status"],
@@ -2241,7 +2241,7 @@ async def match_failed_handler(osu_session: "OsuSession", packet_data: bytes):
     if match_id is None:
         logger.warning(
             "A user attempted to fail in a match but they are not in a match.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
         )
         return
 
@@ -2252,7 +2252,7 @@ async def match_failed_handler(osu_session: "OsuSession", packet_data: bytes):
     if not slot:
         logger.warning(
             "A user attempted to fail in a match but they don't have a slot.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
         )
         return
 
@@ -2273,7 +2273,7 @@ async def match_has_beatmap_handler(osu_session: "OsuSession", packet_data: byte
     if match_id is None:
         logger.warning(
             "A user attempted to tell us they have the map but they are not in a match.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
         )
         return
 
@@ -2283,7 +2283,7 @@ async def match_has_beatmap_handler(osu_session: "OsuSession", packet_data: byte
     if not slot:
         logger.warning(
             "A user attempted to tell us they have the map but they don't have a slot.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
             match_id=match_id,
         )
         return
@@ -2291,7 +2291,7 @@ async def match_has_beatmap_handler(osu_session: "OsuSession", packet_data: byte
     if slot["status"] != SlotStatus.NO_BEATMAP:
         logger.warning(
             "A user attempted to tell us they have the map but they are not allowed to.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
             match_id=match_id,
             slot_id=slot["slot_id"],
             slot_status=slot["status"],
@@ -2316,7 +2316,7 @@ async def match_skip_request(osu_session: "OsuSession", packet_data: bytes):
     if match_id is None:
         logger.warning(
             "A user attempted to skip but they are not in a match.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
         )
         return
 
@@ -2326,7 +2326,7 @@ async def match_skip_request(osu_session: "OsuSession", packet_data: bytes):
     if not slot:
         logger.warning(
             "A user attempted to skip but they don't have a slot.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
             match_id=match_id,
         )
         return
@@ -2367,7 +2367,7 @@ async def user_joins_channel_handler(osu_session: "OsuSession", packet_data: byt
     if osu_session["osu_session_id"] in current_channel_members:
         logger.warning(
             "A user attempted to join a channel they are already in",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
             channel_id=channel["channel_id"],
         )
         return
@@ -2393,7 +2393,7 @@ async def user_joins_channel_handler(osu_session: "OsuSession", packet_data: byt
 
     logger.info(
         "User joined channel",
-        user_id=osu_session["account_id"],
+        account_id=osu_session["account_id"],
         channel_name=channel["name"],
     )
 
@@ -2411,7 +2411,7 @@ async def match_transfer_host_handler(osu_session: "OsuSession", packet_data: by
     if match_id is None:
         logger.warning(
             "A user attempted to change hosts but they are not in a match.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
         )
         return
 
@@ -2419,7 +2419,7 @@ async def match_transfer_host_handler(osu_session: "OsuSession", packet_data: by
     if isinstance(match, ServiceError):
         logger.warning(
             "A user attempted to change hosts but their match doesn't exist.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
         )
         return
 
@@ -2427,7 +2427,7 @@ async def match_transfer_host_handler(osu_session: "OsuSession", packet_data: by
     if match["host_account_id"] != osu_session["account_id"]:
         logger.warning(
             "A user attempted to change hosts but they are not the host.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
             match_id=match_id,
             match_host=match["host_account_id"],
         )
@@ -2440,7 +2440,7 @@ async def match_transfer_host_handler(osu_session: "OsuSession", packet_data: by
     if not slot:
         logger.warning(
             "A user attempted to change hosts but the slot doesn't exist.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
             match_id=match_id,
         )
         return
@@ -2449,7 +2449,7 @@ async def match_transfer_host_handler(osu_session: "OsuSession", packet_data: by
     if new_host_id == -1:
         logger.warning(
             "A user attempted to change hosts but the slot doesn't have a user.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
             match_id=match_id,
         )
         return
@@ -2496,7 +2496,7 @@ async def match_change_team_handler(osu_session: "OsuSession", packet_data: byte
     if not match_id:
         logger.warning(
             "A user attempted to change teams but isn't in a match.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
         )
         return
 
@@ -2504,14 +2504,14 @@ async def match_change_team_handler(osu_session: "OsuSession", packet_data: byte
     if isinstance(match, ServiceError):
         logger.warning(
             "A user attempted to change teams but their match doesn't exist.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
         )
         return
 
     if match["team_type"] not in (MatchTeamTypes.TEAM_VS, MatchTeamTypes.TAG_TEAM_VS):
         logger.warning(
             "A user attempted to change teams but the match is not in versus mode.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
             match_id=match_id,
             match_team_type=match["team_type"],
         )
@@ -2524,7 +2524,7 @@ async def match_change_team_handler(osu_session: "OsuSession", packet_data: byte
     if not slot:
         logger.warning(
             "A user attempted to change teams but their slot doesn't exist.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
             match_id=match_id,
         )
         return
@@ -2544,7 +2544,7 @@ async def match_change_team_handler(osu_session: "OsuSession", packet_data: byte
 
     logger.info(
         "User changed match teams.",
-        user_id=osu_session["account_id"],
+        account_id=osu_session["account_id"],
         match_id=match_id,
         slot_team=new_team,
     )
@@ -2571,7 +2571,7 @@ async def user_leaves_channel_handler(osu_session: "OsuSession", packet_data: by
     if osu_session["osu_session_id"] not in current_channel_members:
         logger.warning(
             "A user attempted to leave a channel they are not in",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
             channel_id=channel["channel_id"],
             channel_name=channel["name"],
         )
@@ -2708,7 +2708,7 @@ async def match_invite_handler(osu_session: "OsuSession", packet_data: bytes):
     if not match_id:
         logger.warning(
             "A user attempted to invite someone to a match but isn't in a match.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
         )
         return
 
@@ -2716,7 +2716,7 @@ async def match_invite_handler(osu_session: "OsuSession", packet_data: bytes):
     if isinstance(match, ServiceError):
         logger.warning(
             "A user attempted to invite someone to a match but their match doesn't exist.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
         )
         return
 
@@ -2727,7 +2727,7 @@ async def match_invite_handler(osu_session: "OsuSession", packet_data: bytes):
     if not target_osu_session:
         logger.warning(
             "A user attempted to invite someone to a match who is offline.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
         )
         return
 
@@ -2750,7 +2750,7 @@ async def match_invite_handler(osu_session: "OsuSession", packet_data: bytes):
 
     logger.info(
         "User has invited another user to a match.",
-        user_id=osu_session["account_id"],
+        account_id=osu_session["account_id"],
         target_user_id=target_osu_session["account_id"],
         match_id=match_id,
     )
@@ -2765,7 +2765,7 @@ async def match_change_password_handler(osu_session: "OsuSession", packet_data: 
     if not match_id:
         logger.warning(
             "A user attempted to change the match password but isn't in a match.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
         )
         return
 
@@ -2773,14 +2773,14 @@ async def match_change_password_handler(osu_session: "OsuSession", packet_data: 
     if isinstance(match, ServiceError):
         logger.warning(
             "A user attempted to change the match password but their match doesn't exist.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
         )
         return
 
     if match["host_account_id"] != osu_session["account_id"]:
         logger.warning(
             "A user attempted to change the match password but they aren't the host.",
-            user_id=osu_session["account_id"],
+            account_id=osu_session["account_id"],
             match_id=match_id,
             match_host=match["host_account_id"],
         )
@@ -2801,7 +2801,7 @@ async def match_change_password_handler(osu_session: "OsuSession", packet_data: 
 
     logger.info(
         "User updated the match password.",
-        user_id=osu_session["account_id"],
+        account_id=osu_session["account_id"],
         match_id=match_id,
     )
 
@@ -2877,7 +2877,7 @@ async def toggle_block_non_friend_dms(osu_session: "OsuSession", packet_data: by
 
     logger.info(
         "User has toggled private dms.",
-        user_id=osu_session["account_id"],
+        account_id=osu_session["account_id"],
         value=not osu_session["pm_private"],
     )
 
