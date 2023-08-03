@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - INTRN-243-setup-ci-pipeline
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
