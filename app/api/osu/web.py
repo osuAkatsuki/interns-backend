@@ -633,13 +633,21 @@ async def submit_score_handler(
         gamemode_stats["game_mode"],
     )
 
+    new_ranked_score = gamemode_stats["ranked_score"]
+    if score["submission_status"] == SubmissionStatus.BEST and score[
+        "beatmap_ranked_status"
+    ] in (BeatmapRankedStatus.RANKED, BeatmapRankedStatus.APPROVED):
+        new_ranked_score += score_points
+
+        if previous_best_score is not None:
+            new_ranked_score -= previous_best_score["score"]
+
     # update this gamemode's stats with our new score submission
     gamemode_stats = await stats.partial_update(
         account["account_id"],
         game_mode=game_mode,
         total_score=gamemode_stats["total_score"] + score_points,
-        # TODO: only if best & on ranked map
-        ranked_score=gamemode_stats["ranked_score"] + score_points,
+        ranked_score=new_ranked_score,
         performance_points=total_pp,
         play_count=gamemode_stats["play_count"] + 1,
         play_time=gamemode_stats["play_time"] + time_elapsed,
