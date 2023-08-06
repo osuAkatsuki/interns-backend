@@ -268,7 +268,7 @@ async def fetch_many(
     mods: int | None = None,
     submission_statuses: list[int] | None = None,
     friends: list[int] | None = None,
-    beatmap_ranked_status: int | None = None,
+    beatmap_ranked_statuses: list[int] | None = None,
     beatmap_set_id: int | None = None,
     sort_by: Literal[
         "score",
@@ -302,7 +302,6 @@ async def fetch_many(
         AND s.grade = COALESCE(:grade, s.grade)
         AND s.game_mode = COALESCE(:game_mode, s.game_mode)
         AND s.mods = COALESCE(:mods, s.mods)
-        AND b.ranked_status = COALESCE(:beatmap_ranked_status, b.ranked_status)
         AND b.beatmap_set_id = COALESCE(:beatmap_set_id, b.beatmap_set_id)
     """
     values = {
@@ -313,7 +312,6 @@ async def fetch_many(
         "grade": grade,
         "game_mode": game_mode,
         "mods": mods,
-        "beatmap_ranked_status": beatmap_ranked_status,
         "beatmap_set_id": beatmap_set_id,
     }
 
@@ -322,6 +320,12 @@ async def fetch_many(
             AND s.submission_status = ANY(:submission_statuses)
         """
         values["submission_statuses"] = submission_statuses
+
+    if beatmap_ranked_statuses is not None:
+        query += f"""\
+            AND b.ranked_status = ANY(:beatmap_ranked_statuses)
+        """
+        values["beatmap_ranked_statuses"] = beatmap_ranked_statuses
 
     if friends is not None:
         query += f"""\
@@ -355,7 +359,7 @@ async def fetch_total_count(
     mods: int | None = None,
     submission_statuses: list[int] | None = None,
     friends: list[int] | None = None,
-    beatmap_ranked_status: int | None = None,
+    beatmap_ranked_statuses: list[int] | None = None,
     beatmap_set_id: int | None = None,
 ) -> int:
     query = f"""\
@@ -369,7 +373,6 @@ async def fetch_total_count(
         AND s.grade = COALESCE(:grade, s.grade)
         AND s.game_mode = COALESCE(:game_mode, s.game_mode)
         AND s.mods = COALESCE(:mods, s.mods)
-        AND b.ranked_status = COALESCE(:beatmap_ranked_status, b.ranked_status)
         AND b.beatmap_set_id = COALESCE(:beatmap_set_id, b.beatmap_set_id)
     """
     values = {
@@ -380,7 +383,6 @@ async def fetch_total_count(
         "grade": grade,
         "game_mode": game_mode,
         "mods": mods,
-        "beatmap_ranked_status": beatmap_ranked_status,
         "beatmap_set_id": beatmap_set_id,
     }
 
@@ -389,6 +391,12 @@ async def fetch_total_count(
             AND submission_status = ANY(:submission_statuses)
         """
         values["submission_statuses"] = submission_statuses
+
+    if beatmap_ranked_statuses is not None:
+        query += f"""\
+            AND b.ranked_status = ANY(:beatmap_ranked_statuses)
+        """
+        values["beatmap_ranked_statuses"] = beatmap_ranked_statuses
 
     if friends is not None:
         query += f"""\
@@ -412,7 +420,7 @@ async def fetch_best_for_each_account(
     game_mode: int | None = None,
     mods: int | None = None,
     friends: list[int] | None = None,
-    beatmap_ranked_status: int | None = None,
+    beatmap_ranked_statuses: list[int] | None = None,
     beatmap_set_id: int | None = None,
     sort_by: Literal[
         "score",
@@ -445,7 +453,6 @@ async def fetch_best_for_each_account(
             AND s.grade = COALESCE(:grade, s.grade)
             AND s.game_mode = COALESCE(:game_mode, s.game_mode)
             AND s.mods = COALESCE(:mods, s.mods)
-            AND b.ranked_status = COALESCE(:beatmap_ranked_status, b.ranked_status)
             AND b.beatmap_set_id = COALESCE(:beatmap_set_id, b.beatmap_set_id)
     """
     values = {
@@ -456,7 +463,6 @@ async def fetch_best_for_each_account(
         "grade": grade,
         "game_mode": game_mode,
         "mods": mods,
-        "beatmap_ranked_status": beatmap_ranked_status,
         "beatmap_set_id": beatmap_set_id,
     }
 
@@ -465,6 +471,12 @@ async def fetch_best_for_each_account(
             AND submission_status = ANY(:submission_statuses)
         """
         values["submission_statuses"] = submission_statuses
+
+    if beatmap_ranked_statuses is not None:
+        query += f"""\
+            AND b.ranked_status = ANY(:beatmap_ranked_statuses)
+        """
+        values["beatmap_ranked_statuses"] = beatmap_ranked_statuses
 
     if friends is not None:
         query += f"""\
