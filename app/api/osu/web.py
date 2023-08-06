@@ -634,7 +634,9 @@ async def submit_score_handler(
     )
 
     new_ranked_score = gamemode_stats["ranked_score"]
-    if score["submission_status"] == SubmissionStatus.BEST:
+    if score["submission_status"] == SubmissionStatus.BEST and score[
+        "beatmap_ranked_status"
+    ] in (BeatmapRankedStatus.RANKED, BeatmapRankedStatus.APPROVED):
         new_ranked_score += score_points
 
         if previous_best_score is not None:
