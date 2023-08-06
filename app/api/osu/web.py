@@ -32,6 +32,7 @@ from app.errors import ServiceError
 from app.mods import filter_invalid_mod_combinations
 from app.privileges import ServerPrivileges
 from app.ranked_statuses import BeatmapWebRankedStatus
+from app.ranked_statuses import BeatmapRankedStatus
 from app.repositories import accounts
 from app.repositories import achievements
 from app.repositories import channel_members
@@ -555,19 +556,25 @@ async def submit_score_handler(
     gamemode_stats = await stats.fetch_one(account["account_id"], game_mode)
     assert gamemode_stats is not None
 
-    # TODO: these should be fetching pp-awarding scores only
-
     top_100_scores = await scores.fetch_many(
         account_id=account["account_id"],
         game_mode=game_mode,
         sort_by="performance_points",
         submission_statuses=[SubmissionStatus.BEST],
+        beatmap_ranked_statuses=[
+            BeatmapRankedStatus.RANKED,
+            BeatmapRankedStatus.APPROVED,
+        ],
         page_size=100,
     )
 
     total_score_count = await scores.fetch_total_count(
         account_id=account["account_id"],
         submission_statuses=[SubmissionStatus.BEST],
+        beatmap_ranked_statuses=[
+            BeatmapRankedStatus.RANKED,
+            BeatmapRankedStatus.APPROVED,
+        ],
         game_mode=game_mode,
     )
 
