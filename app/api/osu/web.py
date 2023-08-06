@@ -29,10 +29,11 @@ from app.adapters import mino
 from app.adapters import osu_api_v2
 from app.adapters import s3
 from app.errors import ServiceError
+from app.game_modes import GameMode
 from app.mods import filter_invalid_mod_combinations
 from app.privileges import ServerPrivileges
-from app.ranked_statuses import BeatmapWebRankedStatus
 from app.ranked_statuses import BeatmapRankedStatus
+from app.ranked_statuses import BeatmapWebRankedStatus
 from app.repositories import accounts
 from app.repositories import achievements
 from app.repositories import channel_members
@@ -317,14 +318,40 @@ def calculate_accuracy(
     num_gekis: int,
     num_katus: int,
     num_misses: int,
+    vanilla_game_mode: int,
 ) -> float:
-    # TODO: support for all game modes
+    if vanilla_game_mode == GameMode.VN_OSU:
+        total_notes = num_300s + num_100s + num_50s + num_misses
 
-    total_notes = num_300s + num_100s + num_50s + num_misses
+        accuracy = (
+            100.0
+            * ((num_300s * 300.0) + (num_100s * 100.0) + (num_50s * 50.0))
+            / (total_notes * 300.0)
+        )
+    elif vanilla_game_mode == GameMode.VN_TAIKO:
+        total_notes = num_300s + num_100s + num_misses
 
-    accuracy = (
-        ((num_300s * 3) + (num_100s * 1) + (num_50s * 0.5)) / total_notes * 100 / 3
-    )
+        accuracy = 100.0 * ((num_100s * 0.5) + num_300s) / total_notes
+    elif vanilla_game_mode == GameMode.VN_CATCH:
+        total_notes = num_300s + num_100s + num_50s + num_katus + num_misses
+
+        accuracy = 100.0 * (num_300s + num_100s + num_50s) / total_notes
+    elif vanilla_game_mode == GameMode.VN_MANIA:
+        total_notes = num_300s + num_100s + num_50s + num_gekis + num_katus + num_misses
+
+        accuracy = (
+            100.0
+            * (
+                (num_50s * 50.0)
+                + (num_100s * 100.0)
+                + (num_katus * 200.0)
+                + ((num_300s + num_gekis) * 300.0)
+            )
+            / (total_notes * 300.0)
+        )
+    else:
+        raise ValueError(f"Invalid vanilla mode: {vanilla_game_mode}")
+
     return accuracy
 
 
@@ -435,6 +462,7 @@ async def submit_score_handler(
         num_gekis,
         num_katus,
         num_misses,
+        vanilla_game_mode,
     )
 
     try:
