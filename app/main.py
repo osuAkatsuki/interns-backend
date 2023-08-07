@@ -41,6 +41,11 @@ app.host("c6.cmyui.xyz", bancho_router)
 
 # rest api hosts
 app.host("api.cmyui.xyz", rest_api_router)
+
+# when running for local dev, allow developers to use
+# http://localhost/docs to test the API more easily
+# to avoid the requirement of manualy overriding DNS
+# for osu.cmyui.xyz.
 if settings.APP_ENV == "local":
     app.host("localhost", rest_api_router)
 
