@@ -5,7 +5,6 @@ from typing import TypeVar
 
 from fastapi import status
 from pydantic import BaseModel
-from pydantic.generics import GenericModel
 
 from app import json
 from app.errors import ServiceError
@@ -13,7 +12,7 @@ from app.errors import ServiceError
 T = TypeVar("T")
 
 
-class Success(GenericModel, Generic[T]):
+class Success(BaseModel, Generic[T]):
     status: Literal["success"]
     data: T
     meta: dict[str, Any]
