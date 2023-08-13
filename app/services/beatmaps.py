@@ -46,7 +46,7 @@ def _should_get_updates(beatmap: Beatmap) -> bool:
             # loved maps can *technically* be updated
             update_interval = timedelta(days=1)
         case BeatmapRankedStatus.RANKED | BeatmapRankedStatus.APPROVED:
-            # in very rare cases, the osu! team has updated ranked/appvoed maps
+            # in very rare cases, the osu! team has updated ranked/approved maps
             # this is usually done to remove things like inappropriate content
             update_interval = timedelta(days=1)
         case _:
