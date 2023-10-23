@@ -1,7 +1,10 @@
 import random
 from collections.abc import Awaitable
 from collections.abc import Callable
+from datetime import datetime
 from typing import TYPE_CHECKING
+
+from pytimeparse import parse
 
 from app import game_modes
 from app import logger
@@ -18,6 +21,8 @@ from app.repositories import relationships
 from app.repositories.multiplayer_matches import MatchStatus
 from app.repositories.multiplayer_slots import SlotStatus
 from app.services import beatmaps
+from datetime import datetime, timedelta
+from pytimeparse import parse
 from app.services import multiplayer_matches
 
 if TYPE_CHECKING:
@@ -342,3 +347,30 @@ async def match_start_handler(osu_session: "OsuSession", args: list[str]) -> str
             osu_session_id,
             data=match_started_packet,
         )
+
+
+@command("!silence", privileges=ServerPrivileges.CHAT_MODERATOR)
+async def silence_handler(session: "Session", args: list[str]) -> str | None:
+    if len(args) < 2:
+        return "Not enough arguments!"
+
+    account_to_be_silenced = await accounts.fetch_by_username(args[0])
+    if account_to_be_silenced is None:
+        return "Username not found!"
+
+    silence_duration = " ".join(args[1:])
+
+    raw_seconds = parse(silence_duration)
+    if raw_seconds is None:
+        return "Invalid time duration"
+
+    silence_end = datetime.now() + timedelta(seconds=raw_seconds)
+
+    await accounts.partial_update(
+        account_id=account_to_be_silenced["account_id"],
+        silence_end=silence_end,
+    )
+
+    return (
+        f"User has been silenced until {silence_end.strftime('%d/%m/%Y %I:%M:%S%p')}."
+    )
